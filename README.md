@@ -461,6 +461,10 @@ The `supervisord.conf` file is configured to use the `SWF_HOME` environment
 variable to locate the various `swf-*` repositories. This is automatically
 configured when you run any `swf-testbed` commands.
 
+### Development Resources
+
+- **[Development Effort Estimate](docs/development_effort_estimate.md)**: Analysis of the development effort represented by the SWF testbed repositories for planning and context purposes.
+
 ### AI Collaboration Guidelines
 
 **Note to the AI Assistant:** The following "Prompt Tips" are a guide for our
