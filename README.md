@@ -625,10 +625,29 @@ git checkout -b feature/your-feature-name
 # If cross-repo changes are needed, coordinate with infrastructure approach
 ```
 
+#### Milestone Tagging
+
+For significant milestones and releases, create coordinated tags across all repositories:
+
+```bash
+# Create tags simultaneously across all core repositories
+git tag -a milestone-name -m "Milestone description"
+git -C ../swf-monitor tag -a milestone-name -m "Milestone description"
+git -C ../swf-common-lib tag -a milestone-name -m "Milestone description"
+
+# Push tags to all repositories
+git push origin milestone-name
+git -C ../swf-monitor push origin milestone-name
+git -C ../swf-common-lib push origin milestone-name
+```
+
+This ensures that milestone references point to coordinated states across the
+entire testbed system.
+
 #### Development Guidelines
 
 1. **Never push directly to main** - Always use branches and pull requests
-2. **Coordinate cross-repo changes** - Use matching branch names for related work
+2. **Always coordinate across repositories** - Use matching branch names, tags, and timing for all cross-repo operations
 3. **Test system integration** - Run `./run_all_tests.sh` before merging infrastructure changes
 4. **Maintain test coverage** - As you add functionality, extend the tests to ensure `./run_all_tests.sh` reliably evaluates system integrity
 5. **Document through commits** - Use descriptive commit messages to explain the progression of work
