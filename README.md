@@ -2,12 +2,14 @@
 
 This is the umbrella repository for the ePIC streaming workflow testbed.
 
+## Overview
+
 The testbed plan is based on ePIC streaming computing model WG discussions
 in the streaming computing model meeting[^1], guided by the ePIC streaming
 computing model report[^2], and the ePIC workflow management system
 requirements draft[^3].
 
-## Testbed plan
+### Testbed Scope
 
 The testbed prototypes the ePIC streaming computing model's workflows and
 dataflows from Echelon 0 (E0) egress (the DAQ exit buffer)
@@ -26,87 +28,6 @@ DAQ external subnet rightwards).
 ![E0-E1 workflow schematic](images/E0-E1_workflow_schematic.png)
 
 *Figure: E0-E1 data flow and processing schematic*
-
-## Design and implementation
-
-Overall system design and implementation notes:
-
-- The implementation language is Python 3.9 or greater.
-- Testbed modules are implemented as a set of loosely coupled agents, each
-  with a specific role in the system.
-- The agents communicate via messaging, using ActiveMQ as the message
-  broker.
-- The PanDA [^7] distributed workload management system and its ancillary
-  components are used for workflow orchestration and workload execution.
-- The Rucio [^8] distributed data management system is used for
-  management and distribution of data and associated metadata, in close
-  orchestration with PanDA.
-- High quality monitoring and centralized management of system data (metadata,
-  bookkeeping, logs etc.) is a primary design goal. Monitoring and system
-  data gathering and distribution is implemented via a web service backed
-  by a relational database, with a REST API for data access and reporting.
-
-### Prompt Tips
-
-**Note to the AI Assistant:** The following "Prompt Tips" are a guide for our
-collaboration on this project. Please review them carefully and integrate them
-into your operational context to ensure your contributions are consistent,
-high-quality, and aligned with the project's standards.
-
-#### General
-
-- **Adhere to established standards and conventions.** When implementing new
-  features, prioritize the use of established standards, conventions, and
-  naming schemes provided by the programming language, frameworks, or
-  widely-used libraries. Avoid introducing custom terminology or patterns when a
-  standard equivalent exists.
-- **Portability is paramount.** All code must work across different platforms
-  (macOS, Linux, Windows), Python installations (system, homebrew, pyenv, etc.),
-  and deployment environments (Docker, local, cloud). Never hardcode absolute
-  paths, assume specific installation directories, or rely on system-specific
-  process names or command locations. Use relative paths, environment variables,
-  and standard tools (like supervisorctl) rather than platform-specific process
-  detection. When in doubt, choose the more portable solution.
-- **Favor Simplicity and Maintainability.** Strive for clean, simple, and
-  maintainable solutions. When faced with multiple implementation options,
-  recommend the one that is easiest to understand, modify, and debug. Avoid
-  overly complex or clever code that might be difficult for others (or your
-  future self) to comprehend. Adhere to the principle of "Keep It Simple,
-  Stupid" (KISS).
-- **Follow Markdown Linting Rules.** Ensure all markdown content adheres to the
-  project's linting rules. This includes, but is not limited to, line length,
-  list formatting, and spacing. Consistent formatting improves readability and
-  maintainability.
-- **Maintain the prompts.** Proactively suggest additions or modifications to
-  these tips as the project evolves and new collaboration patterns emerge.
-
-#### Project-Specific
-
-- **Context Refresh.** To regain context on the SWF Testbed project, follow
-  these steps:
-    1. Review the high-level goals and architecture in `swf-testbed/README.md`
-       and `swf-testbed/docs/architecture_and_design_choices.md`.
-    2. Examine the dependencies and structure by checking the `pyproject.toml`
-       and `requirements.txt` files in each sub-project (`swf-testbed`,
-       `swf-monitor`, `swf-common-lib`).
-    3. Use file and code exploration tools to investigate the existing codebase
-       relevant to the current task. For data models, check `models.py`; for
-       APIs, check `urls.py` and `views.py`.
-    4. Consult the conversation summary to understand recent changes and
-       immediate task objectives.
-
-- **Verify and Propose Names.** Before implementing new names for variables,
-  functions, classes, context keys, or other identifiers, first check for
-  consistency with existing names across the relevant context. Once verified,
-  propose them for review. This practice ensures clarity and reduces rework.
-
-> **Prompt Tip: Ensuring Robust and Future-Proof Tests**
->
-> - Write tests that assert on outcomes, structure, and status codes—not on exact output strings or UI text, unless absolutely required for correctness.
-> - For CLI and UI tests, check for valid output structure (e.g., presence of HTML tags, table rows, or any output) rather than specific phrases or case.
-> - For API and backend logic, assert on status codes, database state, and required keys/fields, not on full response text.
-> - This approach ensures your tests are resilient to minor UI or output changes, reducing maintenance and avoiding false failures.
-> - Always run tests using the provided scripts (`./run_tests.sh` or `./run_all_tests.sh`) to guarantee the correct environment and configuration.
 
 ### Participants
 
@@ -295,89 +216,15 @@ cd ../swf-monitor/src && python manage.py createsuperuser && cd ../../swf-testbe
 swf-testbed start
 ```
 
-## Testbed Infrastructure
+## Usage
 
-### Environment Setup
-
-The testbed automatically sets up the required environment variables when you
-run `swf-testbed start` or `swf-testbed start-local`. The `SWF_HOME` environment
-variable is automatically detected and configured to point to the parent
-directory containing all your `swf-*` repositories.
-
-No manual environment setup is required - the testbed CLI handles this
-automatically.
-
-### Secrets and Configuration Management
-
-The testbed uses environment variables to securely manage database credentials,
-API keys, and other sensitive configuration. This approach keeps secrets out of
-source code and allows for different configurations in development and
-production environments.
-
-#### Environment Variable Configuration
-
-Each component that requires secrets uses a `.env` file for local configuration:
-
-- **swf-monitor**: Django application secrets in `swf-monitor/.env` (required - core infrastructure)
-- **swf-data-agent**: Agent configuration in `swf-data-agent/.env` (if present)
-- **swf-processing-agent**: PanDA credentials in `swf-processing-agent/.env` (if present)
-
-#### Setting Up swf-monitor Environment Variables
-
-The Django monitoring application requires database and messaging credentials.
-To configure:
-
-1. **Copy the environment template:**
-   ```bash
-   cp swf-monitor/.env.example swf-monitor/.env
-   ```
-
-2. **Edit the `.env` file** with your actual credentials:
-   ```bash
-   # Django Secret Key - generate a new one for production
-   SECRET_KEY='django-insecure-your-secret-key-here'
-   
-   # PostgreSQL Database Settings
-   DB_NAME='swfdb'
-   DB_USER='admin'
-   DB_PASSWORD='your_db_password'
-   DB_HOST='localhost'
-   DB_PORT='5432'
-   
-   # ActiveMQ Settings
-   ACTIVEMQ_HOST='localhost'
-   ACTIVEMQ_PORT=61613
-   ACTIVEMQ_USER='admin'
-   ACTIVEMQ_PASSWORD='admin'
-   ```
-
-3. **For production deployments**, also set:
-   ```bash
-   DEBUG=False
-   ALLOWED_HOSTS=your.domain.com,www.your.domain.com
-   ```
-
-#### Default Development Credentials
-
-For local development with PostgreSQL and ActiveMQ installed via Homebrew:
-
-- **PostgreSQL**: user `admin`, password `admin`, database `swfdb`
-- **ActiveMQ**: user `admin`, password `admin`, default ports
-
-#### Security Notes
-
-- `.env` files are excluded from version control via `.gitignore`
-- Never commit actual passwords or API keys to the repository
-- Use strong, unique passwords for production deployments
-- Generate a new Django `SECRET_KEY` for production (see Django documentation)
-
-## Running the Testbed
+### Running the Testbed
 
 You can run the testbed in two modes: using Docker for managing background
 services (PostgreSQL and ActiveMQ), or by running these services locally on
 your host machine.
 
-### Using Docker (Recommended)
+#### Using Docker (Recommended)
 
 This is the recommended approach as it provides a consistent, cross-platform
 environment.
@@ -398,7 +245,7 @@ the Docker containers and the Python agents managed by Supervisor.
 - `swf-testbed status`: Shows the status of the Docker containers and the
   Python agents.
 
-### Running Locally (Without Docker)
+#### Running Locally (Without Docker)
 
 This mode is for users who prefer to manage the background services directly on
 their host machine.
@@ -445,99 +292,7 @@ when they are running locally.
 
 ## Development
 
-### Process Management
-
-We use `supervisor` to manage the various Python agent processes. The
-configuration is located in `supervisord.conf`. This file is a template and
-should be copied to the root of the project during initialization.
-
-The `swf-testbed init` command will create the `logs` directory and copy the
-`supervisord.conf` file for you.
-
-The `supervisord.conf` file is configured to use the `SWF_HOME` environment
-variable to locate the various `swf-*` repositories. This is automatically
-configured when you run any `swf-testbed` commands.
-
-STF availability. It also has a 'watcher' role to identify and report
-stalls or anomalies.
-
-Interactions with Rucio are consolidated in this agent.
-
-### [swf-processing-agent](https://github.com/BNLNPPS/swf-processing-agent)
-
-This is the prompt processing agent that configures and submits PanDA
-processing jobs to execute the streaming workflows of the testbed.
-
-Interactions with PanDA are consolidated in this agent.
-
-### [swf-fastmon-agent](https://github.com/BNLNPPS/swf-fastmon-agent)
-
-This is the fast monitoring agent designed to consume (fractions of) STF data
-for quick, near real-time monitoring. This agent resides at E1 and performs
-remote data reads from STF files in the DAQ exit buffer, skimming a fraction
-of the data of interest for fast monitoring. The agent is notified of new
-STF availability by the swf-data-agent.
-
-### [swf-mcp-agent](https://github.com/BNLNPPS/swf-mcp-agent)
-
-This agent may be added in the future for managing Model Context Protocol
-(MCP) services. For the moment, this is done in swf-monitor (Colocated with
-the agent data the MCP services provide)
-
-
-Note Paul Nilsson's [ask-panda
-example](https://github.com/PalNilsson/ask-panda) of
-  MCP server and client.
-
-## System infrastructure
-
-This repository hosts overall system infrastructure for the testbed software,
-including the following.
-
-### Agent process management
-
-The testbed agents are managed by a process manager, which is
-responsible for configuring, starting, stopping, and monitoring the agents.
-
-The python [supervisor](http://supervisord.org/) process manager is used.
-
-### Message Broker
-
-The [ActiveMQ](https://activemq.apache.org/) message broker provides the
-messaging backbone for the testbed agents to communicate.
-
-#### Local Development Broker
-
-For local development and testing, a standalone broker can be run using Docker.
-This is managed by the `docker-compose.yml` file in this repository. To start
-the local broker, run:
-
-```bash
-docker-compose up -d
-```
-
-When using the local broker, the agents should be configured with the following
-environment variables:
-
-```bash
-export ACTIVEMQ_HOST=localhost
-export ACTIVEMQ_PORT=61616
-export ACTIVEMQ_USER=admin
-export ACTIVEMQ_PASSWORD=admin
-```
-
-#### Production Broker
-
-In a production environment, the agents should be configured to use the centrally
-provided ActiveMQ service. This is done by setting the same environment variables
- to point to the production broker's host, port, and credentials.
-
-Each agent (e.g., `swf-monitor`, `swf-data-agent`) will need to be configured
-to read these environment variables and use them to connect to the broker. The
-`swf-monitor` application, for example, reads these values from its Django
-`settings.py` file, which in turn can be populated from environment variables.
-
-## Testing
+### Testing
 
 The testbed provides a unified, robust test runner to ensure all components are
 tested consistently and automatically.
@@ -567,15 +322,44 @@ tested consistently and automatically.
 Test results are printed to the console. For more details, consult the logs or
 output of individual test runs.
 
-## Development Workflow
+#### Testing Infrastructure Design
 
-### Multi-Repository Development Strategy
+The SWF testbed has a carefully designed testing infrastructure that handles
+the mixed Django/non-Django repository environment:
+
+**Key Design Principles:**
+
+1. **Unified Test Runner**: `./run_all_tests.sh` runs tests across all repositories
+   from a single command, regardless of their underlying frameworks.
+
+2. **Django Compatibility Markers**: All repositories use the `django_db` marker
+   in their pytest configuration, even non-Django repos. This allows:
+   - swf-common-lib tests to work with Django models when integrated
+   - Consistent test marking across all repositories
+   - Future Django integration without breaking existing tests
+
+3. **Repository-Specific Configuration**:
+   - **swf-monitor**: Full Django configuration with `DJANGO_SETTINGS_MODULE`
+   - **swf-common-lib**: Django-compatible markers but no Django settings
+   - **swf-testbed**: Uses pyproject.toml for pytest configuration
+
+4. **Recursion Prevention**: The test runner prevents infinite recursion when
+   running from swf-testbed by directly executing pytest instead of calling
+   the local run_tests.sh script.
+
+**Important**: When modifying test configurations, preserve the `django_db`
+marker across all repositories and ensure the unified test runner continues
+to work correctly with mixed Django/non-Django environments.
+
+### Development Workflow
+
+#### Multi-Repository Development Strategy
 
 The SWF testbed consists of multiple coordinated repositories that work together
 as an integrated system. Development across these repositories requires careful
 coordination to maintain system stability and integration.
 
-#### Repository Structure
+##### Repository Structure
 
 The testbed is composed of three core repositories that must be kept as siblings:
 
@@ -586,12 +370,12 @@ The testbed is composed of three core repositories that must be kept as siblings
 Additional repositories will be added as the testbed expands with new agents,
 services, and functionality.
 
-#### Branching Strategy
+##### Branching Strategy
 
 We use a **coordinated infrastructure branching strategy** for cross-repository
 development work:
 
-##### Infrastructure Development (Recommended)
+**Infrastructure Development (Recommended)**
 
 For infrastructure improvements, testing framework enhancements, and foundational
 changes that span multiple repositories:
@@ -613,7 +397,7 @@ cd ../swf-common-lib && git checkout -b infra/baseline-v1
 # 4. Start next infrastructure iteration (infra/baseline-v2)
 ```
 
-##### Feature Development
+**Feature Development**
 
 For features that primarily affect a single repository:
 
@@ -625,7 +409,7 @@ git checkout -b feature/your-feature-name
 # If cross-repo changes are needed, coordinate with infrastructure approach
 ```
 
-#### Milestone Tagging
+##### Milestone Tagging
 
 For significant milestones and releases, create coordinated tags across all repositories:
 
@@ -644,7 +428,7 @@ git -C ../swf-common-lib push origin milestone-name
 This ensures that milestone references point to coordinated states across the
 entire testbed system.
 
-#### Development Guidelines
+##### Development Guidelines
 
 1. **Never push directly to main** - Always use branches and pull requests
 2. **Always coordinate across repositories** - Use matching branch names, tags, and timing for all cross-repo operations
@@ -653,7 +437,7 @@ entire testbed system.
 5. **Document through commits** - Use descriptive commit messages to explain the progression of work
 6. **Maintain sibling structure** - Keep all `swf-*` repositories as siblings in the same parent directory
 
-#### Pull Request Process
+##### Pull Request Process
 
 1. **Create descriptive pull requests** with clear titles and descriptions
 2. **Reference related PRs** in other repositories when applicable
@@ -664,14 +448,261 @@ entire testbed system.
 This workflow ensures that the testbed remains stable and integrated while
 allowing for rapid infrastructure development and feature additions.
 
-## Glossary
+### Process Management
+
+We use `supervisor` to manage the various Python agent processes. The
+configuration is located in `supervisord.conf`. This file is a template and
+should be copied to the root of the project during initialization.
+
+The `swf-testbed init` command will create the `logs` directory and copy the
+`supervisord.conf` file for you.
+
+The `supervisord.conf` file is configured to use the `SWF_HOME` environment
+variable to locate the various `swf-*` repositories. This is automatically
+configured when you run any `swf-testbed` commands.
+
+### AI Collaboration Guidelines
+
+**Note to the AI Assistant:** The following "Prompt Tips" are a guide for our
+collaboration on this project. Please review them carefully and integrate them
+into your operational context to ensure your contributions are consistent,
+high-quality, and aligned with the project's standards.
+
+#### General
+
+- **Adhere to established standards and conventions.** When implementing new
+  features, prioritize the use of established standards, conventions, and
+  naming schemes provided by the programming language, frameworks, or
+  widely-used libraries. Avoid introducing custom terminology or patterns when a
+  standard equivalent exists.
+- **Portability is paramount.** All code must work across different platforms
+  (macOS, Linux, Windows), Python installations (system, homebrew, pyenv, etc.),
+  and deployment environments (Docker, local, cloud). Never hardcode absolute
+  paths, assume specific installation directories, or rely on system-specific
+  process names or command locations. Use relative paths, environment variables,
+  and standard tools (like supervisorctl) rather than platform-specific process
+  detection. When in doubt, choose the more portable solution.
+- **Favor Simplicity and Maintainability.** Strive for clean, simple, and
+  maintainable solutions. When faced with multiple implementation options,
+  recommend the one that is easiest to understand, modify, and debug. Avoid
+  overly complex or clever code that might be difficult for others (or your
+  future self) to comprehend. Adhere to the principle of "Keep It Simple,
+  Stupid" (KISS).
+- **Follow Markdown Linting Rules.** Ensure all markdown content adheres to the
+  project's linting rules. This includes, but is not limited to, line length,
+  list formatting, and spacing. Consistent formatting improves readability and
+  maintainability.
+- **Maintain the prompts.** Proactively suggest additions or modifications to
+  these tips as the project evolves and new collaboration patterns emerge.
+
+#### Project-Specific
+
+- **Context Refresh.** To regain context on the SWF Testbed project, follow
+  these steps:
+    1. Review the high-level goals and architecture in `swf-testbed/README.md`
+       and `swf-testbed/docs/architecture_and_design_choices.md`.
+    2. Examine the dependencies and structure by checking the `pyproject.toml`
+       and `requirements.txt` files in each sub-project (`swf-testbed`,
+       `swf-monitor`, `swf-common-lib`).
+    3. Use file and code exploration tools to investigate the existing codebase
+       relevant to the current task. For data models, check `models.py`; for
+       APIs, check `urls.py` and `views.py`.
+    4. Consult the conversation summary to understand recent changes and
+       immediate task objectives.
+
+- **Verify and Propose Names.** Before implementing new names for variables,
+  functions, classes, context keys, or other identifiers, first check for
+  consistency with existing names across the relevant context. Once verified,
+  propose them for review. This practice ensures clarity and reduces rework.
+
+> **Prompt Tip: Ensuring Robust and Future-Proof Tests**
+>
+> - Write tests that assert on outcomes, structure, and status codes—not on exact output strings or UI text, unless absolutely required for correctness.
+> - For CLI and UI tests, check for valid output structure (e.g., presence of HTML tags, table rows, or any output) rather than specific phrases or case.
+> - For API and backend logic, assert on status codes, database state, and required keys/fields, not on full response text.
+> - This approach ensures your tests are resilient to minor UI or output changes, reducing maintenance and avoiding false failures.
+> - Always run tests using the provided scripts (`./run_tests.sh` or `./run_all_tests.sh`) to guarantee the correct environment and configuration.
+
+## Architecture and Design
+
+### Design and Implementation
+
+Overall system design and implementation notes:
+
+- The implementation language is Python 3.9 or greater.
+- Testbed modules are implemented as a set of loosely coupled agents, each
+  with a specific role in the system.
+- The agents communicate via messaging, using ActiveMQ as the message
+  broker.
+- The PanDA [^7] distributed workload management system and its ancillary
+  components are used for workflow orchestration and workload execution.
+- The Rucio [^8] distributed data management system is used for
+  management and distribution of data and associated metadata, in close
+  orchestration with PanDA.
+- High quality monitoring and centralized management of system data (metadata,
+  bookkeeping, logs etc.) is a primary design goal. Monitoring and system
+  data gathering and distribution is implemented via a web service backed
+  by a relational database, with a REST API for data access and reporting.
+
+### Infrastructure
+
+#### Environment Setup
+
+The testbed automatically sets up the required environment variables when you
+run `swf-testbed start` or `swf-testbed start-local`. The `SWF_HOME` environment
+variable is automatically detected and configured to point to the parent
+directory containing all your `swf-*` repositories.
+
+No manual environment setup is required - the testbed CLI handles this
+automatically.
+
+#### Secrets and Configuration Management
+
+The testbed uses environment variables to securely manage database credentials,
+API keys, and other sensitive configuration. This approach keeps secrets out of
+source code and allows for different configurations in development and
+production environments.
+
+**Environment Variable Configuration**
+
+Each component that requires secrets uses a `.env` file for local configuration:
+
+- **swf-monitor**: Django application secrets in `swf-monitor/.env` (required - core infrastructure)
+- **swf-data-agent**: Agent configuration in `swf-data-agent/.env` (if present)
+- **swf-processing-agent**: PanDA credentials in `swf-processing-agent/.env` (if present)
+
+**Setting Up swf-monitor Environment Variables**
+
+The Django monitoring application requires database and messaging credentials.
+To configure:
+
+1. **Copy the environment template:**
+   ```bash
+   cp swf-monitor/.env.example swf-monitor/.env
+   ```
+
+2. **Edit the `.env` file** with your actual credentials:
+   ```bash
+   # Django Secret Key - generate a new one for production
+   SECRET_KEY='django-insecure-your-secret-key-here'
+   
+   # PostgreSQL Database Settings
+   DB_NAME='swfdb'
+   DB_USER='admin'
+   DB_PASSWORD='your_db_password'
+   DB_HOST='localhost'
+   DB_PORT='5432'
+   
+   # ActiveMQ Settings
+   ACTIVEMQ_HOST='localhost'
+   ACTIVEMQ_PORT=61613
+   ACTIVEMQ_USER='admin'
+   ACTIVEMQ_PASSWORD='admin'
+   ```
+
+3. **For production deployments**, also set:
+   ```bash
+   DEBUG=False
+   ALLOWED_HOSTS=your.domain.com,www.your.domain.com
+   ```
+
+**Default Development Credentials**
+
+For local development with PostgreSQL and ActiveMQ installed via Homebrew:
+
+- **PostgreSQL**: user `admin`, password `admin`, database `swfdb`
+- **ActiveMQ**: user `admin`, password `admin`, default ports
+
+**Security Notes**
+
+- `.env` files are excluded from version control via `.gitignore`
+- Never commit actual passwords or API keys to the repository
+- Use strong, unique passwords for production deployments
+- Generate a new Django `SECRET_KEY` for production (see Django documentation)
+
+#### Agent Architecture
+
+##### [swf-data-agent](https://github.com/BNLNPPS/swf-data-agent)
+
+This is the data agent responsible for monitoring the STF data buffer at the
+DAQ exit buffer and orchestrating the transfer of STF data to the E1
+facilities. It is responsible for tracking the data at the buffer and
+notifying downstream components of the new STF availability. It also has a
+'watcher' role to identify and report stalls or anomalies.
+
+Interactions with Rucio are consolidated in this agent.
+
+##### [swf-processing-agent](https://github.com/BNLNPPS/swf-processing-agent)
+
+This is the prompt processing agent that configures and submits PanDA
+processing jobs to execute the streaming workflows of the testbed.
+
+Interactions with PanDA are consolidated in this agent.
+
+##### [swf-fastmon-agent](https://github.com/BNLNPPS/swf-fastmon-agent)
+
+This is the fast monitoring agent designed to consume (fractions of) STF data
+for quick, near real-time monitoring. This agent resides at E1 and performs
+remote data reads from STF files in the DAQ exit buffer, skimming a fraction
+of the data of interest for fast monitoring. The agent is notified of new
+STF availability by the swf-data-agent.
+
+##### [swf-mcp-agent](https://github.com/BNLNPPS/swf-mcp-agent)
+
+This agent may be added in the future for managing Model Context Protocol
+(MCP) services. For the moment, this is done in swf-monitor (Colocated with
+the agent data the MCP services provide)
+
+Note Paul Nilsson's [ask-panda
+example](https://github.com/PalNilsson/ask-panda) of
+  MCP server and client.
+
+#### Message Broker
+
+The [ActiveMQ](https://activemq.apache.org/) message broker provides the
+messaging backbone for the testbed agents to communicate.
+
+**Local Development Broker**
+
+For local development and testing, a standalone broker can be run using Docker.
+This is managed by the `docker-compose.yml` file in this repository. To start
+the local broker, run:
+
+```bash
+docker-compose up -d
+```
+
+When using the local broker, the agents should be configured with the following
+environment variables:
+
+```bash
+export ACTIVEMQ_HOST=localhost
+export ACTIVEMQ_PORT=61616
+export ACTIVEMQ_USER=admin
+export ACTIVEMQ_PASSWORD=admin
+```
+
+**Production Broker**
+
+In a production environment, the agents should be configured to use the centrally
+provided ActiveMQ service. This is done by setting the same environment variables
+ to point to the production broker's host, port, and credentials.
+
+Each agent (e.g., `swf-monitor`, `swf-data-agent`) will need to be configured
+to read these environment variables and use them to connect to the broker. The
+`swf-monitor` application, for example, reads these values from its Django
+`settings.py` file, which in turn can be populated from environment variables.
+
+## Reference
+
+### Glossary
 
 - STF: super time frame. A contiguous set of ~1000 TFs containing about ~0.6s
   of ePIC data, corresponding to ~2GB. The STF is the atomic unit of
   streaming data processing.
 - TF: time frame. Atomic unit of ePIC detector readout ~0.6ms in duration.
 
-## References
+### References
 
 [^1]: [ePIC streaming computing model meeting page](https://docs.google.com/document/d/1t5vBfgro8Kb6MKc-bz2Y67u3cOCpHK4dfepbJX-nEbE/edit?tab=t.0#heading=h.y3evqgz3sc98)
 
