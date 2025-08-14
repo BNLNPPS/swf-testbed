@@ -1,7 +1,395 @@
 {
+  "DAQ_DISK_3": {
+    "aprotocols": {
+      "SE": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "d": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "delete_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "delete_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "pr": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "pw": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "r": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "read_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "read_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "third_party_copy": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "w": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "write_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ],
+      "write_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        ]
+      ]
+    },
+    "arprotocols": {
+      "delete_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 43,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        }
+      ],
+      "delete_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 43,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        }
+      ],
+      "read_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 43,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        }
+      ],
+      "read_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 43,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        }
+      ],
+      "third_party_copy": [
+        {
+          "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+          "flavour": "HTTPS",
+          "id": 44,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        }
+      ],
+      "write_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 43,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        }
+      ],
+      "write_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 43,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/"
+        }
+      ]
+    },
+    "cloud": "US",
+    "country": "United States",
+    "country_code": "US",
+    "datapolicies": [
+      "AnalysisData",
+      "Nucleus",
+      "T0Disk",
+      "T0Tape",
+      "T0TaskOutput"
+    ],
+    "endpoint": "",
+    "id": 82,
+    "info_url": "",
+    "is_cache": false,
+    "is_deterministic": true,
+    "is_mkdir": false,
+    "is_staging": false,
+    "is_tape": false,
+    "is_volatile": false,
+    "last_modified": "2025-08-14T02:53:39.959332",
+    "maxpintime": 0,
+    "name": "DAQ_DISK_3",
+    "params": {},
+    "phys_groups": [],
+    "quotas": {},
+    "rc": "US-T1-BNL",
+    "rc_accounting": "",
+    "rc_country": "United States",
+    "rc_country_code": "US",
+    "rc_site": "BNL-OSG",
+    "rc_site_state": "ACTIVE",
+    "rcsite": "BNL-OSG",
+    "resource": {
+      "basepath": "",
+      "endpoint": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/",
+      "id": 82,
+      "name": "SWFTESTDAQDISK",
+      "service": "SWFTEST_DAQ_1"
+    },
+    "rprotocols": {
+      "43": {
+        "activities": [
+          "delete_wan",
+          "delete_lan",
+          "read_lan",
+          "read_wan",
+          "write_lan",
+          "write_wan"
+        ],
+        "basepath": "",
+        "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+        "flavour": "XROOTD",
+        "id": 43,
+        "settings": {}
+      },
+      "44": {
+        "activities": [
+          "third_party_copy"
+        ],
+        "basepath": "",
+        "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+        "flavour": "HTTPS",
+        "id": 44,
+        "settings": {}
+      }
+    },
+    "se": "root://dcintdoor.sdcc.bnl.gov:1094",
+    "se_flavour": "XROOTD",
+    "servedrestfts": {
+      "MASTER": [
+        "https://fts.usatlas.bnl.gov:8446"
+      ],
+      "TESTING": ""
+    },
+    "site": "BNL-OSG",
+    "site_state": "ACTIVE",
+    "space_method": "storage",
+    "space_usage_url": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was cloned from E1_BNL_DISK_1 via WebUI",
+    "state_update": "2025-08-14T02:53:39.959050",
+    "status": "",
+    "su": "BNL-PANDA_DISK_1",
+    "tier_level": 1,
+    "token": "SWFTESTDAQDISK",
+    "type": "DATADISK"
+  },
   "E1_BNL_DISK_1": {
-    "aprotocols": {},
-    "arprotocols": {},
+    "aprotocols": {
+      "SE": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "d": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "delete_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "delete_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "pr": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "pw": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "r": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "read_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "read_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "third_party_copy": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "w": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "write_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ],
+      "write_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        ]
+      ]
+    },
+    "arprotocols": {
+      "delete_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 41,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        }
+      ],
+      "delete_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 41,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        }
+      ],
+      "read_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 41,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        }
+      ],
+      "read_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 41,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        }
+      ],
+      "third_party_copy": [
+        {
+          "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+          "flavour": "HTTPS",
+          "id": 46,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        }
+      ],
+      "write_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 41,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        }
+      ],
+      "write_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 41,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_bnl/"
+        }
+      ]
+    },
     "cloud": "US",
     "country": "United States",
     "country_code": "US",
@@ -43,17 +431,37 @@
     },
     "rprotocols": {
       "41": {
-        "activities": [],
+        "activities": [
+          "delete_wan",
+          "read_wan",
+          "write_lan",
+          "read_lan",
+          "write_wan",
+          "delete_lan"
+        ],
         "basepath": "",
         "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
         "flavour": "XROOTD",
         "id": 41,
         "settings": {}
+      },
+      "46": {
+        "activities": [
+          "third_party_copy"
+        ],
+        "basepath": "",
+        "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+        "flavour": "HTTPS",
+        "id": 46,
+        "settings": {}
       }
     },
-    "se": null,
-    "se_flavour": null,
+    "se": "root://dcintdoor.sdcc.bnl.gov:1094",
+    "se_flavour": "XROOTD",
     "servedrestfts": {
+      "MASTER": [
+        "https://fts.usatlas.bnl.gov:8446"
+      ],
       "TESTING": ""
     },
     "site": "BNL-OSG",
@@ -70,8 +478,157 @@
     "type": "DATADISK"
   },
   "E1_JLAB_DISK_1": {
-    "aprotocols": {},
-    "arprotocols": {},
+    "aprotocols": {
+      "SE": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "d": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "delete_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "delete_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "pr": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "pw": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "r": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "read_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "read_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "third_party_copy": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "w": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "write_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ],
+      "write_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        ]
+      ]
+    },
+    "arprotocols": {
+      "delete_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 42,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        }
+      ],
+      "delete_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 42,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        }
+      ],
+      "read_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 42,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        }
+      ],
+      "read_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 42,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        }
+      ],
+      "third_party_copy": [
+        {
+          "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+          "flavour": "HTTPS",
+          "id": 47,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        }
+      ],
+      "write_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 42,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        }
+      ],
+      "write_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 42,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/swf_test_jlab/"
+        }
+      ]
+    },
     "cloud": "US",
     "country": "United States",
     "country_code": "US",
@@ -113,17 +670,37 @@
     },
     "rprotocols": {
       "42": {
-        "activities": [],
+        "activities": [
+          "write_wan",
+          "read_wan",
+          "read_lan",
+          "write_lan",
+          "delete_lan",
+          "delete_wan"
+        ],
         "basepath": "",
         "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
         "flavour": "XROOTD",
         "id": 42,
         "settings": {}
+      },
+      "47": {
+        "activities": [
+          "third_party_copy"
+        ],
+        "basepath": "",
+        "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+        "flavour": "HTTPS",
+        "id": 47,
+        "settings": {}
       }
     },
-    "se": null,
-    "se_flavour": null,
+    "se": "root://dcintdoor.sdcc.bnl.gov:1094",
+    "se_flavour": "XROOTD",
     "servedrestfts": {
+      "MASTER": [
+        "https://fts.usatlas.bnl.gov:8446"
+      ],
       "TESTING": ""
     },
     "site": "BNL-OSG",
