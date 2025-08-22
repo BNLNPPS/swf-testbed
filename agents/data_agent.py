@@ -16,6 +16,8 @@
 
 # ---
 
+import time
+
 ###################################################################################
 class DATA:
     ''' The DATA class is the main data management class.
@@ -27,13 +29,35 @@ class DATA:
                  verbose: bool  = False,
                  sender         = None,
                  receiver       = None):
-        self.verbose = verbose
-        self.sender  = sender
-        self.receiver = receiver
-        if self.verbose: print(f'''*** DATA class initialized ***''')
+        self.verbose    = verbose
+        self.sender     = sender
+        self.receiver   = receiver
+
+        if self.verbose:
+            print(f'''*** DATA class initialized ***''')
 
         # Initialize Rucio client, upload client, etc.
         # self.rucio_client = RucioClient()
         # self.upload_client = UploadClient()
         # self.rucio_client = RucioClient(account=InternalAccount('root'))
         # self.upload_client = UploadClient(account=InternalAccount('root'))
+        
+    # ---
+    def run(self):
+        ''' Run the DATA class, which will start receiving messages from the DAQ simulator.
+            It will process these messages and handle data management tasks.
+        '''
+        if self.verbose:
+            print(f'''*** DATA class run method called ***''')
+
+        try:
+
+            print(f"Data agent is running. Press Ctrl+C to stop.")
+            while True:
+                time.sleep(1) # Keep the main thread alive, heartbeats can be added here
+        except KeyboardInterrupt:
+            print(f"Stopping data agent...")
+            if self.verbose:
+                print(f'''*** DATA class run method interrupted ***''')
+    
+        
