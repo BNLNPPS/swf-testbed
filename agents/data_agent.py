@@ -92,13 +92,13 @@ class DATA:
             msg_type = message_data.get('msg_type')
             
             if msg_type == 'stf_gen':
-                pass
+                self.handle_stf_gen(message_data)
             elif msg_type == 'run_imminent':
                 self.handle_run_imminent(message_data)
             elif msg_type == 'start_run':
                 self.handle_start_run(message_data)
             elif msg_type == 'end_run':
-                pass
+                self.handle_end_run(message_data)
             else:
                 print("Ignoring unknown message type", extra={"msg_type": msg_type})
         except Exception as e:
@@ -118,8 +118,17 @@ class DATA:
     def handle_start_run(self, message_data):
         """Handle start_run message"""
         run_id = message_data.get('run_id')
-        print("Processing start_run message")
+        print("Processing start_run message for run_id:", run_id )
 
+    def handle_end_run(self, message_data):
+        """Handle end_run message"""
+        run_id = message_data.get('run_id')
+        print("Processing end_run message for run_id:", run_id )
+
+
+    def handle_stf_gen(self, message_data):
+        fn = message_data.get('filename')
+        print(f"Handling STF generation for file: {fn}")
 
 # -- ATTIC --
 # Rucio imports for demonstration purposes only.
