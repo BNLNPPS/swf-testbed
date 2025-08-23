@@ -1,22 +1,21 @@
-# #############################################################
+# ###############################################################################
 # The DATA class is the main data management class.
 # It receives messages from the DAQ simulator and handles them.
 # Main functionality is to create Rucio datasets and register files to
 # these datasets. Then, to notify the processing agent that the data is ready.
-# #############################################################
+# ###############################################################################
 
 import os, sys, time, json
 
-###################################################################################
+#################################################################################
 class DATA:
     ''' The DATA class is the main data management class.
         It receives messages from the DAQ simulator and handles them.
         Main functionality is to create Rucio datasets and register files to
         these datasets. Then, to notify the processing agent that the data is ready.
     '''
-    def __init__(self,
-                 verbose: bool  = False,
-                 sender         = None):
+
+    def __init__(self, verbose: bool = False, sender = None):
         self.verbose    = verbose
         self.sender     = sender
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
@@ -42,9 +41,18 @@ class DATA:
         if self.verbose: print(f'''*** Set the Python path: {sys.path} ***''')
 
         try:
-            from mq_comms import Receiver
+            from mq_comms import Sender, Receiver
         except:
-            if self.verbose: print('*** Failed to import the Receiver from comms, exiting...***')
+            if self.verbose: print('*** Failed to import the Sender and Receiver from comms, exiting...***')
+            exit(-1)
+
+        try:
+            sndr = Sender(verbose=self.verbose)
+            if self.verbose: print(f'''*** Successfully instantiated the Sender ***''')
+            sndr.connect()
+            if self.verbose: print(f'''*** Successfully connected the Sender to MQ ***''')
+        except:
+            print('*** Failed to instantiate the Sender, exiting...***')
             exit(-1)
 
         try:
