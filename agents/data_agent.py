@@ -1,6 +1,8 @@
 # ###############################################################################
 # The DATA class is the main data management class.
+#
 # It receives messages from the DAQ simulator and handles them.
+#
 # Main functionality is to create Rucio datasets and register files to
 # these datasets. Then, to notify the processing agent that the data is ready.
 # ###############################################################################
@@ -72,21 +74,19 @@ class DATA:
             print(f'''*** DATA class run method called ***''')
 
         try:
-
-            print(f"Data agent is running. Press Ctrl+C to stop.")
+            if self.verbose: print(f"*** Data agent is running. Press Ctrl+C to stop. ***")
             while True:
                 time.sleep(1) # Keep the main thread alive, heartbeats can be added here
         except KeyboardInterrupt:
-            print(f"Stopping data agent...")
             if self.verbose:
-                print(f'''*** DATA class run method interrupted ***''')
+                print(f'''*** DATA class run method interrupted by the KeyboardInterrupt ***''')
     
 
     def on_message(self, msg):
         """
         Handles incoming DAQ messages (stf_gen, run_imminent, start_run, end_run).
         """
-        print("Data Agent received message")
+
         try:
             message_data = json.loads(msg)
             msg_type = message_data.get('msg_type')
@@ -130,6 +130,8 @@ class DATA:
         fn = message_data.get('filename')
         print(f"Handling STF generation for file: {fn}")
 
+
+############################################################################################
 # -- ATTIC --
 # Rucio imports for demonstration purposes only.
 # The actual implementation will be in the rucio_comms package.
