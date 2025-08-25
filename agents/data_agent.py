@@ -17,20 +17,64 @@ class DATA:
         these datasets. Then, to notify the processing agent that the data is ready.
     '''
 
-    def __init__(self, verbose: bool = False, sender = None):
-        self.verbose    = verbose
-        self.sender     = sender
+    def __init__(self, verbose: bool = False, rucio_scope: str = ''):
+        ''' Initialize the DATA class.
+            Parameters:
+                verbose (bool): Verbose mode
+                rucio_scope (str): Rucio scope to use for datasets and files; if empty, no Rucio operations will be performed
+        '''
+        self.verbose        = verbose
+        self.rucio_client   = None
+
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
 
-        if self.verbose:
-            print(f'''*** DATA class initialized ***''')
-        
+        self.rucio_scope = rucio_scope
+        if self.rucio_scope == '':
+            if self.verbose: print('*** No Rucio scope provided, Rucio operations will be skipped ***')
+        else:
+            if self.verbose: print(f'''*** Rucio scope is set to {self.rucio_scope}, Rucio operations will be performed ***''')
+            self.init_rucio()
+
+        if self.verbose: print(f'''*** DATA class initialized ***''')
+
+    # ---
+    def init_rucio(self):
+        ''' Initialize the Rucio module.
+        '''
+ 
+        RUCIO_COMMS_PATH    = ''
+
+        try:
+            RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
+            if self.verbose: print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
+            sys.path.append(RUCIO_COMMS_PATH)
+        except KeyError:
+            if self.verbose: print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
+
+        # ---
+        try:
+            from rucio_comms import DatasetManager, RucioClient
+            if self.verbose: print(f'''*** Successfully imported classes from rucio_comms ***''')
+        except:
+            print('*** Failed to import the classes from rucio_comms, exiting...***')
+            exit(-1)
+
+
+        # A Rucio client will be needed for any operation with Rucio
+        if self.verbose: print(f'''*** Instantiating the RucioClient ***''')
+        try:
+            self.rucio_client = RucioClient()
+            if self.verbose: print(f'''*** Successfully instantiated the RucioClient ***''')
+        except Exception as e:
+            print(f'*** Failed to instantiate the RucioClient: {e}, exiting... ***')
+            exit(-1)
+
     # ---
     def init_mq(self):
         ''' Initialize the MQ receiver to get messages from the DAQ simulator.
         '''
 
-        MQ_COMMS_PATH       = ''
+        MQ_COMMS_PATH = ''
 
         try:
             MQ_COMMS_PATH = os.environ['MQ_COMMS_PATH']
