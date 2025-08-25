@@ -23,12 +23,12 @@ class DATA:
                 verbose (bool): Verbose mode
                 rucio_scope (str): Rucio scope to use for datasets and files; if empty, no Rucio operations will be performed
         '''
-        self.verbose        = verbose
-        self.rucio_client   = None
+        self.verbose            = verbose
+        self.rucio_client       = None
+        self.dataset_manager    = None
+        self.rucio_scope        = rucio_scope
 
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
-
-        self.rucio_scope = rucio_scope
         if self.rucio_scope == '':
             if self.verbose: print('*** No Rucio scope provided, Rucio operations will be skipped ***')
         else:
@@ -68,6 +68,16 @@ class DATA:
         except Exception as e:
             print(f'*** Failed to instantiate the RucioClient: {e}, exiting... ***')
             exit(-1)
+
+        # A Dataset Manager will be needed for any operation with Rucio datasets
+        if self.verbose: print(f'''*** Instantiating the Dataset Manager ***''')
+        try:
+            self.dataset_manager = DatasetManager()
+            if self.verbose: print(f'''*** Successfully instantiated the Dataset Manager ***''')
+        except Exception as e:
+            print(f'*** Failed to instantiate the Dataset Manager: {e}, exiting... ***')
+            exit(-1)
+
 
     # ---
     def init_mq(self):
@@ -144,20 +154,28 @@ class DATA:
             elif msg_type == 'end_run':
                 self.handle_end_run(message_data)
             else:
-                print("Ignoring unknown message type", extra={"msg_type": msg_type})
+                print("Ignoring unknown message type", msg_type)
         except Exception as e:
-            print(f"CRITICAL: Message processing failed - {str(e)}", extra={"error": str(e)})
+            print(f"CRITICAL: Message processing failed - {str(e)}")
 
     def handle_run_imminent(self, message_data):
         """Handle run_imminent message - create dataset in Rucio"""
         run_id = message_data.get('run_id')
         run_conditions = message_data.get('run_conditions', {})
-        print("Processing run_imminent message")
         
-        # TODO: Call Rucio to create dataset for this run
-        
-        # Simulate dataset creation
-        # TBD: Replace with actual Rucio call
+        if self.verbose:
+            print(F'''*** Processing run_imminent message for run {run_id}***''')
+
+        dataset = f'run_{run_id}'
+        lifetime = 1 # days
+        result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{dataset}''', lifetime_days=lifetime, open_dataset=True)
+        if self.verbose: print(f'''*** Dataset creation result: {result} ***''')
+        if not result:
+            if self.verbose: print('*** Dataset creation failed, exiting... ***')
+            exit(-1)
+        else:
+            if self.verbose: print(f'*** Dataset {result["scope"]}:{result["name"]} created successfully with DUID: {result["duid"]} ***')
+
 
     def handle_start_run(self, message_data):
         """Handle start_run message"""
