@@ -17,16 +17,24 @@ class DATA:
         these datasets. Then, to notify the processing agent that the data is ready.
     '''
 
-    def __init__(self, verbose: bool = False, rucio_scope: str = ''):
+    def __init__(self, verbose: bool = False, rucio_scope: str = '', data_container: str = ''):
         ''' Initialize the DATA class.
             Parameters:
                 verbose (bool): Verbose mode
                 rucio_scope (str): Rucio scope to use for datasets and files; if empty, no Rucio operations will be performed
         '''
         self.verbose            = verbose
+
         self.rucio_client       = None
+        self.rucio_upload_client= None
+
+        self.file_manager       = None
         self.dataset_manager    = None
+
         self.rucio_scope        = rucio_scope
+        self.data_container     = data_container    # if empty, no data will be uploaded
+        self.run_id             = None              # current run ID, to be set upon receiving the run_imminent message
+        self.folder             = ''                # the actual folder for the current run, to be accessed later
 
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
         if self.rucio_scope == '':
@@ -53,7 +61,7 @@ class DATA:
 
         # ---
         try:
-            from rucio_comms import DatasetManager, RucioClient
+            from rucio_comms import DatasetManager, RucioClient, UploadClient, FileManager
             if self.verbose: print(f'''*** Successfully imported classes from rucio_comms ***''')
         except:
             print('*** Failed to import the classes from rucio_comms, exiting...***')
@@ -61,12 +69,14 @@ class DATA:
 
 
         # A Rucio client will be needed for any operation with Rucio
-        if self.verbose: print(f'''*** Instantiating the RucioClient ***''')
+        if self.verbose: print(f'''*** Instantiating the RucioClient and UploadClient ***''')
         try:
             self.rucio_client = RucioClient()
-            if self.verbose: print(f'''*** Successfully instantiated the RucioClient ***''')
+            self.rucio_upload_client = UploadClient(self.rucio_client)
+            
+            if self.verbose: print(f'''*** Successfully instantiated the RucioClient and UploadClient ***''')
         except Exception as e:
-            print(f'*** Failed to instantiate the RucioClient: {e}, exiting... ***')
+            print(f'*** Failed to instantiate the RucioClient and UploadClient: {e}, exiting... ***')
             exit(-1)
 
         # A Dataset Manager will be needed for any operation with Rucio datasets
@@ -76,6 +86,15 @@ class DATA:
             if self.verbose: print(f'''*** Successfully instantiated the Dataset Manager ***''')
         except Exception as e:
             print(f'*** Failed to instantiate the Dataset Manager: {e}, exiting... ***')
+            exit(-1)
+
+        # A File Manager will be needed to attach files to Rucio datasets
+        if self.verbose: print(f'''*** Instantiating the File Manager ***''')
+        try:
+            self.file_manager = FileManager(rucio_client = self.rucio_client)
+            if self.verbose: print(f'''*** Successfully instantiated the File Manager ***''')
+        except Exception as e:
+            print(f'*** Failed to instantiate the File Manager: {e}, exiting... ***')
             exit(-1)
 
 
@@ -167,6 +186,9 @@ class DATA:
             print(F'''*** Processing run_imminent message for run {run_id}***''')
 
         dataset = f'run_{run_id}'
+        self.run_id = run_id
+        self.folder = f"{self.data_container}/run_{self.run_id}"
+            
         lifetime = 1 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{dataset}''', lifetime_days=lifetime, open_dataset=True)
         if self.verbose: print(f'''*** Dataset creation result: {result} ***''')
@@ -191,7 +213,51 @@ class DATA:
     def handle_stf_gen(self, message_data):
         fn = message_data.get('filename')
         print(f"Handling STF generation for file: {fn}")
+        
+        file_path = f'{self.folder}/{fn}'
 
+        if os.path.exists(file_path):
+            print(f"The path '{file_path}' exists.")
+        else:
+            print(f"The path '{file_path}' does not exist.")
+            return None
+            
+        if self.rucio_scope == '' or self.data_container == '':
+            if self.verbose: print('*** No Rucio scope or data container provided, skipping Rucio upload ***')
+            return None
+
+        if self.run_id is None:
+            if self.verbose: print('*** No run_id set, cannot proceed with Rucio upload ***')
+            return None
+        
+        if self.folder == '':
+            if self.verbose: print('*** No folder set, cannot proceed with Rucio upload ***')
+            return None
+        
+        upload_spec = {
+            'path':         file_path,
+            'rse':          'BNL_PROD_DISK_1', # FIXME
+            'did_scope':    self.rucio_scope,
+            'did_name':     fn,
+        }
+
+        try:
+            result = self.rucio_upload_client.upload([upload_spec])
+        except Exception as e:
+            print(f'*** Exception during upload: {e} ***')
+            return None
+        if result == 0:
+            if self.verbose: print(f"File {file_path} uploaded successfully to Rucio under scope {self.rucio_scope} ***")
+        else:
+            print(f"File {file_path} upload failed.")
+            return None
+
+        # Attach the file to the open dataset
+        if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:run_{self.run_id} ***''')
+        # Register the file replica, using the lfn
+        attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:run_{self.run_id}''')
+        if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
+                               
 
 ############################################################################################
 # -- ATTIC --
