@@ -212,14 +212,14 @@ class DATA:
 
     def handle_stf_gen(self, message_data):
         fn = message_data.get('filename')
-        print(f"Handling STF generation for file: {fn}")
+        if self.verbose:
+            print(f"*** Handling STF generation for file: {fn} ***")
         
         file_path = f'{self.folder}/{fn}'
 
-        if os.path.exists(file_path):
-            print(f"The path '{file_path}' exists.")
-        else:
-            print(f"The path '{file_path}' does not exist.")
+        if not os.path.exists(file_path):
+            if self.verbose:
+                print(f"*** Alert: the path '{file_path}' does not exist. ***")
             return None
             
         if self.rucio_scope == '' or self.data_container == '':
