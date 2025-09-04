@@ -55,37 +55,24 @@ source .venv/bin/activate && source ~/.env
 export SWF_SSE_RECEIVER_NAME="my-fastmon"
 python example_agents/remote_sse_receiver.py
 
+# Filter by message type
+python example_agents/remote_sse_receiver.py --message sse_test
+
+# Filter by multiple message types
+python example_agents/remote_sse_receiver.py --message data_ready,processing_complete
+
+# Filter by agent
+python example_agents/remote_sse_receiver.py --agent sse_sender-agent
+
+# Combine filters
+python example_agents/remote_sse_receiver.py --message sse_test --agent sse_sender-agent
 ```
-
-#### Filtering Examples
-
-To add filtering to `remote_sse_receiver.py`, modify the stream URL:
-
-**Only STF generation messages:**
-```python
-# In remote_sse_receiver.py connect_and_receive():
-stream_url = f"{self.monitor_base}/api/messages/stream/?msg_types=stf_gen"
-```
-
-**Only processing completion from specific agent:**
-```python
-# In remote_sse_receiver.py connect_and_receive():
-stream_url = f"{self.monitor_base}/api/messages/stream/?msg_types=processing_complete&agents=processing-agent"
-```
-
-**All messages from specific run:**
-```python
-# In remote_sse_receiver.py connect_and_receive():
-stream_url = f"{self.monitor_base}/api/messages/stream/?run_ids=run-2025-001"
-```
-
-**Note**: The current `remote_sse_receiver.py` does not implement filtering query parameters. To add filtering, modify the `stream_url` as shown in the examples above.
 
 #### Features
 
 - **Authentication**: Automatic token-based authentication
 - **Auto-reconnection**: Handles network interruptions gracefully
-- **No filtering**: Receives ALL ActiveMQ messages (unfiltered stream)
+- **Command-line filtering**: Filter by message types and agents via --message and --agent options
 - **Agent registration**: Registers as active monitoring client
 - **Real-time display**: Formatted message output with timestamps
 
