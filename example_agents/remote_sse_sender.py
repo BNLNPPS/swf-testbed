@@ -96,12 +96,15 @@ class RemoteSSESender(BaseAgent):
                         self.logger.debug(
                             f"Sent message: {message['msg_type']} run={message.get('run_id','N/A')}"
                         )
-                        time.sleep(1)
                     except Exception as e:
                         self.logger.error(f"Failed to send message {i}: {e}")
                         # If a message fails to send, the connection might be dead.
                         # Break the inner loop and let the outer loop try to reconnect.
                         break
+                    
+                    # Sleep between messages (only if not the last message)
+                    if i < len(self.messages_to_send):
+                        time.sleep(1)
 
                 # Exit in one-shot mode; otherwise sleep and repeat
                 if oneshot:
