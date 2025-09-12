@@ -17,7 +17,10 @@ class DATA:
         these datasets. Then, to notify the processing agent that the data is ready.
     '''
 
-    def __init__(self, verbose: bool = False, rucio_scope: str = '', data_container: str = ''):
+    def __init__(self, verbose: bool = False,
+                rucio_scope:    str  = '',
+                data_container: str  = '',
+                rse:            str  = ''):
         ''' Initialize the DATA class.
             Parameters:
                 verbose (bool): Verbose mode
@@ -35,6 +38,8 @@ class DATA:
         self.data_container     = data_container    # if empty, no data will be uploaded
         self.run_id             = None              # current run ID, to be set upon receiving the run_imminent message
         self.folder             = ''                # the actual folder for the current run, to be accessed later
+        self.rse                = rse               # RSE to target for upload
+
 
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
         if self.rucio_scope == '':
@@ -185,9 +190,10 @@ class DATA:
         if self.verbose:
             print(F'''*** Processing run_imminent message for run {run_id}***''')
 
-        dataset = f'run_{run_id}'
-        self.run_id = run_id
-        self.folder = f"{self.data_container}/run_{self.run_id}"
+        self.run_id = str(run_id)
+        dataset = f'run_{self.run_id}'
+
+        self.folder = f"{self.data_container}/{self.run_id}"
             
         lifetime = 1 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{dataset}''', lifetime_days=lifetime, open_dataset=True)
@@ -222,8 +228,8 @@ class DATA:
                 print(f"*** Alert: the path '{file_path}' does not exist. ***")
             return None
             
-        if self.rucio_scope == '' or self.data_container == '':
-            if self.verbose: print('*** No Rucio scope or data container provided, skipping Rucio upload ***')
+        if self.rucio_scope == '' or self.data_container == '' or self.rse == '':
+            if self.verbose: print('*** No Rucio scope, RSE or data container provided, skipping Rucio upload ***')
             return None
 
         if self.run_id is None:
@@ -231,16 +237,18 @@ class DATA:
             return None
         
         if self.folder == '':
-            if self.verbose: print('*** No folder set, cannot proceed with Rucio upload ***')
+            if self.verbose: print('*** No source data folder set, cannot proceed with Rucio upload ***')
             return None
         
+        # Important: the file must be uploaded to Rucio before it can be attached to a dataset
         upload_spec = {
             'path':         file_path,
-            'rse':          'BNL_PROD_DISK_1', # FIXME
+            'rse':          self.rse,
             'did_scope':    self.rucio_scope,
             'did_name':     fn,
         }
 
+        # The actual upload
         try:
             result = self.rucio_upload_client.upload([upload_spec])
         except Exception as e:
