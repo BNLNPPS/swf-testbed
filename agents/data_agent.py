@@ -193,7 +193,7 @@ class DATA:
         self.run_id = str(run_id)
         dataset = f'run_{self.run_id}'
 
-        self.folder = f"{self.data_container}/{self.run_id}"
+        self.folder = f"{self.data_container}/{dataset}"
             
         lifetime = 1 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{dataset}''', lifetime_days=lifetime, open_dataset=True)
