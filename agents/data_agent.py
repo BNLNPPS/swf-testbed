@@ -263,7 +263,7 @@ class DATA:
 
 
         # N.B. Rucio does not accespt large integers.
-        did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=1565)
+        did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
 
 
         # Attach the file to the open dataset
