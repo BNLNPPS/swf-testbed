@@ -9,6 +9,10 @@
 
 import os, sys, time, json
 
+from rucio.client.didclient import DIDClient
+# Initialize the DIDClient
+did_client = DIDClient()
+
 #################################################################################
 class DATA:
     ''' The DATA class is the main data management class.
@@ -187,11 +191,10 @@ class DATA:
         run_id = message_data.get('run_id')
         run_conditions = message_data.get('run_conditions', {})
         
-        if self.verbose:
-            print(F'''*** Processing run_imminent message for run {run_id}***''')
+        if self.verbose: print(F'''*** Processing run_imminent message for run {run_id}***''')
 
-        self.run_id = str(run_id)
-        dataset = f'run_{self.run_id}'
+        self.run_id = run_id
+        dataset = f'run_{str(self.run_id)}'
 
         self.folder = f"{self.data_container}/{dataset}"
             
@@ -218,14 +221,12 @@ class DATA:
 
     def handle_stf_gen(self, message_data):
         fn = message_data.get('filename')
-        if self.verbose:
-            print(f"*** Handling STF generation for file: {fn} ***")
+        if self.verbose: print(f"*** Handling STF generation for file: {fn} ***")
         
         file_path = f'{self.folder}/{fn}'
 
         if not os.path.exists(file_path):
-            if self.verbose:
-                print(f"*** Alert: the path '{file_path}' does not exist. ***")
+            if self.verbose: print(f"*** Alert: the path '{file_path}' does not exist. ***")
             return None
             
         if self.rucio_scope == '' or self.data_container == '' or self.rse == '':
@@ -259,6 +260,11 @@ class DATA:
         else:
             print(f"File {file_path} upload failed.")
             return None
+
+
+        # N.B. Rucio does not accespt large integers.
+        did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=1565)
+
 
         # Attach the file to the open dataset
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:run_{self.run_id} ***''')
