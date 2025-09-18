@@ -29,6 +29,22 @@ export SWF_MONITOR_HTTP_URL=http://localhost:8002  # REST logging (no auth)
 # Authentication token for API calls
 export SWF_API_TOKEN=your_token_here
 
+## API Endpoints
+
+**Get Next Run Number** (used by DAQ simulator):
+```bash
+POST /api/state/next-run-number/
+# Returns: {"run_number": 100015, "status": "success"}
+```
+
+**Get Next Agent ID** (used by all agents at startup):
+```bash
+POST /api/state/next-agent-id/
+# Returns: {"agent_id": 42, "status": "success"}
+```
+
+Both endpoints are atomic and thread-safe for concurrent access.
+
 ### Production Monitor URL for SSE example
 
 The Remote SSE example agent is intended to connect to the production Apache-hosted monitor only. Set this in your `~/.env` (or rely on the built-in default):

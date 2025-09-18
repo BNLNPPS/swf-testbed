@@ -107,6 +107,35 @@ Software (NPPS) group at BNL; collaborators are welcome.
 - Michel Villanueva
 - Xin Zhao
 
+## Agent Development Guidelines
+
+### Agent Identity and Naming
+
+When developing new agents, follow the established identity management pattern:
+
+**For agents inheriting from BaseAgent:**
+```python
+# Agent name automatically assigned via get_next_agent_id()
+class MyAgent(BaseAgent):
+    def __init__(self, debug=False):
+        super().__init__(agent_type='MYTYPE', subscription_queue='epictopic', debug=debug)
+```
+
+**For standalone agents (like DAQ simulator):**
+```python
+# Implement get_next_agent_id() method following the same pattern as BaseAgent
+def get_next_agent_id(self):
+    """Get the next agent ID from persistent state API."""
+    # Implementation matches BaseAgent.get_next_agent_id()
+```
+
+**Command Line Interface:**
+All agents should support `--debug` flag for verbose heartbeat logging:
+```bash
+python my_agent.py --debug  # Enable heartbeat logging
+python my_agent.py          # Quiet mode (default)
+```
+
 ## Glossary
 
 - STF: super time frame. A contiguous set of ~1000 TFs containing about ~0.6s
