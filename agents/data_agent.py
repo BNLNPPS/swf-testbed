@@ -23,12 +23,14 @@ class DATA:
 
     def __init__(self, verbose: bool = False,
                 rucio_scope:    str  = '',
-                data_container: str  = '',
+                data_folder:    str  = '',
                 rse:            str  = ''):
         ''' Initialize the DATA class.
             Parameters:
                 verbose (bool): Verbose mode
                 rucio_scope (str): Rucio scope to use for datasets and files; if empty, no Rucio operations will be performed
+                data_folder (str): Folder where data files are located; if empty, no data will be uploaded
+                rse (str): RSE to target for upload; if empty, no data will be uploaded
         '''
         self.verbose            = verbose
 
@@ -39,8 +41,9 @@ class DATA:
         self.dataset_manager    = None
 
         self.rucio_scope        = rucio_scope
-        self.data_container     = data_container    # if empty, no data will be uploaded
+        self.data_folder        = data_folder    # if empty, no data will be uploaded
         self.run_id             = None              # current run ID, to be set upon receiving the run_imminent message
+        self.dataset            = ''                # current dataset name, to be set upon receiving the run_imminent message
         self.folder             = ''                # the actual folder for the current run, to be accessed later
         self.rse                = rse               # RSE to target for upload
 
@@ -192,14 +195,14 @@ class DATA:
         run_conditions = message_data.get('run_conditions', {})
         
         if self.verbose: print(F'''*** Processing run_imminent message for run {run_id}***''')
-
+        
         self.run_id = run_id
-        dataset = f'run_{str(self.run_id)}'
+        self.dataset = message_data.get('dataset')
 
-        self.folder = f"{self.data_container}/{dataset}"
+        self.folder = f"{self.data_folder}/{self.dataset}"
             
         lifetime = 1 # days
-        result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{dataset}''', lifetime_days=lifetime, open_dataset=True)
+        result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
         if self.verbose: print(f'''*** Dataset creation result: {result} ***''')
         if not result:
             if self.verbose: print('*** Dataset creation failed, exiting... ***')
@@ -229,7 +232,7 @@ class DATA:
             if self.verbose: print(f"*** Alert: the path '{file_path}' does not exist. ***")
             return None
             
-        if self.rucio_scope == '' or self.data_container == '' or self.rse == '':
+        if self.rucio_scope == '' or self.data_folder == '' or self.rse == '':
             if self.verbose: print('*** No Rucio scope, RSE or data container provided, skipping Rucio upload ***')
             return None
 
@@ -267,9 +270,9 @@ class DATA:
 
 
         # Attach the file to the open dataset
-        if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:run_{self.run_id} ***''')
+        if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
         # Register the file replica, using the lfn
-        attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:run_{self.run_id}''')
+        attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
                                
 
