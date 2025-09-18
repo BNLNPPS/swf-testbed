@@ -13,8 +13,8 @@ class ProcessingAgent(BaseAgent):
     It listens for 'data_ready' messages.
     """
 
-    def __init__(self):
-        super().__init__(agent_type='PROCESSING', subscription_queue='processing_agent')
+    def __init__(self, debug=False):
+        super().__init__(agent_type='PROCESSING', subscription_queue='epictopic', debug=debug)
         self.active_processing = {}  # Track files being processed
         self.processing_stats = {'total_processed': 0, 'failed_count': 0}
 
@@ -22,13 +22,12 @@ class ProcessingAgent(BaseAgent):
         """
         Handles incoming workflow messages (data_ready, run_imminent, start_run, end_run).
         """
-        self.logger.info("Processing Agent received message")
+        # Use base class helper for consistent logging
+        message_data, msg_type = self.log_received_message(frame)
+
         # Update heartbeat on message activity
         self.send_processing_agent_heartbeat()
         try:
-            message_data = json.loads(frame.body)
-            msg_type = message_data.get('msg_type')
-            
             if msg_type == 'data_ready':
                 self.handle_data_ready(message_data)
             elif msg_type == 'run_imminent':
@@ -37,8 +36,6 @@ class ProcessingAgent(BaseAgent):
                 self.handle_start_run(message_data)
             elif msg_type == 'end_run':
                 self.handle_end_run(message_data)
-            else:
-                self.logger.info("Ignoring unknown message type", extra={"msg_type": msg_type})
         except Exception as e:
             self.logger.error(f"CRITICAL: Message processing failed - {str(e)}", extra={"error": str(e)})
             import traceback
@@ -263,5 +260,11 @@ class ProcessingAgent(BaseAgent):
 
 
 if __name__ == "__main__":
-    agent = ProcessingAgent()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Processing Agent - handles workflow data processing")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    args = parser.parse_args()
+
+    agent = ProcessingAgent(debug=args.debug)
     agent.run()

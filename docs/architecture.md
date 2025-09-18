@@ -136,6 +136,28 @@ python manage.py dbml > ../testbed-schema.dbml
 
 To visualize the schema, paste the DBML content into [dbdiagram.io](https://dbdiagram.io/).
 
+### Agent Identity Management
+
+The testbed uses a global sequential agent ID system to ensure unique agent identification:
+
+**Agent Naming Convention:**
+- Format: `{agent_type}-agent-{username}-{sequential_id}`
+- Examples: `data-agent-wenauseic-1`, `processing-agent-wenauseic-2`, `daq-simulator-wenauseic-3`
+
+**Sequential ID Assignment:**
+- Global counter shared across all agent types
+- Stored in PersistentState database model
+- Thread-safe atomic assignment via `SELECT FOR UPDATE`
+- API endpoint: `/api/state/next-agent-id/`
+
+**Benefits:**
+- Guaranteed unique agent names across the system
+- Easy tracking of agent generations over time
+- No collision risk even with concurrent agent startups
+- Human-readable sequential numbering (1, 2, 3...)
+
+This replaces the previous random suffix approach and ensures long-term uniqueness as the system scales.
+
 The following diagram shows the testbed's agent-based architecture and data flows:
 
 ```mermaid

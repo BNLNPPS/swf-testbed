@@ -11,6 +11,42 @@ import os
 import requests
 from pathlib import Path
 
+# Auto-restart with project venv Python if not already using it
+def ensure_venv_python():
+    """Ensure we're running with the project venv Python, restart if not."""
+    # Use SWF_HOME if set, otherwise derive from script location
+    if 'SWF_HOME' in os.environ:
+        swf_home = Path(os.environ['SWF_HOME'])
+        venv_path = swf_home / 'swf-testbed' / '.venv'
+    else:
+        # Derive from script location
+        venv_path = Path(__file__).resolve().parent / '.venv'
+    
+    venv_python = venv_path / 'bin' / 'python'
+    
+    # Check if venv exists
+    if not venv_python.exists():
+        print(f"❌ Error: Virtual environment not found at {venv_path}")
+        sys.exit(1)
+    
+    # Check if we're already using the venv Python
+    current_python = Path(sys.executable).resolve()
+    expected_python = venv_python.resolve()
+    
+    try:
+        # If not the same file, restart with correct Python
+        if not current_python.samefile(expected_python):
+            print(f"🔄 Restarting with project venv Python...")
+            os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+    except (OSError, FileNotFoundError):
+        # If we can't verify samefile, compare paths
+        if current_python != expected_python:
+            print(f"🔄 Restarting with project venv Python...")
+            os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+
+# Ensure we're using venv Python before doing anything else
+ensure_venv_python()
+
 def setup_environment():
     """Auto-activate venv and load environment variables - same pattern as run_tests."""
     script_dir = Path(__file__).resolve().parent
@@ -47,7 +83,7 @@ def setup_environment():
 def get_active_services():
     """Get list of all active systemd services."""
     try:
-        result = subprocess.run(['systemctl', 'list-units', '--type=service', '--state=active', '--no-legend'], 
+        result = subprocess.run(['/usr/bin/systemctl', 'list-units', '--type=service', '--state=active', '--no-legend'], 
                               capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             services = []
@@ -72,6 +108,8 @@ def find_service_by_pattern(active_services, patterns):
 def check_django_status():
     """Check if Django monitor is running and responding."""
     monitor_urls = [
+        'https://pandaserver02.sdcc.bnl.gov/swf-monitor',
+        'http://pandaserver02.sdcc.bnl.gov/swf-monitor',
         os.getenv('SWF_MONITOR_URL', 'https://localhost:8443'),
         os.getenv('SWF_MONITOR_HTTP_URL', 'http://localhost:8002')
     ]
@@ -85,21 +123,24 @@ def check_django_status():
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
-    results = {}
-    for url in set(monitor_urls):  # Remove duplicates
-        try:
-            response = session.get(f"{url}/api/systemagents/")
-            results[url] = {
-                'status': response.status_code,
-                'reachable': True,
-                'response_time': response.elapsed.total_seconds()
-            }
-        except Exception as e:
-            results[url] = {
-                'status': None,
-                'reachable': False,
-                'error': str(e)
-            }
+    results = []
+    seen_urls = set()
+    for url in monitor_urls:
+        if url not in seen_urls:  # Remove duplicates while preserving order
+            seen_urls.add(url)
+            try:
+                response = session.get(f"{url}/api/systemagents/")
+                results.append((url, {
+                    'status': response.status_code,
+                    'reachable': True,
+                    'response_time': response.elapsed.total_seconds()
+                }))
+            except Exception as e:
+                results.append((url, {
+                    'status': None,
+                    'reachable': False,
+                    'error': str(e)
+                }))
     
     return results
 
@@ -109,7 +150,7 @@ def main():
     print("SWF TESTBED SYSTEM STATUS REPORT")
     print("=" * 60)
     
-    # Setup environment like test scripts
+    # Setup environment (we're already guaranteed to be using venv Python)
     if not setup_environment():
         print("❌ Failed to setup environment")
         return 1
@@ -134,18 +175,27 @@ def main():
     else:
         print(f"  ❌ ActiveMQ - INACTIVE")
     
+    # Find Redis service
+    redis_service = find_service_by_pattern(all_active_services, ['redis'])
+    if redis_service:
+        print(f"  ✅ Redis ({redis_service}) - ACTIVE")
+    else:
+        print(f"  ❌ Redis - INACTIVE")
+    
     # Keep track of what's running for final assessment
     active_services = []
     if postgres_service:
         active_services.append(postgres_service)
     if activemq_service:
         active_services.append(activemq_service)
+    if redis_service:
+        active_services.append(redis_service)
     
     # Check Django monitor status
     print("\n🌐 DJANGO MONITOR STATUS:")
     django_results = check_django_status()
     
-    for url, result in django_results.items():
+    for url, result in django_results:
         if result['reachable']:
             print(f"  ✅ {url} - HTTP {result['status']} ({result['response_time']:.2f}s)")
         else:
@@ -182,11 +232,12 @@ def main():
     # Final readiness check
     has_activemq = activemq_service is not None
     has_postgres = postgres_service is not None
+    has_redis = redis_service is not None
     has_env = os.getenv('SWF_API_TOKEN') and os.getenv('ACTIVEMQ_HOST')
     has_django = any(result['reachable'] and result['status'] in [200, 403] 
-                    for result in django_results.values())
+                    for url, result in django_results)
     
-    if has_activemq and has_postgres and has_env and has_django:
+    if has_activemq and has_postgres and has_redis and has_env and has_django:
         print("✅ YES - All required services appear ready")
         return 0
     else:
@@ -195,6 +246,8 @@ def main():
             print("  - Missing ActiveMQ service")
         if not has_postgres:
             print("  - Missing PostgreSQL service")
+        if not has_redis:
+            print("  - Missing Redis service")
         if not has_env:
             print("  - Missing environment variables")  
         if not has_django:

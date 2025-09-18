@@ -59,13 +59,17 @@ from swf_common_lib.rest_logging import setup_rest_logging
 class DAQSimulator:
     """ePIC DAQ state machine simulator using SimPy"""
     
-    def __init__(self, env):
+    def __init__(self, env, debug=False):
         self.env = env
         self.file_counter = 0  # Serial counter for unique filenames across all runs
         self.current_run_id = None
-        
-        # Agent identity
-        self.agent_name = 'daq-simulator'
+        self.DEBUG = debug
+
+        # Agent identity - create unique name with username and sequential ID
+        import getpass
+        username = getpass.getuser()
+        agent_id = self.get_next_agent_id()
+        self.agent_name = f'daq-simulator-{username}-{agent_id}'
         self.agent_type = 'daqsim'
         
         # Monitor API configuration
@@ -118,6 +122,25 @@ class DAQSimulator:
         except Exception as e:
             self.logger.error(f"Failed to get next run number from API: {e}")
             raise RuntimeError(f"Critical failure getting run number: {e}") from e
+
+    def get_next_agent_id(self):
+        """Get the next agent ID from persistent state API."""
+        try:
+            url = f"{self.monitor_url}/api/state/next-agent-id/"
+            response = self.api_session.post(url, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            if data.get('status') == 'success':
+                agent_id = data.get('agent_id')
+                self.logger.info(f"Got next agent ID from persistent state: {agent_id}")
+                return str(agent_id)  # Return as string for consistency
+            else:
+                raise RuntimeError(f"API returned error: {data.get('error', 'Unknown error')}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to get next agent ID from API: {e}")
+            raise RuntimeError(f"Critical failure getting agent ID: {e}") from e
         
     def setup_activemq(self):
         """Setup connection to ActiveMQ broker using same pattern as base_agent"""
@@ -192,15 +215,17 @@ class DAQSimulator:
                 "workflow_enabled": True  # Enable this agent for workflow tracking
             }
             
-            print(f"[HEARTBEAT] Sending heartbeat for {self.agent_name} to {self.monitor_url}/api/systemagents/heartbeat/")
-            print(f"[HEARTBEAT] Payload: {payload}")
+            if self.DEBUG:
+                print(f"[HEARTBEAT] Sending heartbeat for {self.agent_name} to {self.monitor_url}/api/systemagents/heartbeat/")
+                print(f"[HEARTBEAT] Payload: {payload}")
             
             url = f"{self.monitor_url}/api/systemagents/heartbeat/"
             response = self.api_session.post(url, json=payload, timeout=10)
             response.raise_for_status()
             
-            print(f"[HEARTBEAT] SUCCESS: Status {response.status_code}")
-            self.logger.info(f"Heartbeat sent successfully. Status: {status}")
+            if self.DEBUG:
+                print(f"[HEARTBEAT] SUCCESS: Status {response.status_code}")
+                self.logger.info(f"Heartbeat sent successfully. Status: {status}")
             
         except Exception as e:
             print(f"[HEARTBEAT] FAILED: {e}")
@@ -455,7 +480,7 @@ class DAQSimulator:
         yield self.env.timeout(0.1)  # Brief generation time
 
 
-def run_simulation(duration_hours=1.0, num_cycles=1):
+def run_simulation(duration_hours=1.0, num_cycles=1, debug=False):
     """Run DAQ simulation for specified duration and cycles"""
     # Set up main simulation logger
     main_logger = setup_rest_logging('daqsim-agent', 'simulation-main')
@@ -467,7 +492,7 @@ def run_simulation(duration_hours=1.0, num_cycles=1):
     env = simpy.Environment()
     
     # Create DAQ simulator
-    daq_sim = DAQSimulator(env)
+    daq_sim = DAQSimulator(env, debug=debug)
     
     # Start DAQ cycles
     for cycle in range(num_cycles):
@@ -528,6 +553,8 @@ if __name__ == "__main__":
                        help="Number of DAQ cycles to run (default: 1)")
     parser.add_argument("--clean", action="store_true",
                        help="Clean up previous simulation files")
+    parser.add_argument("--debug", action="store_true",
+                       help="Enable debug logging")
     
     args = parser.parse_args()
     
@@ -543,6 +570,6 @@ if __name__ == "__main__":
     # Print to console for user feedback
     print(f"Starting ePIC DAQ simulation: {args.duration} hours, {args.cycles} cycles")
     
-    run_simulation(args.duration, args.cycles)
+    run_simulation(args.duration, args.cycles, debug=args.debug)
     
     print("ePIC DAQ simulation complete")
