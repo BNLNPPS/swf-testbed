@@ -97,7 +97,7 @@ class DataAgent(BaseAgent):
             self.logger.warning(f"Failed to update run {run_id} status")
             return False
     
-    def register_stf_file(self, run_id, filename, file_size=None):
+    def register_stf_file(self, run_id, filename, file_size=None, start=None, end=None, state=None, substate=None, sequence=None):
         """Register an STF file in the monitor."""
         if run_id not in self.active_runs:
             self.logger.warning(f"Cannot register file {filename} - run {run_id} not active")
@@ -116,9 +116,15 @@ class DataAgent(BaseAgent):
             'run': monitor_run_id,
             'stf_filename': filename,
             'file_size_bytes': file_size,
-            'machine_state': 'physics',
+            'machine_state': state or 'unknown',
             'status': 'registered',
-            'metadata': {'created_by': self.agent_name}
+            'metadata': {
+                'created_by': self.agent_name,
+                'substate': substate,
+                'start': start,
+                'end': end,
+                'sequence': sequence
+            }
         }
         
         try:
@@ -237,13 +243,19 @@ class DataAgent(BaseAgent):
         file_url = message_data.get('file_url')
         checksum = message_data.get('checksum')
         size_bytes = message_data.get('size_bytes')
-        
-        self.logger.info("Processing STF file", 
+        # Capture timing, state, and sequence fields
+        start = message_data.get('start')
+        end = message_data.get('end')
+        state = message_data.get('state')
+        substate = message_data.get('substate')
+        sequence = message_data.get('sequence')
+
+        self.logger.info("Processing STF file",
                         extra={"stf_filename": filename, "run_id": run_id, "size_bytes": size_bytes,
                               "simulation_tick": message_data.get('simulation_tick')})
-        
+
         # Register STF file and workflow with monitor
-        self.register_stf_file(run_id, filename, size_bytes)
+        self.register_stf_file(run_id, filename, size_bytes, start, end, state, substate, sequence)
         
         # TODO: Register STF file with Rucio
         # TODO: Initiate transfer to E1 facilities  
@@ -252,24 +264,29 @@ class DataAgent(BaseAgent):
         import time
         time.sleep(0.1)
         
-        # Send data_ready message to processing agent
-        data_ready_message = {
-            "msg_type": "data_ready",
+        # Send stf_ready message to processing agent
+        stf_ready_message = {
+            "msg_type": "stf_ready",
             "filename": filename,
             "run_id": run_id,
             "file_url": file_url,
             "checksum": checksum,
             "size_bytes": size_bytes,
+            "start": start,
+            "end": end,
+            "state": state,
+            "substate": substate,
+            "sequence": sequence,
             "simulation_tick": message_data.get('simulation_tick'),
             "processed_by": self.agent_name
         }
         
-        self.send_message('processing_agent', data_ready_message)
-        
+        self.send_message('processing_agent', stf_ready_message)
+
         # Update STF file status to processed
         self.update_stf_file_status(filename, 'processed')
-        
-        self.logger.info("Sent data_ready message", 
+
+        self.logger.info("Sent stf_ready message",
                         extra={"stf_filename": filename, "run_id": run_id, "destination": "processing_agent"})
 
 

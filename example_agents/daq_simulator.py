@@ -52,7 +52,8 @@ def setup_environment():
     
     return True
 
-# Import the centralized logging from swf-common-lib
+# Import common utilities from swf-common-lib
+from swf_common_lib.api_utils import get_next_agent_id, get_next_run_number
 from swf_common_lib.rest_logging import setup_rest_logging
 
 
@@ -61,18 +62,12 @@ class DAQSimulator:
     
     def __init__(self, env, debug=False):
         self.env = env
-        self.file_counter = 0  # Serial counter for unique filenames across all runs
+        self.file_counter = 0  # Global counter for unique filenames across all runs
         self.current_run_id = None
+        self.current_run_stf_sequence = 0  # Per-run STF sequence counter
         self.DEBUG = debug
 
-        # Agent identity - create unique name with username and sequential ID
-        import getpass
-        username = getpass.getuser()
-        agent_id = self.get_next_agent_id()
-        self.agent_name = f'daq-simulator-{username}-{agent_id}'
-        self.agent_type = 'daqsim'
-        
-        # Monitor API configuration
+        # Monitor API configuration (needed before get_next_agent_id)
         self.monitor_url = os.getenv('SWF_MONITOR_URL', 'https://pandaserver02.sdcc.bnl.gov/swf-monitor')
         self.api_token = os.getenv('SWF_API_TOKEN')
         
@@ -87,12 +82,22 @@ class DAQSimulator:
             self.api_session.verify = False
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        
+
+        # Set up temporary logging (needed before get_next_agent_id)
+        self.logger = setup_rest_logging('daqsim-agent', 'temp-instance')
+
+        # Agent identity - create unique name with username and sequential ID
+        import getpass
+        username = getpass.getuser()
+        agent_id = self.get_next_agent_id()
+        self.agent_name = f'daq-simulator-{username}-{agent_id}'
+        self.agent_type = 'daqsim'
+
+        # Update logger with actual agent name
+        self.logger = setup_rest_logging('daqsim-agent', self.agent_name)
+
         # STF generation parameters
         self.stf_interval = 2  # STFs every 2 seconds during physics (~0.5Hz)
-        
-        # Set up centralized logging
-        self.logger = setup_rest_logging('daqsim-agent', 'daqsim-simulator-1')
         
         # Create output directories
         Path("daq_events").mkdir(exist_ok=True)
@@ -106,41 +111,11 @@ class DAQSimulator:
     
     def get_next_run_number(self):
         """Get the next run number from persistent state API."""
-        try:
-            url = f"{self.monitor_url}/api/state/next-run-number/"
-            response = self.api_session.post(url, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            if data.get('status') == 'success':
-                run_number = data.get('run_number')
-                self.logger.info(f"Got next run number from persistent state: {run_number}")
-                return str(run_number)  # Return as string for consistency
-            else:
-                raise RuntimeError(f"API returned error: {data.get('error', 'Unknown error')}")
-                
-        except Exception as e:
-            self.logger.error(f"Failed to get next run number from API: {e}")
-            raise RuntimeError(f"Critical failure getting run number: {e}") from e
+        return get_next_run_number(self.monitor_url, self.api_session, self.logger)
 
     def get_next_agent_id(self):
         """Get the next agent ID from persistent state API."""
-        try:
-            url = f"{self.monitor_url}/api/state/next-agent-id/"
-            response = self.api_session.post(url, timeout=10)
-            response.raise_for_status()
-
-            data = response.json()
-            if data.get('status') == 'success':
-                agent_id = data.get('agent_id')
-                self.logger.info(f"Got next agent ID from persistent state: {agent_id}")
-                return str(agent_id)  # Return as string for consistency
-            else:
-                raise RuntimeError(f"API returned error: {data.get('error', 'Unknown error')}")
-
-        except Exception as e:
-            self.logger.error(f"Failed to get next agent ID from API: {e}")
-            raise RuntimeError(f"Critical failure getting agent ID: {e}") from e
+        return get_next_agent_id(self.monitor_url, self.api_session, self.logger)
         
     def setup_activemq(self):
         """Setup connection to ActiveMQ broker using same pattern as base_agent"""
@@ -250,6 +225,9 @@ class DAQSimulator:
                         extra={"simulation_tick": self.env.now, "state": "beam", "substate": "not_ready"})
         self.current_run_id = self.get_next_run_number()
         
+        # Reset STF sequence counter for new run
+        self.current_run_stf_sequence = 0
+
         # Broadcast run imminent message
         yield self.env.process(self.broadcast_run_imminent())
         yield self.env.timeout(5)  # 5 seconds
@@ -302,6 +280,8 @@ class DAQSimulator:
             "run_id": self.current_run_id,
             "timestamp": datetime.now().isoformat(),
             "simulation_tick": self.env.now,
+            "state": "beam",
+            "substate": "not_ready",
             "run_conditions": {
                 "beam_energy": "5 GeV",
                 "magnetic_field": "1.5T",
@@ -435,7 +415,8 @@ class DAQSimulator:
     def generate_single_stf(self):
         """Generate single STF file and broadcast stf_gen message"""
         self.file_counter += 1
-        filename = f"{self.current_run_id}_{self.file_counter:06d}.dat"
+        self.current_run_stf_sequence += 1
+        filename = f"swf.{self.current_run_id}.{self.current_run_stf_sequence:06d}.stf"
         
         # Create STF data file
         run_dir = Path("daq_data") / f"run_{self.current_run_id}"
@@ -462,10 +443,11 @@ class DAQSimulator:
             "checksum": f"sha256:mock_checksum_{self.file_counter:06d}",
             "start": start_time.strftime('%Y%m%d%H%M%S'),
             "end": end_time.strftime('%Y%m%d%H%M%S'),
+            "sequence": self.current_run_stf_sequence,
             "simulation_tick": self.env.now,
             "state": "run",
             "substate": "physics",
-            "comment": f"STF file {self.file_counter} generated during physics datataking"
+            "comment": f"STF file {self.current_run_stf_sequence} generated during physics datataking"
         }
         
         event_file = Path("daq_events") / f"stf_{self.current_run_id}_{self.file_counter:06d}_gen.json"
