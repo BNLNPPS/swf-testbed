@@ -50,7 +50,8 @@ class WorkflowRunner:
             config['parameters'].update(override_params)
 
         # Generate execution ID
-        execution_id = self._generate_execution_id(workflow_name)
+        executed_by = os.getenv('USER', 'unknown')
+        execution_id = self._generate_execution_id(workflow_name, executed_by)
 
         # Register/update workflow definition in database
         self._register_workflow_definition(
@@ -104,11 +105,11 @@ class WorkflowRunner:
         with open(config_file, 'rb') as f:
             return tomllib.load(f)
 
-    def _generate_execution_id(self, workflow_name: str) -> str:
+    def _generate_execution_id(self, workflow_name: str, executed_by: str) -> str:
         """Generate human-readable execution ID"""
         # Get next ID from persistent state API
         response = self.api_session.post(
-            f"{self.monitor_url}/api/persistent-state/next-workflow-execution-id/",
+            f"{self.monitor_url}/api/state/next-workflow-execution-id/",
             json={'workflow_name': workflow_name}
         )
 
@@ -116,55 +117,153 @@ class WorkflowRunner:
             data = response.json()
             sequence = data.get('sequence', 1)
         else:
-            # Fallback if API unavailable
-            import random
-            sequence = random.randint(1000, 9999)
+            # NO RANDOM FALLBACK - get proper count from database
+            print(f"WARNING: Persistent state API failed: {response.status_code}")
+            count_response = self.api_session.get(
+                f"{self.monitor_url}/api/workflow-executions/",
+                params={'workflow_name': workflow_name}
+            )
+            if count_response.status_code == 200:
+                count_data = count_response.json()
+                if isinstance(count_data, dict) and 'results' in count_data:
+                    sequence = len(count_data['results']) + 1
+                elif isinstance(count_data, list):
+                    sequence = len(count_data) + 1
+                else:
+                    sequence = 1
+            else:
+                print(f"ERROR: Cannot get execution count: {count_response.status_code}")
+                raise Exception(f"Failed to generate execution ID - API unavailable")
 
-        # Format: workflow-YYYYMMDD-NNNN
-        date_str = datetime.now().strftime('%Y%m%d')
-        return f"{workflow_name}-{date_str}-{sequence:04d}"
+        # Format: workflow-username-NNNN
+        return f"{workflow_name}-{executed_by}-{sequence:04d}"
 
     def _register_workflow_definition(self, name: str, version: str, code: str, config: Dict[str, Any]):
         """Register or update workflow definition in database"""
+        print(f"Attempting to register workflow definition: {name} v{version}")
+        print(f"Monitor URL: {self.monitor_url}")
+
+        # Check if workflow definition already exists
+        check_url = f"{self.monitor_url}/api/workflow-definitions/"
+        print(f"Checking for existing definition at: {check_url}")
+        check_response = self.api_session.get(
+            check_url,
+            params={'workflow_name': name, 'version': version}
+        )
+        print(f"Check response status: {check_response.status_code}")
+
         payload = {
             'workflow_name': name,
             'version': version,
             'workflow_type': 'simulation',
-            'workflow_code': code,
-            'workflow_config': json.dumps(config),
+            'definition': code,
+            'parameter_values': config,
             'created_by': os.getenv('USER', 'unknown'),
             'created_at': datetime.now().isoformat()
         }
 
-        # Upsert workflow definition
-        response = self.api_session.post(
-            f"{self.monitor_url}/api/workflow-definitions/upsert/",
-            json=payload
-        )
+        if check_response.status_code == 200:
+            definitions = check_response.json()
+            existing_definition = None
+
+            # Handle both list and paginated response formats
+            if isinstance(definitions, list):
+                existing_definition = definitions[0] if definitions else None
+            else:
+                results = definitions.get('results', [])
+                existing_definition = results[0] if results else None
+
+            if existing_definition:
+                # Update existing definition
+                definition_id = existing_definition['id']
+                response = self.api_session.put(
+                    f"{self.monitor_url}/api/workflow-definitions/{definition_id}/",
+                    json=payload
+                )
+            else:
+                # Create new definition
+                response = self.api_session.post(
+                    f"{self.monitor_url}/api/workflow-definitions/",
+                    json=payload
+                )
+        else:
+            # Create new definition
+            response = self.api_session.post(
+                f"{self.monitor_url}/api/workflow-definitions/",
+                json=payload
+            )
 
         if response.status_code not in [200, 201]:
-            print(f"Warning: Failed to register workflow definition: {response.status_code}")
+            print(f"Error: Failed to register workflow definition: {response.status_code}")
+            try:
+                error_detail = response.json()
+                print(f"API error response: {error_detail}")
+            except:
+                print(f"Raw response: {response.text}")
+            raise Exception(f"Failed to register workflow definition: {response.status_code}")
+
+        return response.json()
 
     def _create_execution_record(self, execution_id: str, workflow_name: str,
                                  workflow_version: str, parameters: Dict[str, Any]):
         """Create workflow execution record"""
+        print(f"Creating execution record: {execution_id}")
+
+        # Get workflow definition ID
+        def_response = self.api_session.get(
+            f"{self.monitor_url}/api/workflow-definitions/",
+            params={'workflow_name': workflow_name, 'version': workflow_version}
+        )
+        print(f"Definition lookup response: {def_response.status_code}")
+
+        if def_response.status_code != 200:
+            print(f"Warning: Could not find workflow definition for {workflow_name} v{workflow_version}")
+            return
+
+        definitions = def_response.json()
+        if not definitions:
+            print(f"Warning: No workflow definition found for {workflow_name} v{workflow_version}")
+            return
+
+        # Handle both list and paginated response formats
+        if isinstance(definitions, list):
+            if not definitions:
+                print(f"Warning: No workflow definition found for {workflow_name} v{workflow_version}")
+                return
+            workflow_definition_id = definitions[0]['id']
+        else:
+            results = definitions.get('results', [])
+            if not results:
+                print(f"Warning: No workflow definition found for {workflow_name} v{workflow_version}")
+                return
+            workflow_definition_id = results[0]['id']
+
         payload = {
             'execution_id': execution_id,
-            'workflow_name': workflow_name,
-            'workflow_version': workflow_version,
+            'workflow_definition': workflow_definition_id,
             'status': 'running',
             'executed_by': os.getenv('USER', 'unknown'),
             'start_time': datetime.now().isoformat(),
             'parameter_values': parameters
         }
 
+        print(f"Posting execution to: {self.monitor_url}/api/workflow-executions/")
         response = self.api_session.post(
             f"{self.monitor_url}/api/workflow-executions/",
             json=payload
         )
+        print(f"Execution creation response: {response.status_code}")
 
         if response.status_code not in [200, 201]:
-            print(f"Warning: Failed to create execution record: {response.status_code}")
+            print(f"Error: Failed to create execution record: {response.status_code}")
+            try:
+                error_detail = response.json()
+                print(f"API error response: {error_detail}")
+            except:
+                print(f"Raw response: {response.text}")
+            raise Exception(f"Failed to create execution record: {response.status_code}")
+
+        print(f"Successfully created execution: {execution_id}")
 
     def _execute_workflow(self, execution_id: str, workflow_code: str,
                          parameters: Dict[str, Any], duration: float):

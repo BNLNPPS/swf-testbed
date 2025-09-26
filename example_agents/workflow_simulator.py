@@ -190,25 +190,6 @@ class WorkflowSimulatorAgent(BaseAgent):
         from datetime import datetime
         return datetime.now()
 
-    def run_standalone_workflow(self):
-        """Run workflow in standalone mode (not as persistent agent)"""
-        try:
-            self.logger.info(f"Running standalone workflow: {self.workflow_name}")
-
-            # Execute workflow directly
-            self.execution_id = self.workflow_runner.run_workflow(
-                workflow_name=self.workflow_name,
-                config_name=self.config_name,
-                duration=self.duration,
-                **self.workflow_params
-            )
-
-            self.logger.info(f"Standalone workflow completed: {self.execution_id}")
-            return self.execution_id
-
-        except Exception as e:
-            self.logger.error(f"Standalone workflow execution failed: {e}")
-            raise
 
 
 def main():
@@ -217,7 +198,6 @@ def main():
     parser.add_argument('workflow_name', help='Name of the workflow to execute')
     parser.add_argument('--config', help='Configuration file name')
     parser.add_argument('--duration', type=float, default=3600, help='Simulation duration in seconds')
-    parser.add_argument('--standalone', action='store_true', help='Run workflow without agent infrastructure')
     parser.add_argument('--physics-period-count', type=int, help='Override physics period count')
     parser.add_argument('--physics-period-duration', type=float, help='Override physics period duration')
     parser.add_argument('--stf-interval', type=float, help='Override STF interval')
@@ -241,18 +221,23 @@ def main():
         **workflow_params
     )
 
-    if args.standalone:
-        # Run workflow directly without agent infrastructure
-        try:
-            execution_id = simulator.run_standalone_workflow()
-            print(f"✅ Workflow completed successfully: {execution_id}")
-        except Exception as e:
-            print(f"❌ Workflow failed: {e}")
-            sys.exit(1)
-    else:
-        # Run as persistent agent
-        simulator.logger.info(f"Starting workflow simulator agent for: {args.workflow_name}")
-        simulator.run()
+    # Run workflow directly
+    try:
+        simulator.logger.info(f"Starting workflow execution: {args.workflow_name}")
+
+        # Execute workflow
+        execution_id = simulator.workflow_runner.run_workflow(
+            workflow_name=args.workflow_name,
+            config_name=args.config,
+            duration=args.duration,
+            **workflow_params
+        )
+
+        simulator.logger.info(f"Workflow completed successfully: {execution_id}")
+
+    except Exception as e:
+        simulator.logger.error(f"Workflow execution failed: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
