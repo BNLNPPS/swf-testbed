@@ -158,6 +158,34 @@ The testbed uses a global sequential agent ID system to ensure unique agent iden
 
 This replaces the previous random suffix approach and ensures long-term uniqueness as the system scales.
 
+### Workflow Definition Architecture
+
+The testbed implements a three-layer workflow architecture to support both complex orchestration and agile parameter experimentation:
+
+**Layer 1: Snakemake (Complex Workflows)**
+- For complex multi-facility workflows with dependencies
+- Handles orchestration-heavy scenarios (e.g., calibration workflows)
+- Integrates with PanDA for distributed execution
+- Used when workflow logic involves conditional execution and complex dependencies
+
+**Layer 2: TOML Configuration (Parameter Management)**
+- Human-readable parameter definitions for workflow variants
+- Supports systematic experimentation and comparison
+- Version control friendly for tracking parameter evolution
+- Enables rapid iteration on workflow configurations
+
+**Layer 3: Python + SimPy (Execution Engine)**
+- Direct SimPy integration for simulation and execution
+- Native Python expressiveness for workflow logic
+- Real-time parameter-driven execution
+- Optimized for fast processing workflows requiring rapid experimentation
+
+**Workflow Type Classification:**
+- **Fast Processing Workflows**: Use TOML + Python+SimPy (Layers 2 & 3) for rapid experimentation with worker counts, processing targets, and sampling rates
+- **Complex Orchestration Workflows**: Use all three layers when sophisticated dependency management and multi-facility coordination are required
+
+This architecture maintains testbed agility while supporting both simple parameter experiments and complex production-like workflows.
+
 The following diagram shows the testbed's agent-based architecture and data flows:
 
 ```mermaid
