@@ -1,101 +1,93 @@
-# Workflow Implementation Guide
+# Workflow Orchestration Framework
 
-## Fast Processing Workflows (TOML + Python+SimPy)
+## Overview
 
-### Configuration Format
+The Workflow Orchestration Framework provides a structured approach for defining, executing, and monitoring complex multi-step processes using TOML configuration, Python+SimPy execution logic, and database persistence.
+
+## Configuration Format
 ```toml
-# workflows/epic_fast_10_workers.toml
+# workflows/stf_processing_default.toml
 [workflow]
-name = "epic_fast_processing"
+name = "stf_processing"
 version = "1.0"
 
 [parameters]
-worker_count = 10
-stf_interval_sec = 2.0
-target_processing_sec = 30
-sample_fraction = 0.1
-physics_duration_min = 60
-
-[infrastructure]
-activemq_streams = 10
-node_parallelism = 10
-retry_max_attempts = 3
+no_beam_not_ready_delay = 10
+broadcast_delay = 1
+beam_not_ready_delay = 5
+beam_ready_delay = 2
+physics_period_count = 3
+physics_period_duration = 180
+standby_duration = 30
+beam_not_ready_end_delay = 5
+stf_interval = 2
+stf_generation_time = 0.1
 ```
 
-### STF Processing Workflow (Current DAQ Pattern)
+## STF Processing Workflow Implementation
+
+The reference implementation demonstrates the complete DAQ cycle with state transitions:
+
 ```python
 # workflows/stf_processing.py
 class WorkflowExecutor:
     def __init__(self, parameters):
         self.parameters = parameters
+        self.stf_sequence = 0
 
     def execute(self, env):
-        yield from self.run_daq_cycle(env)
+        # State 1: no_beam / not_ready (Collider not operating)
+        yield env.timeout(self.parameters['no_beam_not_ready_delay'])
 
-    def run_daq_cycle(self, env):
-        """Complete DAQ cycle following current state transitions"""
-        yield from self.broadcast_run_imminent(env)
-        yield from self.broadcast_run_start(env)
-        yield from self.generate_stfs_during_physics(env)
-        yield from self.broadcast_run_end(env)
+        # State 2: beam / not_ready (Run start imminent) + broadcast run imminent
+        yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_run_imminent
+        yield env.timeout(self.parameters['beam_not_ready_delay'])
 
-    def broadcast_run_imminent(self, env):
-        # Send run_imminent message
-        yield env.timeout(1)
+        # State 3: beam / ready (Ready for physics)
+        yield env.timeout(self.parameters['beam_ready_delay'])
 
-    def broadcast_run_start(self, env):
-        # Send start_run message
-        yield env.timeout(1)
+        # Physics periods loop with standby between them
+        period = 0
+        while self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
+            # Broadcast appropriate message
+            if period == 0:
+                yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_run_start
+            else:
+                yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_resume_run
 
-    def generate_stfs_during_physics(self, env):
-        interval = self.parameters.get('stf_interval_sec', 2.0)
-        duration = self.parameters.get('physics_duration_min', 60) * 60
+            # STF generation during physics
+            yield from self.generate_stfs_during_physics(env, self.parameters['physics_period_duration'])
 
+            period += 1
+
+            # Standby between physics periods (always for infinite mode, except after last for finite mode)
+            if self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
+                yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_pause_run
+                yield env.timeout(self.parameters['standby_duration'])
+
+        # State 7: beam / not_ready + broadcast run end
+        yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_run_end
+        yield env.timeout(self.parameters['beam_not_ready_end_delay'])
+
+    def generate_stfs_during_physics(self, env, duration_seconds):
+        interval = self.parameters['stf_interval']
         start_time = env.now
-        while env.now - start_time < duration:
-            yield env.timeout(interval)
-            yield from self.generate_stf(env)
 
-    def broadcast_run_end(self, env):
-        # Send end_run message
-        yield env.timeout(1)
+        while (env.now - start_time) < duration_seconds:
+            yield from self.generate_single_stf(env)
 
-    def generate_stf(self, env):
-        # Generate STF and send stf_gen message
-        yield env.timeout(0.1)
+            # Only wait for interval if not at end of physics period
+            if (env.now - start_time) < duration_seconds:
+                yield env.timeout(interval)
+
+    def generate_single_stf(self, env):
+        self.stf_sequence += 1
+        generation_time = self.parameters['stf_generation_time']
+        yield env.timeout(generation_time)
 ```
 
-### Fast Processing Workflow
-```python
-# workflows/fast_processing.py
-class WorkflowExecutor:
-    def __init__(self, parameters):
-        self.parameters = parameters
 
-    def execute(self, env):
-        yield from self.run_preparation_phase(env)
-        yield from self.stf_generation_loop(env)
-
-    def run_preparation_phase(self, env):
-        worker_count = self.parameters['worker_count']
-        # Setup workers and streams
-        yield env.timeout(1)
-
-    def stf_generation_loop(self, env):
-        interval = self.parameters['stf_interval_sec']
-        duration = self.parameters['physics_duration_min'] * 60
-
-        start_time = env.now
-        while env.now - start_time < duration:
-            yield env.timeout(interval)
-            yield from self.generate_stf_with_workers(env)
-
-    def generate_stf_with_workers(self, env):
-        # STF generation with worker assignment
-        yield env.timeout(0.1)
-```
-
-## Workflow Management
+## Workflow Management Framework
 
 ### Database Models
 ```python
@@ -113,136 +105,70 @@ class WorkflowDefinition(models.Model):
         unique_together = ('workflow_name', 'version')
 
 class WorkflowExecution(models.Model):
-    execution_id = models.CharField(primary_key=True, max_length=100)  # e.g. "epic-fast-wenauseic-123"
+    execution_id = models.CharField(primary_key=True, max_length=100)  # e.g. "stf_processing-wenauseic-0001"
     workflow_definition = models.ForeignKey(WorkflowDefinition, on_delete=CASCADE)
     parameter_values = models.JSONField()  # Actual values used for this execution
     performance_metrics = models.JSONField(null=True)
+    execution_environment = models.JSONField(null=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(null=True)
     status = models.CharField(max_length=20)  # running, completed, failed
     executed_by = models.CharField(max_length=100)
+    error_message = models.TextField(null=True)
+    stack_trace = models.TextField(null=True)
 ```
 
-### Command Line Interface
-```bash
-# Run workflow by name - auto-registers if not in DB
-swf-testbed run-workflow stf_processing --version 1.0
+### Running Workflows
 
-# Override specific parameters
-swf-testbed run-workflow epic_fast_processing --version 1.0 --worker-count 25
+The `WorkflowRunner` class provides the execution engine:
 
-# Use local TOML file (takes priority over DB)
-swf-testbed run-workflow epic_fast_processing --config ./my_config.toml
-```
-
-### Dynamic Workflow Loading with Auto-Registration
 ```python
-# workflows/workflow_runner.py
-class WorkflowRunner:
-    def run_by_name(self, workflow_name, version, parameter_overrides=None):
-        try:
-            # Try to get workflow definition from database
-            definition = WorkflowDefinition.objects.get(
-                workflow_name=workflow_name,
-                version=version
-            )
-        except WorkflowDefinition.DoesNotExist:
-            # Auto-register workflow from file
-            definition = self.register_workflow_from_file(workflow_name, version)
+from workflows.workflow_runner import WorkflowRunner
 
-        # Load parameter values (DB defaults + overrides)
-        parameters = definition.parameter_values.copy()
-        if parameter_overrides:
-            parameters.update(parameter_overrides)
+# Initialize with monitor URL and optional authentication
+runner = WorkflowRunner(monitor_url="http://localhost:8002")
 
-        # Execute workflow definition code dynamically
-        workflow_code = definition.definition
-        exec_globals = {'simpy': simpy}
-        exec(workflow_code, exec_globals)
+# Run workflow with default configuration
+execution_id = runner.run_workflow('stf_processing')
 
-        # Instantiate workflow
-        workflow_class = exec_globals['WorkflowExecutor']
-        executor = workflow_class(parameters)
-
-        # Create execution record
-        execution_id = self.generate_execution_id(workflow_name)
-        execution = WorkflowExecution.objects.create(
-            execution_id=execution_id,
-            workflow_definition=definition,
-            parameter_values=parameters,
-            start_time=timezone.now(),
-            status='running',
-            executed_by=getpass.getuser()
-        )
-
-        return executor
-
-    def register_workflow_from_file(self, workflow_name, version):
-        """Auto-register workflow from workflows/ directory"""
-        workflow_file = f"workflows/{workflow_name}.py"
-        config_file = f"workflows/{workflow_name}_default.toml"
-
-        with open(workflow_file) as f:
-            definition_code = f.read()
-
-        if os.path.exists(config_file):
-            with open(config_file) as f:
-                parameter_values = toml.load(f)
-        else:
-            parameter_values = {}
-
-        definition = WorkflowDefinition.objects.create(
-            workflow_name=workflow_name,
-            version=version,
-            workflow_type=workflow_name,
-            definition=definition_code,
-            parameter_values=parameter_values,
-            created_by=getpass.getuser()
-        )
-        return definition
-
-def generate_execution_id(workflow_name):
-    """Generate human-readable execution ID like agent IDs"""
-    username = getpass.getuser()
-    next_id = get_next_execution_id()  # From persistent state
-    return f"{workflow_name}-{username}-{next_id}"
+# Override parameters
+execution_id = runner.run_workflow(
+    'stf_processing',
+    duration=7200,  # 2 hours
+    physics_period_count=5,
+    stf_interval=1.5
+)
 ```
+
+### Execution ID Generation
+
+Workflow executions use human-readable IDs following the pattern:
+```
+workflow-username-NNNN
+```
+
+For example: `stf_processing-wenauseic-0001`
+
+The sequence numbers are generated atomically via the monitor API to ensure uniqueness.
 
 ## Directory Structure
 ```
 workflows/
-├── stf_processing.py                    # Current DAQ workflow pattern
-├── stf_processing_default.toml          # Default parameters for STF processing
-├── epic_fast_10_workers.toml
-├── epic_fast_25_workers.toml
-├── epic_fast_50_workers.toml
-├── fast_processing.py
-├── workflow_runner.py
-└── config_validator.py
+├── stf_processing.py                    # STF processing workflow implementation
+├── stf_processing_default.toml          # Default parameters
+└── workflow_runner.py                   # Workflow execution engine
 ```
 
-## New Workflow Simulator
-```python
-# example_agents/workflow_simulator.py
-class WorkflowSimulator:
-    def __init__(self, env, workflow_name, version=None, config_file=None):
-        self.env = env
-        self.runner = WorkflowRunner()
+## Web Interface
 
-        if config_file:
-            # Use local TOML file (takes priority)
-            self.config = toml.load(config_file)
-            self.workflow_executor = self.load_from_config()
-        else:
-            # Load workflow from database (auto-registers if needed)
-            self.workflow_executor = self.runner.run_by_name(workflow_name, version)
+The monitor provides web-based workflow management:
 
-    def run_simulation(self):
-        """Run simulation using loaded workflow"""
-        yield from self.workflow_executor.execute(self.env)
+- **Workflow Definitions**: View and manage workflow templates at `/workflows/`
+- **Workflow Executions**: Monitor execution instances and their status
+- **Execution Details**: View parameters, duration, and performance metrics
 
-    def load_from_config(self):
-        # Load workflow definition based on config
-        workflow_name = self.config['workflow']['name']
-        return self.runner.load_workflow_from_config(self.config)
-```
+All workflow code and configuration data is displayed with syntax highlighting for improved readability.
+
+## Integration with Agent Infrastructure
+
+Workflows integrate seamlessly with the existing agent-based messaging system while providing structured execution patterns for complex multi-step processes.
