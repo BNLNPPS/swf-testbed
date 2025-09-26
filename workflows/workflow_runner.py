@@ -140,17 +140,12 @@ class WorkflowRunner:
 
     def _register_workflow_definition(self, name: str, version: str, code: str, config: Dict[str, Any]):
         """Register or update workflow definition in database"""
-        print(f"Attempting to register workflow definition: {name} v{version}")
-        print(f"Monitor URL: {self.monitor_url}")
-
         # Check if workflow definition already exists
         check_url = f"{self.monitor_url}/api/workflow-definitions/"
-        print(f"Checking for existing definition at: {check_url}")
         check_response = self.api_session.get(
             check_url,
             params={'workflow_name': name, 'version': version}
         )
-        print(f"Check response status: {check_response.status_code}")
 
         payload = {
             'workflow_name': name,
@@ -207,14 +202,11 @@ class WorkflowRunner:
     def _create_execution_record(self, execution_id: str, workflow_name: str,
                                  workflow_version: str, parameters: Dict[str, Any]):
         """Create workflow execution record"""
-        print(f"Creating execution record: {execution_id}")
-
         # Get workflow definition ID
         def_response = self.api_session.get(
             f"{self.monitor_url}/api/workflow-definitions/",
             params={'workflow_name': workflow_name, 'version': workflow_version}
         )
-        print(f"Definition lookup response: {def_response.status_code}")
 
         if def_response.status_code != 200:
             print(f"Warning: Could not find workflow definition for {workflow_name} v{workflow_version}")
@@ -247,12 +239,10 @@ class WorkflowRunner:
             'parameter_values': parameters
         }
 
-        print(f"Posting execution to: {self.monitor_url}/api/workflow-executions/")
         response = self.api_session.post(
             f"{self.monitor_url}/api/workflow-executions/",
             json=payload
         )
-        print(f"Execution creation response: {response.status_code}")
 
         if response.status_code not in [200, 201]:
             print(f"Error: Failed to create execution record: {response.status_code}")
@@ -262,8 +252,6 @@ class WorkflowRunner:
             except:
                 print(f"Raw response: {response.text}")
             raise Exception(f"Failed to create execution record: {response.status_code}")
-
-        print(f"Successfully created execution: {execution_id}")
 
     def _execute_workflow(self, execution_id: str, workflow_code: str,
                          parameters: Dict[str, Any], duration: float):
@@ -286,8 +274,6 @@ class WorkflowRunner:
 
             # Run simulation for specified duration
             env.run(until=duration)
-
-            print(f"Workflow {execution_id} completed at simulation time {env.now}")
         else:
             raise ValueError("WorkflowExecutor class not found in workflow code")
 
