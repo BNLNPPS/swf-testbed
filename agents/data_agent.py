@@ -5,6 +5,20 @@
 #
 # Main functionality is to create Rucio datasets and register files to
 # these datasets. Then, to notify the processing agent that the data is ready.
+# 
+# It uses the mq_comms and rucio_comms packages for MQ and Rucio operations.
+#
+# Datasets are created upon receiving the run_imminent message.
+# Files are registered upon receiving the stf_gen message.
+#
+# The run_id and dataset name are extracted from the run_imminent message.
+# The data folder is defined globally.
+# The Rucio scope and RSE are defined globally.
+# The file is attached to the dataset after it is uploaded to Rucio.
+# The file metadata is set upon registration.
+# The file is registered under the provided Rucio scope.
+# The dataset is created under the provided Rucio scope.
+#
 # ###############################################################################
 
 import os, sys, time, json
@@ -196,10 +210,9 @@ class DATA:
         
         if self.verbose: print(F'''*** Processing run_imminent message for run {run_id}***''')
         
-        self.run_id = run_id
-        self.dataset = message_data.get('dataset')
-
-        self.folder = f"{self.data_folder}/{self.dataset}"
+        self.run_id     = run_id
+        self.dataset    = message_data.get('dataset')
+        self.folder     = f"{self.data_folder}/{self.dataset}"
             
         lifetime = 1 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
