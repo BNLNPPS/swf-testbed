@@ -21,6 +21,9 @@
 #
 # ###############################################################################
 
+xrd_server = 'root://dcintdoor.sdcc.bnl.gov:1094/'
+xrd_folder = '/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/'
+
 import os, sys, time, json
 
 from rucio.client.didclient import DIDClient
@@ -35,22 +38,28 @@ class DATA:
         these datasets. Then, to notify the processing agent that the data is ready.
     '''
 
-    def __init__(self, verbose: bool = False,
+    def __init__(self,
+                verbose:        bool = False,
+                xrdup:          bool = False,
                 rucio_scope:    str  = '',
                 data_folder:    str  = '',
                 rse:            str  = ''):
         ''' Initialize the DATA class.
             Parameters:
                 verbose (bool): Verbose mode
+                xrdup (bool): Use XRootD for upload instead of Rucio
                 rucio_scope (str): Rucio scope to use for datasets and files; if empty, no Rucio operations will be performed
                 data_folder (str): Folder where data files are located; if empty, no data will be uploaded
                 rse (str): RSE to target for upload; if empty, no data will be uploaded
         '''
         self.verbose            = verbose
+        self.xrdup              = xrdup
 
         self.rucio_client       = None
         self.rucio_upload_client= None
-
+        
+        self.fs                 = None # File system client, e.g. XRootD client
+        
         self.file_manager       = None
         self.dataset_manager    = None
 
@@ -68,6 +77,17 @@ class DATA:
         else:
             if self.verbose: print(f'''*** Rucio scope is set to {self.rucio_scope}, Rucio operations will be performed ***''')
             self.init_rucio()
+
+        if self.xrdup:
+            if self.verbose: print('*** XRootD upload mode is enabled, will use XRootD for upload ***')
+            from XRootD import client
+            self.fs = client.FileSystem(xrd_server)
+            status = self.fs.copy('/eic/u/eicmax/testbed/swf-data-agent/test/README.md', f'{xrd_server}{xrd_folder}/fff', force=False)
+            print(status)
+            exit(0)
+        else:
+            if self.verbose: print('*** XRootD upload mode is disabled, will use Rucio for upload ***') 
+
 
         if self.verbose: print(f'''*** DATA class initialized ***''')
 
@@ -265,6 +285,29 @@ class DATA:
             'did_name':     fn,
         }
 
+
+        if self.xrdup:
+            if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
+            # Here, implement the XRootD upload logic
+            # This is a placeholder for the actual XRootD upload code
+            try:
+                import subprocess
+                xrdcp_command = f"xrdcp {file_path} root://{self.rse}/{fn}"
+                if self.verbose: print(f"Executing command: {xrdcp_command}")
+                result = subprocess.run(xrdcp_command, shell=True, check=True)
+                if result.returncode == 0:
+                    if self.verbose: print(f"File {file_path} uploaded successfully to RSE {self.rse} using XRootD ***")
+                else:
+                    print(f"File {file_path} upload failed with return code {result.returncode}.")
+                    return None
+            except Exception as e:
+                print(f'*** Exception during XRootD upload: {e} ***')
+                return None
+
+        return None
+
+
+
         # The actual upload
         try:
             result = self.rucio_upload_client.upload([upload_spec])
@@ -288,6 +331,7 @@ class DATA:
         attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
                                
+        return None
 
 ############################################################################################
 # -- ATTIC --
