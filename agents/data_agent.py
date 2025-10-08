@@ -82,9 +82,6 @@ class DATA:
             if self.verbose: print('*** XRootD upload mode is enabled, will use XRootD for upload ***')
             from XRootD import client
             self.fs = client.FileSystem(xrd_server)
-            status = self.fs.copy('/eic/u/eicmax/testbed/swf-data-agent/test/README.md', f'{xrd_server}{xrd_folder}/fff', force=False)
-            print(status)
-            exit(0)
         else:
             if self.verbose: print('*** XRootD upload mode is disabled, will use Rucio for upload ***') 
 
@@ -288,42 +285,24 @@ class DATA:
 
         if self.xrdup:
             if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
-            # Here, implement the XRootD upload logic
-            # This is a placeholder for the actual XRootD upload code
-            try:
-                import subprocess
-                xrdcp_command = f"xrdcp {file_path} root://{self.rse}/{fn}"
-                if self.verbose: print(f"Executing command: {xrdcp_command}")
-                result = subprocess.run(xrdcp_command, shell=True, check=True)
-                if result.returncode == 0:
-                    if self.verbose: print(f"File {file_path} uploaded successfully to RSE {self.rse} using XRootD ***")
-                else:
-                    print(f"File {file_path} upload failed with return code {result.returncode}.")
-                    return None
-            except Exception as e:
-                print(f'*** Exception during XRootD upload: {e} ***')
-                return None
-
-        return None
-
-
-
-        # The actual upload
-        try:
-            result = self.rucio_upload_client.upload([upload_spec])
-        except Exception as e:
-            print(f'*** Exception during upload: {e} ***')
-            return None
-        if result == 0:
-            if self.verbose: print(f"File {file_path} uploaded successfully to Rucio under scope {self.rucio_scope} ***")
+            status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{fn}', force=False)
+            print(f"{status}")
         else:
-            print(f"File {file_path} upload failed.")
-            return None
+            # Rucio upload
+            try:
+                result = self.rucio_upload_client.upload([upload_spec])
+            except Exception as e:
+                print(f'*** Exception during upload: {e} ***')
+                return None
+            if result == 0:
+                if self.verbose: print(f"File {file_path} uploaded successfully to Rucio under scope {self.rucio_scope} ***")
+            else:
+                print(f"File {file_path} upload failed.")
+                return None
 
 
         # N.B. Rucio does not accespt large integers.
         did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
-
 
         # Attach the file to the open dataset
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
