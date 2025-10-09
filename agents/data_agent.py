@@ -26,9 +26,14 @@ xrd_folder = '/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/'
 
 import os, sys, time, json
 
+
+# Rucio imports
+from rucio.client.client import Client
+from rucio.client.replicaclient import ReplicaClient
 from rucio.client.didclient import DIDClient
-# Initialize the DIDClient
-did_client = DIDClient()
+from rucio.common.exception import DataIdentifierAlreadyExists, RSENotFound
+
+from rucio_comms.utils import calculate_adler32_from_file, register_file_on_rse
 
 #################################################################################
 class DATA:
@@ -57,7 +62,8 @@ class DATA:
 
         self.rucio_client       = None
         self.rucio_upload_client= None
-        
+        self.rucio_did_client   = None
+        self.rucio_replica_client= None
         self.fs                 = None # File system client, e.g. XRootD client
         
         self.file_manager       = None
@@ -86,7 +92,7 @@ class DATA:
             if self.verbose: print('*** XRootD upload mode is disabled, will use Rucio for upload ***') 
 
 
-        if self.verbose: print(f'''*** DATA class initialized ***''')
+        if self.verbose: print(f'''*** DATA class initialized. RSE: {self.rse} ***''')
 
     # ---
     def init_rucio(self):
@@ -102,6 +108,7 @@ class DATA:
         except KeyError:
             if self.verbose: print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
 
+        from rucio_comms import DatasetManager, RucioClient, UploadClient, FileManager
         # ---
         try:
             from rucio_comms import DatasetManager, RucioClient, UploadClient, FileManager
@@ -114,12 +121,14 @@ class DATA:
         # A Rucio client will be needed for any operation with Rucio
         if self.verbose: print(f'''*** Instantiating the RucioClient and UploadClient ***''')
         try:
-            self.rucio_client = RucioClient()
-            self.rucio_upload_client = UploadClient(self.rucio_client)
+            self.rucio_client           = RucioClient()
+            self.rucio_upload_client    = UploadClient(self.rucio_client)
+            self.rucio_did_client       = DIDClient()
+            self.rucio_replica_client   = ReplicaClient()
             
-            if self.verbose: print(f'''*** Successfully instantiated the RucioClient and UploadClient ***''')
+            if self.verbose: print(f'''*** Successfully instantiated the RucioClient, UploadClient, ReplicaClient and DIDClient***''')
         except Exception as e:
-            print(f'*** Failed to instantiate the RucioClient and UploadClient: {e}, exiting... ***')
+            print(f'*** Failed to instantiate the RucioClient, UploadClient and DIDClient: {e}, exiting... ***')
             exit(-1)
 
         # A Dataset Manager will be needed for any operation with Rucio datasets
@@ -139,6 +148,12 @@ class DATA:
         except Exception as e:
             print(f'*** Failed to instantiate the File Manager: {e}, exiting... ***')
             exit(-1)
+
+        # if self.xrdup:
+        #     from rucio_comms.utils import calculate_adler32_from_file, register_file_on_rse
+        #     x = calculate_adler32_from_file('README.md')
+        #     print(f'Adler-32 checksum of the file README.md is {x}')
+        #     register_file_on_rse(self.rucio_client, self.rse, self.rucio_scope, "path", name)
 
 
     # ---
@@ -207,6 +222,7 @@ class DATA:
             message_data = json.loads(msg)
             msg_type = message_data.get('msg_type')
             
+            print(f'===================================> {msg_type}')
             if msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
             elif msg_type == 'run_imminent':
@@ -282,13 +298,18 @@ class DATA:
             'did_name':     fn,
         }
 
-
-        if self.xrdup:
+        # Upload the file using either XRootD or Rucio
+        if self.xrdup: # XRootD upload
             if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
-            status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{fn}', force=False)
+            status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{fn}', force=False) # force=True to overwrite
             print(f"{status}")
-        else:
-            # Rucio upload
+
+            register_file_on_rse(
+                self,
+                file_path,
+                fn)
+            return None
+        else:          # Rucio upload
             try:
                 result = self.rucio_upload_client.upload([upload_spec])
             except Exception as e:
@@ -301,8 +322,8 @@ class DATA:
                 return None
 
 
-        # N.B. Rucio does not accespt large integers.
-        did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
+        # N.B. Rucio does not accept large integers so mind the run ID
+        self.did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
 
         # Attach the file to the open dataset
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
