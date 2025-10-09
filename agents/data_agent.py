@@ -222,7 +222,7 @@ class DATA:
             message_data = json.loads(msg)
             msg_type = message_data.get('msg_type')
             
-            print(f'===================================> {msg_type}')
+            # print(f'===================================> {msg_type}')
             if msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
             elif msg_type == 'run_imminent':
@@ -308,7 +308,7 @@ class DATA:
                 self,
                 file_path,
                 fn)
-            return None
+            # return None
         else:          # Rucio upload
             try:
                 result = self.rucio_upload_client.upload([upload_spec])
@@ -323,7 +323,7 @@ class DATA:
 
 
         # N.B. Rucio does not accept large integers so mind the run ID
-        self.did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
+        self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
 
         # Attach the file to the open dataset
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
