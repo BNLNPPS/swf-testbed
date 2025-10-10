@@ -19,6 +19,8 @@
 # The file is registered under the provided Rucio scope.
 # The dataset is created under the provided Rucio scope.
 #
+# Operations specific to XRootD upload mode are marked in the code.
+#
 # ###############################################################################
 
 xrd_server = 'root://dcintdoor.sdcc.bnl.gov:1094/'
@@ -57,24 +59,24 @@ class DATA:
                 data_folder (str): Folder where data files are located; if empty, no data will be uploaded
                 rse (str): RSE to target for upload; if empty, no data will be uploaded
         '''
-        self.verbose            = verbose
-        self.xrdup              = xrdup
+        self.verbose                = verbose
+        self.xrdup                  = xrdup
 
-        self.rucio_client       = None
-        self.rucio_upload_client= None
-        self.rucio_did_client   = None
-        self.rucio_replica_client= None
-        self.fs                 = None # File system client, e.g. XRootD client
+        self.rucio_client           = None
+        self.rucio_upload_client    = None
+        self.rucio_did_client       = None
+        self.rucio_replica_client   = None
+        self.fs                     = None # File system client, e.g. XRootD client
         
-        self.file_manager       = None
-        self.dataset_manager    = None
+        self.file_manager           = None
+        self.dataset_manager        = None
 
-        self.rucio_scope        = rucio_scope
-        self.data_folder        = data_folder    # if empty, no data will be uploaded
-        self.run_id             = None              # current run ID, to be set upon receiving the run_imminent message
-        self.dataset            = ''                # current dataset name, to be set upon receiving the run_imminent message
-        self.folder             = ''                # the actual folder for the current run, to be accessed later
-        self.rse                = rse               # RSE to target for upload
+        self.rucio_scope            = rucio_scope
+        self.data_folder            = data_folder    # if empty, no data will be uploaded
+        self.run_id                 = None              # current run ID, to be set upon receiving the run_imminent message
+        self.dataset                = ''                # current dataset name, to be set upon receiving the run_imminent message
+        self.folder                 = ''                # the actual folder for the current run, to be accessed later
+        self.rse                    = rse               # RSE to target for upload
 
 
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
@@ -149,13 +151,6 @@ class DATA:
             print(f'*** Failed to instantiate the File Manager: {e}, exiting... ***')
             exit(-1)
 
-        # if self.xrdup:
-        #     from rucio_comms.utils import calculate_adler32_from_file, register_file_on_rse
-        #     x = calculate_adler32_from_file('README.md')
-        #     print(f'Adler-32 checksum of the file README.md is {x}')
-        #     register_file_on_rse(self.rucio_client, self.rse, self.rucio_scope, "path", name)
-
-
     # ---
     def init_mq(self):
         ''' Initialize the MQ receiver to get messages from the DAQ simulator.
@@ -212,7 +207,7 @@ class DATA:
             if self.verbose:
                 print(f'''*** DATA class run method interrupted by the KeyboardInterrupt ***''')
     
-
+    # ---
     def on_message(self, msg):
         """
         Handles incoming DAQ messages (stf_gen, run_imminent, start_run, end_run).
@@ -220,9 +215,7 @@ class DATA:
 
         try:
             message_data = json.loads(msg)
-            msg_type = message_data.get('msg_type')
-            
-            # print(f'===================================> {msg_type}')
+            msg_type = message_data.get('msg_type') # print(f'===================================> {msg_type}')
             if msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
             elif msg_type == 'run_imminent':
@@ -236,8 +229,12 @@ class DATA:
         except Exception as e:
             print(f"CRITICAL: Message processing failed - {str(e)}")
 
+    # ---
     def handle_run_imminent(self, message_data):
-        """Handle run_imminent message - create dataset in Rucio"""
+        """
+        Handle run_imminent message - create dataset in Rucio.
+        If using XRootD upload mode, the dataset folder is created here.
+        """
         run_id = message_data.get('run_id')
         run_conditions = message_data.get('run_conditions', {})
         
@@ -256,18 +253,26 @@ class DATA:
         else:
             if self.verbose: print(f'*** Dataset {result["scope"]}:{result["name"]} created successfully with DUID: {result["duid"]} ***')
 
-
+        if self.xrdup: # XRootD upload
+            if self.verbose: print(f'''*** XRootD upload mode is enabled, will create a folder for dataset {self.dataset} ***''')
+            # Create the folder for the dataset using XRootD
+            status, _ = self.fs.mkdir(f"{xrd_folder}/{self.dataset}")
+            # FIXME: Check the status
+            if self.verbose: print(f'''*** Created folder {xrd_folder}/{self.dataset} using XRootD ***''')
+       
+    # ---
     def handle_start_run(self, message_data):
         """Handle start_run message"""
         run_id = message_data.get('run_id')
-        print("Processing start_run message for run_id:", run_id )
+        if self.verbose: print(f"*** Processing start_run message for run_id: {run_id} ***")
 
+    # ---
     def handle_end_run(self, message_data):
         """Handle end_run message"""
         run_id = message_data.get('run_id')
-        print("Processing end_run message for run_id:", run_id )
+        if self.verbose: print(f"*** Processing end_run message for run_id: {run_id} ***")
 
-
+    # ---
     def handle_stf_gen(self, message_data):
         fn = message_data.get('filename')
         if self.verbose: print(f"*** Handling STF generation for file: {fn} ***")
@@ -301,7 +306,7 @@ class DATA:
         # Upload the file using either XRootD or Rucio
         if self.xrdup: # XRootD upload
             if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
-            status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{fn}', force=False) # force=True to overwrite
+            status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{self.dataset}/{fn}', force=False) # force=True to overwrite
             print(f"{status}")
 
             register_file_on_rse(
