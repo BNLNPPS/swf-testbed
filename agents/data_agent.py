@@ -246,7 +246,7 @@ class DATA:
             
         lifetime = 1 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
-        if self.verbose: print(f'''*** Dataset creation result: {result} ***''')
+        if self.verbose: print(f'''*** Dataset {self.dataset}, creation result: {result} ***''')
         if not result:
             if self.verbose: print('*** Dataset creation failed, exiting... ***')
             exit(-1)
@@ -307,7 +307,7 @@ class DATA:
         if self.xrdup: # XRootD upload
             if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
             status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{self.dataset}/{fn}', force=False) # force=True to overwrite
-            print(f"{status}")
+            print(f"{type(status)}   {status}")
 
             register_file_on_rse(
                 self,
