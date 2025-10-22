@@ -37,6 +37,8 @@ from rucio.common.exception import DataIdentifierAlreadyExists, RSENotFound
 
 from rucio_comms.utils import calculate_adler32_from_file, register_file_on_rse
 
+from api_utils import get_next_agent_id
+
 #################################################################################
 class DATA:
     ''' The DATA class is the main data management class.
@@ -95,7 +97,8 @@ class DATA:
 
 
         if self.verbose: print(f'''*** DATA class initialized. RSE: {self.rse} ***''')
-
+        # agent_id = get_next_agent_id()
+        # print(agent_id, '*** DATA agent initialized with ID ***')
     # ---
     def init_rucio(self):
         ''' Initialize the Rucio module.
