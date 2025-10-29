@@ -84,8 +84,12 @@ class DATA:
         self.folder                 = ''                # the actual folder for the current run, to be accessed later
         self.rse                    = rse               # RSE to target for upload
 
+        self.sndr                    = None
+        self.rcvr                    = None
+
 
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
+
         if self.rucio_scope == '':
             if self.verbose: print('*** No Rucio scope provided, Rucio operations will be skipped ***')
         else:
@@ -160,17 +164,17 @@ class DATA:
             exit(-1)
 
         try:
-            sndr = Sender(verbose=self.verbose)
+            self.sndr = Sender(verbose=self.verbose)
             if self.verbose: print(f'''*** Successfully instantiated the Sender ***''')
-            sndr.connect()
+            self.sndr.connect()
             if self.verbose: print(f'''*** Successfully connected the Sender to MQ ***''')
         except:
             print('*** Failed to instantiate the Sender, exiting...***')
             exit(-1)
 
         try:
-            rcvr = Receiver(verbose=self.verbose, processor=self.on_message) # a function to process received messages
-            rcvr.connect()
+            self.rcvr = Receiver(verbose=self.verbose, processor=self.on_message) # a function to process received messages
+            self.rcvr.connect()
             if self.verbose: print(f'''*** Successfully instantiated and connected the Receiver, will receive messages from MQ ***''')
         except:
             print('*** Failed to instantiate the Receiver, exiting...***')
@@ -192,6 +196,21 @@ class DATA:
             if self.verbose:
                 print(f'''*** DATA class run method interrupted by the KeyboardInterrupt ***''')
     
+
+    # ---
+    def mq_data_ready_message(self):
+        '''
+        Create a message to be sent to MQ about the start of the run.
+        This part will evolve as the development progresses, but for now it is a simple JSON message.
+        '''
+        msg = {}
+        
+        msg['req_id']       = 1
+        msg['msg_type']     = 'data_ready'
+        msg['run_id']       = self.run_id
+        
+        return json.dumps(msg)
+ 
     # ---
     def on_message(self, msg):
         """
@@ -203,6 +222,8 @@ class DATA:
             msg_type = message_data.get('msg_type') # print(f'===================================> {msg_type}')
             if msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
+            elif msg_type == 'data_ready':
+                self.handle_data_ready(message_data)
             elif msg_type == 'run_imminent':
                 self.handle_run_imminent(message_data)
             elif msg_type == 'start_run':
@@ -223,7 +244,7 @@ class DATA:
         run_id = message_data.get('run_id')
         run_conditions = message_data.get('run_conditions', {})
         
-        if self.verbose: print(F'''*** Processing run_imminent message for run {run_id}***''')
+        if self.verbose: print(F'''*** MQ: run_imminent message for run {run_id}***''')
         
         self.run_id     = run_id
         self.dataset    = message_data.get('dataset')
@@ -249,18 +270,18 @@ class DATA:
     def handle_start_run(self, message_data):
         """Handle start_run message"""
         run_id = message_data.get('run_id')
-        if self.verbose: print(f"*** Processing start_run message for run_id: {run_id} ***")
+        if self.verbose: print(f"*** MQ: start_run message for run_id: {run_id} ***")
 
     # ---
     def handle_end_run(self, message_data):
         """Handle end_run message"""
         run_id = message_data.get('run_id')
-        if self.verbose: print(f"*** Processing end_run message for run_id: {run_id} ***")
+        if self.verbose: print(f"*** MQ: end_run message for run_id: {run_id} ***")
 
     # ---
     def handle_stf_gen(self, message_data):
         fn = message_data.get('filename')
-        if self.verbose: print(f"*** Handling STF generation for file: {fn} ***")
+        if self.verbose: print(f"*** MQ: STF generation for file: {fn} ***")
         
         file_path = f'{self.folder}/{fn}'
 
@@ -318,8 +339,16 @@ class DATA:
         # Register the file replica, using the lfn
         attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
-                               
+
+        self.sndr.send(destination='epictopic', body=self.mq_data_ready_message(), headers={'persistent': 'true'})
+        if self.verbose: print(f'''*** Sent data ready ***''')
+          
         return None
+
+    # ---
+    def handle_data_ready(self, message_data):
+        run_id = message_data.get('run_id')
+        if self.verbose: print(f"*** MQ: data ready for run {run_id} ***")
 
 ############################################################################################
 # -- ATTIC --
