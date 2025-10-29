@@ -84,9 +84,10 @@ class DATA:
         self.folder                 = ''                # the actual folder for the current run, to be accessed later
         self.rse                    = rse               # RSE to target for upload
 
-        self.sndr                    = None
-        self.rcvr                    = None
+        self.sndr                   = None
+        self.rcvr                   = None
 
+        self.count                  = 0
 
         self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
 
@@ -270,6 +271,7 @@ class DATA:
     def handle_start_run(self, message_data):
         """Handle start_run message"""
         run_id = message_data.get('run_id')
+        self.count = 0 # reset file counter for the new run
         if self.verbose: print(f"*** MQ: start_run message for run_id: {run_id} ***")
 
     # ---
@@ -340,8 +342,11 @@ class DATA:
         attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
 
-        self.sndr.send(destination='epictopic', body=self.mq_data_ready_message(), headers={'persistent': 'true'})
-        if self.verbose: print(f'''*** Sent data ready ***''')
+        if self.count == 0:
+            self.sndr.send(destination='epictopic', body=self.mq_data_ready_message(), headers={'persistent': 'true'})
+            if self.verbose: print(f'''*** First file for run {self.run_id} has been processed, sending data ready message to MQ ***''')
+
+        self.count += 1
           
         return None
 
