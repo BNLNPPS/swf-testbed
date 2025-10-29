@@ -7,8 +7,12 @@
 # these datasets. Then, to notify the processing agent that the data is ready.
 # 
 # It uses the mq_comms and rucio_comms packages for MQ and Rucio operations.
+# Both packages are located in the swf-common repository.
 #
 # Datasets are created upon receiving the run_imminent message.
+# This is the only run-related message that the DATA class processes, other
+# are placeholders.
+#
 # Files are registered upon receiving the stf_gen message.
 #
 # The run_id and dataset name are extracted from the run_imminent message.
@@ -104,15 +108,6 @@ class DATA:
         ''' Initialize the Rucio module.
         '''
  
-        RUCIO_COMMS_PATH    = ''
-
-        try:
-            RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
-            if self.verbose: print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
-            sys.path.append(RUCIO_COMMS_PATH)
-        except KeyError:
-            if self.verbose: print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-
         from rucio_comms import DatasetManager, RucioClient, UploadClient, FileManager
         # ---
         try:
@@ -158,19 +153,6 @@ class DATA:
     def init_mq(self):
         ''' Initialize the MQ receiver to get messages from the DAQ simulator.
         '''
-
-        MQ_COMMS_PATH = ''
-
-        try:
-            MQ_COMMS_PATH = os.environ['MQ_COMMS_PATH']
-            print(f'''*** The MQ_COMMS_PATH is defined in the environment: {MQ_COMMS_PATH}, will be added to sys.path ***''')
-            if MQ_COMMS_PATH not in sys.path: sys.path.append(MQ_COMMS_PATH)
-        except:
-            print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-            if self.verbose: print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-
-        if self.verbose: print(f'''*** Set the Python path: {sys.path} ***''')
-
         try:
             from mq_comms import Sender, Receiver
         except:
@@ -299,6 +281,7 @@ class DATA:
             return None
         
         # Important: the file must be uploaded to Rucio before it can be attached to a dataset
+        # This is for Rucio only:
         upload_spec = {
             'path':         file_path,
             'rse':          self.rse,
@@ -310,13 +293,9 @@ class DATA:
         if self.xrdup: # XRootD upload
             if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
             status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{self.dataset}/{fn}', force=False) # force=True to overwrite
-            print(f"{type(status)}   {status}")
+            if self.verbose: print(f"*** xrd copy status type: {type(status)}, status: {status} ***")
+            register_file_on_rse(self, file_path, fn)
 
-            register_file_on_rse(
-                self,
-                file_path,
-                fn)
-            # return None
         else:          # Rucio upload
             try:
                 result = self.rucio_upload_client.upload([upload_spec])
@@ -335,6 +314,7 @@ class DATA:
 
         # Attach the file to the open dataset
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
+
         # Register the file replica, using the lfn
         attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
@@ -343,19 +323,23 @@ class DATA:
 
 ############################################################################################
 # -- ATTIC --
-# Rucio imports for demonstration purposes only.
-# The actual implementation will be in the rucio_comms package.
+# Realized that the needed path is already covered by SWF-common path.
+# Moved here from init_rucio() for clarity.
+# RUCIO_COMMS_PATH    = ''
+# try:
+#     RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
+#     if self.verbose: print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
+#     sys.path.append(RUCIO_COMMS_PATH)
+# except KeyError:
+#     if self.verbose: print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
 
-# from rucio.client import Client as RucioClient
-
-# from rucio.client.uploadclient import UploadClient
-# from rucio.common.exception import RucioException
-# from rucio.common.utils import generate_uuid
-# from rucio.common.types import InternalAccount
-# from rucio.common.logging import setup_logging
-# import logging
-# import os
-# from typing import Optional, List, Dict, Any
-# from rucio.common.utils import parse_replicas
-
-# ---
+# Ditto for MQ_COMMS_PATH
+# MQ_COMMS_PATH = ''
+# try:
+#     MQ_COMMS_PATH = os.environ['MQ_COMMS_PATH']
+#     print(f'''*** The MQ_COMMS_PATH is defined in the environment: {MQ_COMMS_PATH}, will be added to sys.path ***''')
+#     if MQ_COMMS_PATH not in sys.path: sys.path.append(MQ_COMMS_PATH)
+# except:
+#     print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
+#     if self.verbose: print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
+# if self.verbose: print(f'''*** Set the Python path: {sys.path} ***''')
