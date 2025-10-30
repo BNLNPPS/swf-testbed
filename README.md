@@ -17,9 +17,15 @@ This document contains mandatory critical thinking requirements, coding rules, a
 ### Operations
 - [**Running the Testbed**](docs/operations.md) - Starting, stopping, and monitoring services
 - [**Workflow Orchestration**](docs/workflows.md) - Running and managing workflows
+- [**Fast Processing Workflow**](docs/fast-processing.md) - Near real-time processing for shifter monitoring
 - [**Monitor Integration**](docs/monitor.md) - Web interface and API usage
 - [**SSE Real-Time Streaming**](docs/sse-streaming.md) - Remote workflow event monitoring via HTTPS
 - [**Production Deployment**](../swf-monitor/docs/PRODUCTION_DEPLOYMENT.md) - Complete Apache production deployment guide
+
+### Infrastructure
+- [**ActiveMQ Broker Configuration**](docs/activemq-broker-configuration.md) - Queue messaging setup for fast processing
+- [**Configuration Reference**](config/) - System configuration files (broker.xml, etc.)
+- [**Admin Scripts**](scripts/) - System-level deployment and configuration scripts
 
 ### Development
 - [**Development Guide**](docs/development.md) - Contributing and development workflow
