@@ -42,7 +42,19 @@ class WorkflowRunner(BaseAgent):
         self.api_session = self.api
         self.workflows_dir = Path(__file__).parent  # workflows/ directory
 
-        self.logger.info(f"WorkflowRunner initialized: {self.agent_name}")
+        # Connect to ActiveMQ (we only send, don't need to subscribe)
+        self.conn.connect(
+            self.mq_user,
+            self.mq_password,
+            wait=True,
+            version='1.1',
+            headers={
+                'client-id': self.agent_name,
+                'heart-beat': '30000,30000'
+            }
+        )
+
+        self.logger.info(f"WorkflowRunner initialized and connected to ActiveMQ: {self.agent_name}")
 
     def run_workflow(self, workflow_name: str, config_name: Optional[str] = None,
                      duration: float = 3600, **override_params) -> str:
