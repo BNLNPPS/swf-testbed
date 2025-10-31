@@ -1,3 +1,5 @@
+import time, json
+
 #################################################################################
 class PROCESSING:
     ''' The PROCESSING class is the main task management class.
@@ -14,22 +16,36 @@ class PROCESSING:
         self.verbose    = verbose
         self.init_mq()
 
+        if self.verbose: print(f'''*** Initialized the PROCESSING class ***''')
+
+    # ---
+    def on_message(self, msg):
+        """
+        Handles incoming messages.
+        """
+
+        try:
+            message_data = json.loads(msg)
+            msg_type = message_data.get('msg_type')
+            print(f'=============================> {msg_type}')
+            if msg_type == 'data_ready':
+                self.handle_data_ready(message_data)
+            else:
+                print("Ignoring unknown message type", msg_type)
+        except Exception as e:
+            print(f"CRITICAL: Message processing failed - {str(e)}")
+
+        # ---
+    def handle_data_ready(self, message_data):
+        """Handle data_ready message"""
+        # run_id = message_data.get('run_id')
+        print(f"*** MQ: data ready ***")
+
+    
     # ---
     def init_mq(self):
         ''' Initialize the MQ receiver to get messages from the DAQ simulator.
         '''
-
-        MQ_COMMS_PATH = ''
-
-        try:
-            MQ_COMMS_PATH = os.environ['MQ_COMMS_PATH']
-            print(f'''*** The MQ_COMMS_PATH is defined in the environment: {MQ_COMMS_PATH}, will be added to sys.path ***''')
-            if MQ_COMMS_PATH not in sys.path: sys.path.append(MQ_COMMS_PATH)
-        except:
-            print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-            if self.verbose: print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-
-        if self.verbose: print(f'''*** Set the Python path: {sys.path} ***''')
 
         try:
             from mq_comms import Sender, Receiver
@@ -52,4 +68,20 @@ class PROCESSING:
             if self.verbose: print(f'''*** Successfully instantiated and connected the Receiver, will receive messages from MQ ***''')
         except:
             print('*** Failed to instantiate the Receiver, exiting...***')
-            exit(-1)    
+            exit(-1)
+            
+    # ---
+    def run(self):
+        ''' Run the listener loop, which will start receiving MQ messages.
+            It will process these messages and handle processing management tasks.
+        '''
+        if self.verbose:
+            print(f'''*** PROCESSING class run method called ***''')
+
+        try:
+            if self.verbose: print(f"*** Processing agent is running. Press Ctrl+C to stop. ***")
+            while True:
+                time.sleep(1) # Keep the main thread alive, heartbeats can be added here
+        except KeyboardInterrupt:
+            if self.verbose:
+                print(f'''*** PROCESSING class run method interrupted by the KeyboardInterrupt ***''')
