@@ -2,45 +2,86 @@
 
 ## Overview
 
-The Workflow Orchestration Framework provides a structured approach for defining, executing, and monitoring complex multi-step processes using TOML configuration, Python+SimPy execution logic, and database persistence.
+The Workflow Orchestration Framework provides a structured approach for defining, executing, and monitoring complex multi-step processes using TOML configuration, Python+SimPy execution logic, ActiveMQ messaging, and database persistence.
 
-## Configuration Format
+**Key Architecture Principles:**
+- **One Workflow, Multiple Configurations**: The same DAQ datataking workflow serves different downstream processing strategies through TOML configuration
+- **Configuration Composition**: TOML configs can include base configurations for reusability
+- **ActiveMQ Messaging**: Workflows broadcast real messages that agents respond to
+- **Database as Truth**: Fully expanded configurations stored in database for reproducibility
+- **Agent-Driven Processing**: Workflows simulate DAQ; agents implement downstream processing logic
+
+## Configuration Format and Composition
+
+### Basic Configuration
 ```toml
 # workflows/stf_processing_default.toml
 [workflow]
-name = "stf_processing"
+name = "stf_datataking"
 version = "1.0"
+description = "STF datataking workflow for standard processing"
+includes = ["daq_state_machine.toml"]
 
 [parameters]
-no_beam_not_ready_delay = 10
-broadcast_delay = 1
-beam_not_ready_delay = 5
-beam_ready_delay = 2
-physics_period_count = 3
-physics_period_duration = 180
-standby_duration = 30
-beam_not_ready_end_delay = 5
-stf_interval = 2
-stf_generation_time = 0.1
+# Uses all DAQ state machine parameters from daq_state_machine.toml
+# Add processing-specific overrides here if needed
 ```
 
-## STF Processing Workflow Implementation
+### Configuration Composition via Includes
 
-The reference implementation demonstrates the complete DAQ cycle with state transitions:
+Configurations support composition through the `includes` directive:
+
+```toml
+[workflow]
+name = "stf_datataking"
+version = "1.0"
+includes = ["base_config.toml", "another_config.toml"]
+
+[parameters]
+# Parameters from included files are merged in order
+# Main config parameters override all included parameters
+custom_parameter = 42
+```
+
+**Loading Order:**
+1. Include files load in array order
+2. Later includes override earlier ones
+3. Main config parameters have final say
+
+**Database Storage:**
+The fully expanded configuration (with all includes merged) is saved to the database, ensuring execution records are complete snapshots with no external file dependencies.
+
+## STF Datataking Workflow Implementation
+
+The unified STF datataking workflow simulates the ePIC DAQ state machine, broadcasting ActiveMQ messages that downstream agents respond to. The same workflow code serves both standard STF processing and fast processing - configuration determines the behavior.
+
+### Workflow Code
 
 ```python
-# workflows/stf_processing.py
+# workflows/stf_datataking.py
 class WorkflowExecutor:
-    def __init__(self, parameters):
+    def __init__(self, parameters, runner, execution_id):
         self.parameters = parameters
+        self.runner = runner  # WorkflowRunner instance (BaseAgent)
+        self.execution_id = execution_id
         self.stf_sequence = 0
+        self.run_id = None
 
     def execute(self, env):
+        # Generate run ID for this execution
+        from swf_common_lib.api_utils import get_next_run_number
+        self.run_id = get_next_run_number(
+            self.runner.monitor_url,
+            self.runner.api_session,
+            self.runner.logger
+        )
+
         # State 1: no_beam / not_ready (Collider not operating)
         yield env.timeout(self.parameters['no_beam_not_ready_delay'])
 
-        # State 2: beam / not_ready (Run start imminent) + broadcast run imminent
-        yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_run_imminent
+        # State 2: beam / not_ready (Run start imminent)
+        yield env.process(self.broadcast_run_imminent(env))
+        yield env.timeout(self.parameters['broadcast_delay'])
         yield env.timeout(self.parameters['beam_not_ready_delay'])
 
         # State 3: beam / ready (Ready for physics)
@@ -49,93 +90,93 @@ class WorkflowExecutor:
         # Physics periods loop with standby between them
         period = 0
         while self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
-            # Broadcast appropriate message
+            # Broadcast start or resume message
             if period == 0:
-                yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_run_start
+                yield env.process(self.broadcast_run_start(env))
             else:
-                yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_resume_run
+                yield env.process(self.broadcast_resume_run(env))
+            yield env.timeout(self.parameters['broadcast_delay'])
 
             # STF generation during physics
             yield from self.generate_stfs_during_physics(env, self.parameters['physics_period_duration'])
 
             period += 1
 
-            # Standby between physics periods (always for infinite mode, except after last for finite mode)
+            # Standby between physics periods
             if self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
-                yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_pause_run
+                yield env.process(self.broadcast_pause_run(env))
+                yield env.timeout(self.parameters['broadcast_delay'])
                 yield env.timeout(self.parameters['standby_duration'])
 
         # State 7: beam / not_ready + broadcast run end
-        yield env.timeout(self.parameters['broadcast_delay'])  # broadcast_run_end
+        yield env.process(self.broadcast_run_end(env))
+        yield env.timeout(self.parameters['broadcast_delay'])
         yield env.timeout(self.parameters['beam_not_ready_end_delay'])
 
-    def generate_stfs_during_physics(self, env, duration_seconds):
-        interval = self.parameters['stf_interval']
-        start_time = env.now
-
-        while (env.now - start_time) < duration_seconds:
-            yield from self.generate_single_stf(env)
-
-            # Only wait for interval if not at end of physics period
-            if (env.now - start_time) < duration_seconds:
-                yield env.timeout(interval)
-
-    def generate_single_stf(self, env):
-        self.stf_sequence += 1
-        generation_time = self.parameters['stf_generation_time']
-        yield env.timeout(generation_time)
+    def broadcast_stf_gen(self, env, stf_filename):
+        """Broadcast STF generation via ActiveMQ."""
+        message = {
+            "msg_type": "stf_gen",
+            "execution_id": self.execution_id,
+            "run_id": self.run_id,
+            "filename": stf_filename,
+            "sequence": self.stf_sequence,
+            "timestamp": datetime.now().isoformat(),
+            "simulation_tick": env.now,
+            "state": "run",
+            "substate": "physics"
+        }
+        self.runner.send_message('epictopic', message)
+        yield env.timeout(0.1)
 ```
 
-## Fast Processing Workflow Implementation
+**Key Features:**
+- **ActiveMQ Messaging**: Broadcasts workflow events via `runner.send_message()`
+- **Parameter Distribution**: Messages include `execution_id` for agents to query WorkflowExecution
+- **8-State DAQ Machine**: Matches ePIC DAQ simulator state transitions
+- **SimPy Timing**: Simulates timing for state transitions and STF generation
 
-The fast processing workflow simulates near real-time processing of STF samples using parallel workers for shifter monitoring. See [docs/fast-processing.md](fast-processing.md) for complete architectural details.
+## Fast Processing Configuration
+
+Fast processing uses the **same stf_datataking.py workflow** as standard STF processing, but with different configuration parameters. The distinction is in downstream agent behavior, not workflow code.
 
 ### Configuration
 
 ```toml
 # workflows/fast_processing_default.toml
 [workflow]
-name = "fast_processing"
+name = "stf_datataking"
 version = "1.0"
+description = "STF datataking workflow for fast processing"
+includes = ["daq_state_machine.toml"]
 
 [parameters]
-# Run configuration
-run_duration = 600              # Total run duration (seconds)
+# DAQ state machine parameters inherited from daq_state_machine.toml
+# Override for longer physics period
+physics_period_duration = 600   # 10 minutes
+physics_period_count = 1        # Single physics period
+
+# Fast processing specific parameters (used by fast_processing_agent)
 target_worker_count = 30        # Target number of workers
-
-# STF and sampling
-stf_rate = 0.5                  # STF generation rate (Hz)
 stf_sampling_rate = 0.05        # FastMon sampling fraction (5%)
-
-# Slice parameters
 slices_per_sample = 15          # TF slices per STF sample
 slice_processing_time = 30      # Processing time per slice (seconds)
-
-# Worker lifecycle
-worker_rampup_time = 300        # Worker startup time (seconds)
-worker_rampdown_time = 60       # Graceful shutdown time (seconds)
+worker_rampup_time = 300        # Worker startup time (5 min)
+worker_rampdown_time = 60       # Graceful shutdown time (1 min)
 ```
 
-### Workflow Phases
+### Agent-Driven Processing
 
-The implementation models the three-phase fast processing workflow:
+The workflow broadcasts the same DAQ messages (`run_imminent`, `start_run`, `stf_gen`, `end_run`). The difference is in how agents respond:
 
-**Phase 1: Run Imminent**
-- Broadcast run imminent message
-- Ramp up workers (staggered deployment over `worker_rampup_time`)
-- Workers establish connections and prepare for slice assignment
+**Standard STF Processing:**
+- `processing_agent` processes complete STF files
+- Creates PanDA tasks for full reconstruction
 
-**Phase 2: Run Running**
-- Broadcast run start
-- Generate STF samples at `stf_rate` (FastMon samples from STF files)
-- Create `slices_per_sample` TF slices for each sample
-- Workers process slices in parallel (~30 sec per slice)
-- Continue for `run_duration`
-
-**Phase 3: Run End**
-- Broadcast run end message
-- Workers enter soft-ending mode (finish current slices)
-- Graceful shutdown over `worker_rampdown_time`
+**Fast Processing:**
+- `fastmon_agent` samples STF files, creates TF samples
+- `fast_processing_agent` creates slices from TF samples
+- Workers process slices for near real-time shifter monitoring
 
 ### Performance Metrics
 
@@ -187,25 +228,39 @@ class WorkflowExecution(models.Model):
 
 ### Running Workflows
 
-The `WorkflowRunner` class provides the execution engine:
+Workflows are executed via the `workflow_simulator.py` command-line tool:
 
-```python
-from workflows.workflow_runner import WorkflowRunner
-
-# Initialize with monitor URL and optional authentication
-runner = WorkflowRunner(monitor_url="http://localhost:8002")
-
+```bash
 # Run workflow with default configuration
-execution_id = runner.run_workflow('stf_processing')
+python workflows/workflow_simulator.py stf_datataking --config stf_processing_default --duration 60
 
-# Override parameters
-execution_id = runner.run_workflow(
-    'stf_processing',
-    duration=7200,  # 2 hours
-    physics_period_count=5,
-    stf_interval=1.5
-)
+# Run with fast processing configuration
+python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 600
+
+# Override specific parameters
+python workflows/workflow_simulator.py stf_datataking \
+    --config stf_processing_default \
+    --duration 3600 \
+    --physics-period-count 5 \
+    --physics-period-duration 600 \
+    --stf-interval 1.5
 ```
+
+**Command Line Arguments:**
+- `workflow_name` - Name of workflow Python file (e.g., `stf_datataking`)
+- `--config` - TOML configuration file name (without .toml extension)
+- `--duration` - Simulation duration in seconds (default: 3600)
+- `--physics-period-count` - Override physics period count
+- `--physics-period-duration` - Override physics period duration (seconds)
+- `--stf-interval` - Override STF generation interval (seconds)
+
+**What Happens:**
+1. `workflow_simulator.py` creates a WorkflowRunner instance
+2. WorkflowRunner inherits from BaseAgent (connects to ActiveMQ, registers as agent)
+3. Configuration files are loaded with includes merged
+4. Fully expanded config saved to WorkflowDefinition and WorkflowExecution
+5. Workflow broadcasts ActiveMQ messages during execution
+6. Downstream agents receive messages and query WorkflowExecution for parameters
 
 ### Execution ID Generation
 
@@ -221,11 +276,12 @@ The sequence numbers are generated atomically via the monitor API to ensure uniq
 ## Directory Structure
 ```
 workflows/
-├── stf_processing.py                    # STF processing workflow implementation
-├── stf_processing_default.toml          # Default parameters
-├── fast_processing.py                   # Fast processing workflow implementation
-├── fast_processing_default.toml         # Default parameters
-└── workflow_runner.py                   # Workflow execution engine
+├── stf_datataking.py                    # Unified DAQ datataking workflow
+├── daq_state_machine.toml               # Base DAQ parameters (included by others)
+├── stf_processing_default.toml          # STF processing configuration
+├── fast_processing_default.toml         # Fast processing configuration
+├── workflow_runner.py                   # Workflow execution engine (BaseAgent)
+└── workflow_simulator.py                # Command-line tool to run workflows
 ```
 
 ## Web Interface
@@ -240,4 +296,26 @@ All workflow code and configuration data is displayed with syntax highlighting f
 
 ## Integration with Agent Infrastructure
 
-Workflows integrate seamlessly with the existing agent-based messaging system while providing structured execution patterns for complex multi-step processes.
+Workflows integrate seamlessly with the agent-based messaging system:
+
+**WorkflowRunner as Agent:**
+- Inherits from `BaseAgent`
+- Registers as `workflow_runner` agent type
+- Sends messages to `epictopic` ActiveMQ topic
+- Connects to monitor API for database operations
+
+**Agent Communication:**
+- Workflows broadcast DAQ state transition messages
+- Messages include `execution_id` for parameter lookup
+- Agents query `/api/workflow-executions/{execution_id}/` to get full parameters
+- Same messages, different agent responses = different workflows
+
+**Example Message Flow:**
+1. WorkflowRunner broadcasts `run_imminent` with `execution_id`
+2. `fast_processing_agent` receives message, queries WorkflowExecution
+3. Agent extracts `target_worker_count`, `slices_per_sample` from parameters
+4. Agent initiates worker preparation based on configuration
+5. Workflow broadcasts `stf_gen` messages
+6. Agent creates TF slices and distributes to workers
+
+This architecture decouples workflow orchestration (DAQ simulation) from processing logic (agent behavior), enabling multiple downstream processing strategies with the same workflow code.

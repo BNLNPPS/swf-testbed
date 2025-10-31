@@ -109,7 +109,7 @@ class WorkflowRunner(BaseAgent):
             return f.read()
 
     def _load_workflow_config(self, workflow_name: str, config_name: Optional[str] = None) -> Dict[str, Any]:
-        """Load workflow TOML configuration"""
+        """Load workflow TOML configuration with includes support"""
         if config_name is None:
             config_name = f"{workflow_name}_default.toml"
         elif not config_name.endswith('.toml'):
@@ -119,8 +119,40 @@ class WorkflowRunner(BaseAgent):
         if not config_file.exists():
             raise FileNotFoundError(f"Config {config_name} not found in {self.workflows_dir}")
 
+        # Load main config
         with open(config_file, 'rb') as f:
-            return tomllib.load(f)
+            main_config = tomllib.load(f)
+
+        # Check for includes in workflow section
+        includes = main_config.get('workflow', {}).get('includes', [])
+
+        if not includes:
+            # No includes, return main config as-is
+            return main_config
+
+        # Merge included configs
+        merged_params = {}
+
+        # Load and merge each included file in order
+        for include_file in includes:
+            include_path = self.workflows_dir / include_file
+            if not include_path.exists():
+                raise FileNotFoundError(f"Included config {include_file} not found in {self.workflows_dir}")
+
+            with open(include_path, 'rb') as f:
+                included_config = tomllib.load(f)
+                # Merge parameters from included file
+                if 'parameters' in included_config:
+                    merged_params.update(included_config['parameters'])
+
+        # Final override: main config parameters have final say
+        if 'parameters' in main_config:
+            merged_params.update(main_config['parameters'])
+
+        # Replace parameters section with fully merged parameters
+        main_config['parameters'] = merged_params
+
+        return main_config
 
     def _generate_execution_id(self, workflow_name: str, executed_by: str) -> str:
         """Generate human-readable execution ID"""
@@ -164,12 +196,24 @@ class WorkflowRunner(BaseAgent):
             params={'workflow_name': name, 'version': version}
         )
 
+        # Build expanded config for database storage (no includes directive)
+        expanded_config = {
+            'workflow': {
+                'name': config['workflow']['name'],
+                'version': config['workflow']['version']
+            },
+            'parameters': config['parameters']  # Already merged/expanded
+        }
+        # Preserve description if present
+        if 'description' in config['workflow']:
+            expanded_config['workflow']['description'] = config['workflow']['description']
+
         payload = {
             'workflow_name': name,
             'version': version,
             'workflow_type': 'simulation',
             'definition': code,
-            'parameter_values': config,
+            'parameter_values': expanded_config,
             'created_by': os.getenv('USER', 'unknown'),
             'created_at': datetime.now().isoformat()
         }
