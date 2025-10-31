@@ -3,29 +3,46 @@ Workflow Runner - Executes workflow definitions with SimPy
 """
 
 import os
+import sys
 import json
 import tomllib
 import simpy
-import requests
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
 
+# Add swf-common-lib to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "swf-common-lib" / "src"))
+from swf_common_lib.base_agent import BaseAgent
 
-class WorkflowRunner:
+
+class WorkflowRunner(BaseAgent):
     """Loads, registers, and executes workflow definitions"""
 
-    def __init__(self, monitor_url: str, api_session: Optional[requests.Session] = None):
+    def __init__(self, monitor_url: Optional[str] = None, debug: bool = False):
         """
-        Initialize WorkflowRunner
+        Initialize WorkflowRunner as an agent
 
         Args:
-            monitor_url: URL of the SWF monitor API
-            api_session: Optional requests session with auth configured
+            monitor_url: Optional override for SWF monitor URL (uses env if not provided)
+            debug: Enable debug logging
         """
-        self.monitor_url = monitor_url.rstrip('/')
-        self.api_session = api_session or requests.Session()
+        # Initialize as BaseAgent (workflow_runner type, workflow_control queue)
+        super().__init__(
+            agent_type='workflow_runner',
+            subscription_queue='workflow_control',
+            debug=debug
+        )
+
+        # Override monitor_url if provided
+        if monitor_url:
+            self.monitor_url = monitor_url.rstrip('/')
+
+        # Use self.api from BaseAgent (already configured with auth)
+        self.api_session = self.api
         self.workflows_dir = Path(__file__).parent  # workflows/ directory
+
+        self.logger.info(f"WorkflowRunner initialized: {self.agent_name}")
 
     def run_workflow(self, workflow_name: str, config_name: Optional[str] = None,
                      duration: float = 3600, **override_params) -> str:
@@ -259,15 +276,25 @@ class WorkflowRunner:
         # Create SimPy environment
         env = simpy.Environment()
 
-        # Prepare execution namespace
-        namespace = {'env': env, 'parameters': parameters}
+        # Prepare execution namespace with runner access
+        namespace = {
+            'env': env,
+            'parameters': parameters,
+            'runner': self,
+            'execution_id': execution_id
+        }
 
         # Execute workflow code to get WorkflowExecutor class
         exec(workflow_code, namespace)
 
         # Instantiate and run workflow
         if 'WorkflowExecutor' in namespace:
-            executor = namespace['WorkflowExecutor'](parameters)
+            # Pass parameters, runner (for messaging), and execution_id
+            executor = namespace['WorkflowExecutor'](
+                parameters=parameters,
+                runner=self,
+                execution_id=execution_id
+            )
 
             # Start workflow process
             env.process(executor.execute(env))
