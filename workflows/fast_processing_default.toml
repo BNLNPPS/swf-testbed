@@ -1,0 +1,24 @@
+[workflow]
+name = "fast_processing"
+version = "1.0"
+
+[parameters]
+# Run configuration
+run_duration = 600              # Total run duration (seconds)
+target_worker_count = 30        # Target number of workers for processing
+
+# STF and sampling parameters
+stf_rate = 0.5                  # STF generation rate (Hz)
+stf_sampling_rate = 0.05        # Fraction of STF data sampled by FastMon (5%)
+
+# Slice parameters
+slices_per_sample = 15          # Number of TF slices per STF sample
+slice_processing_time = 30      # Time to process one slice (seconds)
+
+# Worker lifecycle
+worker_rampup_time = 300        # Time to bring workers online (seconds, 5 min)
+worker_rampdown_time = 60       # Time for graceful worker shutdown (seconds)
+
+# Phase timing
+run_imminent_delay = 10         # Delay before run starts after imminent broadcast (seconds)
+broadcast_delay = 1             # Time for message broadcasts (seconds)

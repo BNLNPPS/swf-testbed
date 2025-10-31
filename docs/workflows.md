@@ -86,6 +86,73 @@ class WorkflowExecutor:
         yield env.timeout(generation_time)
 ```
 
+## Fast Processing Workflow Implementation
+
+The fast processing workflow simulates near real-time processing of STF samples using parallel workers for shifter monitoring. See [docs/fast-processing.md](fast-processing.md) for complete architectural details.
+
+### Configuration
+
+```toml
+# workflows/fast_processing_default.toml
+[workflow]
+name = "fast_processing"
+version = "1.0"
+
+[parameters]
+# Run configuration
+run_duration = 600              # Total run duration (seconds)
+target_worker_count = 30        # Target number of workers
+
+# STF and sampling
+stf_rate = 0.5                  # STF generation rate (Hz)
+stf_sampling_rate = 0.05        # FastMon sampling fraction (5%)
+
+# Slice parameters
+slices_per_sample = 15          # TF slices per STF sample
+slice_processing_time = 30      # Processing time per slice (seconds)
+
+# Worker lifecycle
+worker_rampup_time = 300        # Worker startup time (seconds)
+worker_rampdown_time = 60       # Graceful shutdown time (seconds)
+```
+
+### Workflow Phases
+
+The implementation models the three-phase fast processing workflow:
+
+**Phase 1: Run Imminent**
+- Broadcast run imminent message
+- Ramp up workers (staggered deployment over `worker_rampup_time`)
+- Workers establish connections and prepare for slice assignment
+
+**Phase 2: Run Running**
+- Broadcast run start
+- Generate STF samples at `stf_rate` (FastMon samples from STF files)
+- Create `slices_per_sample` TF slices for each sample
+- Workers process slices in parallel (~30 sec per slice)
+- Continue for `run_duration`
+
+**Phase 3: Run End**
+- Broadcast run end message
+- Workers enter soft-ending mode (finish current slices)
+- Graceful shutdown over `worker_rampdown_time`
+
+### Performance Metrics
+
+With default parameters:
+- STF rate: 0.5 Hz → 1 STF sample every 2 seconds
+- Slices created: 15/sample × 0.5 Hz = 7.5 slices/sec
+- Processing capacity: 30 workers ÷ 30 sec/slice = 1 slice/sec per worker
+- Total capacity: 30 workers = real-time processing at 0.5 Hz
+
+### Database Integration
+
+During execution, the workflow populates:
+- `RunState`: phase, worker counts, slice statistics
+- `TFSlice`: individual slice tracking with status
+- `Worker`: worker lifecycle and performance
+- `SystemStateEvent`: complete event history for replay
+
 
 ## Workflow Management Framework
 
@@ -156,6 +223,8 @@ The sequence numbers are generated atomically via the monitor API to ensure uniq
 workflows/
 ├── stf_processing.py                    # STF processing workflow implementation
 ├── stf_processing_default.toml          # Default parameters
+├── fast_processing.py                   # Fast processing workflow implementation
+├── fast_processing_default.toml         # Default parameters
 └── workflow_runner.py                   # Workflow execution engine
 ```
 
