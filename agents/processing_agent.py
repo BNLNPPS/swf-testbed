@@ -1,4 +1,4 @@
-import time, json
+import time, json, getpass
 
 #################################################################################
 class PROCESSING:
@@ -11,6 +11,11 @@ class PROCESSING:
                  sender= None,
                  receiver=None,
                  verbose=False):
+
+        # username = getpass.getuser()
+        # agent_id = self.get_next_agent_id()
+        # self.agent_name = f"{self.agent_type.lower()}-agent-{username}-{agent_id}"
+
         self.sender     = sender
         self.receiver   = receiver
         self.verbose    = verbose
