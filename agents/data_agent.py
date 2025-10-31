@@ -108,6 +108,7 @@ class DATA:
         if self.verbose: print(f'''*** DATA class initialized. RSE: {self.rse} ***''')
         # agent_id = get_next_agent_id()
         # print(agent_id, '*** DATA agent initialized with ID ***')
+
     # ---
     def init_rucio(self):
         ''' Initialize the Rucio module.
@@ -174,7 +175,7 @@ class DATA:
             exit(-1)
 
         try:
-            self.rcvr = Receiver(verbose=self.verbose, processor=self.on_message) # a function to process received messages
+            self.rcvr = Receiver(verbose=self.verbose, client_id="data", processor=self.on_message) # a function to process received messages
             self.rcvr.connect()
             if self.verbose: print(f'''*** Successfully instantiated and connected the Receiver, will receive messages from MQ ***''')
         except:
@@ -246,6 +247,9 @@ class DATA:
         run_conditions = message_data.get('run_conditions', {})
         
         if self.verbose: print(F'''*** MQ: run_imminent message for run {run_id}***''')
+
+        self.count = 0 # reset file counter for the new run
+        print("\n\n\n\n\n\nNew run imminent message received:", run_id, self.count, "\n\n\n\n\n\n")
         
         self.run_id     = run_id
         self.dataset    = message_data.get('dataset')
@@ -283,7 +287,7 @@ class DATA:
     # ---
     def handle_stf_gen(self, message_data):
         fn = message_data.get('filename')
-        if self.verbose: print(f"*** MQ: STF generation for file: {fn} ***")
+        if self.verbose: print(f"*** MQ: STF generation for file: {fn}, count {self.count} ***")
         
         file_path = f'{self.folder}/{fn}'
 
