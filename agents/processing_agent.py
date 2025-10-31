@@ -8,17 +8,14 @@ class PROCESSING:
     '''
 
     def __init__(self,
-                 sender= None,
-                 receiver=None,
                  verbose=False):
 
         # username = getpass.getuser()
         # agent_id = self.get_next_agent_id()
         # self.agent_name = f"{self.agent_type.lower()}-agent-{username}-{agent_id}"
 
-        self.sender     = sender
-        self.receiver   = receiver
         self.verbose    = verbose
+
         self.init_mq()
 
         if self.verbose: print(f'''*** Initialized the PROCESSING class ***''')
@@ -35,6 +32,8 @@ class PROCESSING:
             print(f'=============================> {msg_type}')
             if msg_type == 'data_ready':
                 self.handle_data_ready(message_data)
+            elif msg_type == 'stf_gen':
+                self.handle_stf_gen(message_data)
             else:
                 print("Ignoring unknown message type", msg_type)
         except Exception as e:
@@ -46,7 +45,11 @@ class PROCESSING:
         # run_id = message_data.get('run_id')
         print(f"*** MQ: data ready ***")
 
-    
+    def handle_stf_gen(self, message_data):
+        """Handle data_ready message"""
+        fn = message_data.get('filename')
+        print(f"*** MQ: stf_gen {fn} ***")
+            
     # ---
     def init_mq(self):
         ''' Initialize the MQ receiver to get messages from the DAQ simulator.
@@ -68,7 +71,7 @@ class PROCESSING:
             exit(-1)
 
         try:
-            rcvr = Receiver(verbose=self.verbose, processor=self.on_message) # a function to process received messages
+            rcvr = Receiver(verbose=self.verbose, client_id="processing", processor=self.on_message) # a function to process received messages
             rcvr.connect()
             if self.verbose: print(f'''*** Successfully instantiated and connected the Receiver, will receive messages from MQ ***''')
         except:
