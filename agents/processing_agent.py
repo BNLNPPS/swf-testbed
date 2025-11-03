@@ -29,27 +29,52 @@ class PROCESSING:
         try:
             message_data = json.loads(msg)
             msg_type = message_data.get('msg_type')
-            print(f'=============================> {msg_type}')
             if msg_type == 'data_ready':
                 self.handle_data_ready(message_data)
             elif msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
+            elif msg_type == 'run_imminent':
+                self.handle_run_imminent(message_data)
+            elif msg_type == 'start_run':
+                self.handle_start_run(message_data)
+            elif msg_type == 'end_run':
+                self.handle_end_run(message_data)
             else:
                 print("Ignoring unknown message type", msg_type)
         except Exception as e:
             print(f"CRITICAL: Message processing failed - {str(e)}")
 
-        # ---
+    # ---
     def handle_data_ready(self, message_data):
         """Handle data_ready message"""
         # run_id = message_data.get('run_id')
         print(f"*** MQ: data ready ***")
 
+    # ---
     def handle_stf_gen(self, message_data):
-        """Handle data_ready message"""
+        """Handle stf gen message"""
         fn = message_data.get('filename')
         print(f"*** MQ: stf_gen {fn} ***")
+
+    # ---
+    def handle_run_imminent(self, message_data):
+        """Handle run imminent message"""
+        run_id = message_data.get('run_id')
+        print(f"*** MQ: run_imminent {run_id} ***")
             
+    
+    # ---
+    def handle_start_run(self, message_data):
+        """Handle start_run message"""
+        run_id = message_data.get('run_id')
+        if self.verbose: print(f"*** MQ: start_run message for run_id: {run_id} ***")
+
+    # ---
+    def handle_end_run(self, message_data):
+        """Handle end_run message"""
+        run_id = message_data.get('run_id')
+        if self.verbose: print(f"*** MQ: end_run message for run_id: {run_id} ***")
+    
     # ---
     def init_mq(self):
         ''' Initialize the MQ receiver to get messages from the DAQ simulator.
