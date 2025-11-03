@@ -249,7 +249,6 @@ class DATA:
         if self.verbose: print(F'''*** MQ: run_imminent message for run {run_id}***''')
 
         self.count = 0 # reset file counter for the new run
-        print("\n\n\n\n\n\nNew run imminent message received:", run_id, self.count, "\n\n\n\n\n\n")
         
         self.run_id     = run_id
         self.dataset    = message_data.get('dataset')
