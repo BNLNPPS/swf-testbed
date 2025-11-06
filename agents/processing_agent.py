@@ -1,4 +1,5 @@
-import time, json, getpass
+import time, json, getpass, uuid
+from pandaclient import PrunScript, panda_api
 
 #################################################################################
 class PROCESSING:
@@ -15,10 +16,49 @@ class PROCESSING:
         # self.agent_name = f"{self.agent_type.lower()}-agent-{username}-{agent_id}"
 
         self.verbose    = verbose
-
+        self.run_id     = None  # Current run number
+        self.inDS       = None  # Input dataset name
+        self.outDS      = None  # Output dataset name
+        
         self.init_mq()
 
         if self.verbose: print(f'''*** Initialized the PROCESSING class ***''')
+
+
+    # ---
+    def test_panda(self):
+        #  Construct the full list of arguments for PrunScript.main
+        prun_args = [
+        "--exec", "./my_script.sh",
+        "--inDS",   "group.daq:swf.101871.run",
+        "--outDS",  "user.potekhin.101871.processed",
+        "--nJobs", "1",
+        "--vo", "wlcg",
+        "--site", "E1_BNL",
+        "--prodSourceLabel", "test",
+        "--workingGroup", "EIC",
+        "--noBuild",
+        "--expertOnly_skipScout",
+        "--outputs", "myout.txt"
+        ]
+        #  Call PrunScript.main to get the task parameters dictionary
+        try:
+            params = PrunScript.main(True, prun_args)
+        except Exception as e:
+            print(f"PRUN CRITICAL: - {str(e)}")
+            return None
+
+        params['runUntilClosed'] = True
+        print(params)
+        return None
+    
+    # ---
+    def name_current_datasets(self):
+        self.inDS   = f'''swf.{self.run_id:06d}.run'''          # INput dataset name based on the run number
+        self.outDS  = f'''swf.{self.run_id:06d}.processed'''    # Output dataset
+    # ---
+    def panda_submit_task(self, dataset_name):
+        pass
 
     # ---
     def on_message(self, msg):
@@ -47,9 +87,38 @@ class PROCESSING:
     # ---
     def handle_data_ready(self, message_data):
         """Handle data_ready message"""
-        # run_id = message_data.get('run_id')
-        print(f"*** MQ: data ready ***")
+        run_id = message_data.get('run_id')
+        print(f"*** MQ: data ready for run {run_id} ***")
+        self.run_id = run_id
+        self.name_current_datasets()
 
+        #  Construct the full list of arguments for PrunScript.main
+        prun_args = [
+        "--exec", "./my_script.sh",
+        "--inDS",   f"group.daq:{self.inDS}",
+        "--outDS",  f"group.daq:{self.outDS}",
+        "--nJobs", "1",
+        "--vo", "wlcg",
+        "--site", "E1_BNL",
+        "--prodSourceLabel", "test",
+        "--workingGroup", "EIC",
+        "--noBuild",
+        "--expertOnly_skipScout",
+        "--outputs", "myout.txt"
+        ]
+        #  Call PrunScript.main to get the task parameters dictionary
+        try:
+            params = PrunScript.main(True, prun_args)
+        except Exception as e:
+            print(f"PRUN CRITICAL: - {str(e)}")
+            return None
+
+
+        # to process input files as they are added to the dataset
+        params['runUntilClosed'] = True
+        print(params)
+        return None
+    
     # ---
     def handle_stf_gen(self, message_data):
         """Handle stf gen message"""
