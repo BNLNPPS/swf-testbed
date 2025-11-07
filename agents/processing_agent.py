@@ -28,10 +28,13 @@ class PROCESSING:
     # ---
     def test_panda(self):
         #  Construct the full list of arguments for PrunScript.main
+        
+        out_ds_name = f"user.potekhin.test1"
+        
         prun_args = [
         "--exec", "./my_script.sh",
         "--inDS",   "group.daq:swf.101871.run",
-        "--outDS",  "user.potekhin.101871.processed",
+        "--outDS",  out_ds_name,
         "--nJobs", "1",
         "--vo", "wlcg",
         "--site", "E1_BNL",
@@ -49,7 +52,36 @@ class PROCESSING:
             return None
 
         params['runUntilClosed'] = True
-        print(params)
+    
+        if self.verbose:
+            print(f"*** PANDA PARAMS ***")
+            for k in params.keys():
+                v = params[k]
+                print(f"{k:<20}: {v}")
+            print(f"********************")
+
+        # Get the PanDA API client
+        print("Getting PanDA API client...")
+        c = panda_api.get_api()
+
+
+        # Submit the task
+        print(f"Submitting task to PanDA with output dataset: {out_ds_name}")
+        status, result_tuple = c.submit_task(params)
+
+        # Check the submission status
+        if status == 0:
+            print(result_tuple)
+            # jedi_task_id = result_tuple[2]
+            # panda_monitor_url = os.environ.get('PANDAMON_URL')
+
+            # print(f"Task submitted successfully! JediTaskID: {jedi_task_id}")
+            # print(f"You can monitor your task at: {panda_monitor_url}/task/{jedi_task_id}/")
+        else:
+            print(f"Task submission failed. Status: {status}, Message: {result_tuple}")
+
+
+
         return None
     
     # ---
