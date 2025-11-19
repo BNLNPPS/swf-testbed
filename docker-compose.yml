@@ -1,17 +1,24 @@
-version: '3.8'
-services:
-  activemq:
-    image: apache/activemq-artemis:latest-alpine
-    ports:
-      - "8161:8161" # Web console
-      - "61616:61616" # Core protocol port
-      - "61612:61613" # STOMP protocol port - map to 61612 to match production
-    environment:
-      - ARTEMIS_USER=admin
-      - ARTEMIS_PASSWORD=admin
+# Docker Compose configuration for SWF Testbed infrastructure services
+#
+# This provides PostgreSQL, ActiveMQ Artemis, and Redis for development.
+# For production deployment, use system-managed services instead.
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose down           # Stop all services
+#   docker-compose ps             # Check service status
+#   docker-compose logs -f        # Follow logs
 
+networks:
+  swf-network:
+    driver: bridge
+    name: swf-network
+
+services:
+  # PostgreSQL database for swf-monitor
   postgres:
-    image: postgres:latest
+    image: postgres:16-alpine
+    container_name: swf-postgres
     environment:
       POSTGRES_DB: swfdb
       POSTGRES_USER: admin
@@ -20,6 +27,68 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - swf-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d swfdb"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # Apache ActiveMQ Artemis message broker
+  activemq:
+    image: apache/activemq-artemis:latest-alpine
+    container_name: swf-activemq
+    ports:
+      - "8161:8161"   # Web console (admin:admin)
+      - "61616:61616" # Core protocol port
+      - "61612:61613" # STOMP protocol port - mapped to 61612 for production compatibility
+    environment:
+      - ARTEMIS_USER=admin
+      - ARTEMIS_PASSWORD=admin
+    volumes:
+      - activemq_data:/var/lib/artemis-instance
+    networks:
+      - swf-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8161/console/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Redis for Django Channels (SSE streaming multi-process relay)
+  redis:
+    image: redis:7-alpine
+    container_name: swf-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - swf-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 volumes:
   postgres_data:
+    driver: local
+    name: swf-postgres-data
+  activemq_data:
+    driver: local
+    name: swf-activemq-data
+  redis_data:
+    driver: local
+    name: swf-redis-data
