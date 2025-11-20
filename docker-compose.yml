@@ -1,4 +1,5 @@
 # Docker Compose configuration for SWF Testbed infrastructure services
+# Requires Docker Compose v2.x+
 #
 # This provides PostgreSQL, ActiveMQ Artemis, and Redis for development.
 # For production deployment, use system-managed services instead.
