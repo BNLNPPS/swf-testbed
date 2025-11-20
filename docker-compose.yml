@@ -60,9 +60,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # depends_on removed; ActiveMQ does not require PostgreSQL to be healthy
 
   # Redis for Django Channels (SSE streaming multi-process relay)
   redis:
