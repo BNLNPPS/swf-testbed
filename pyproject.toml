@@ -13,7 +13,7 @@ dependencies = [
     # "swf-fastmon-agent",
     # "swf-mcp-agent",
     # CLI tool dependencies
-    "typer[all]", # Using typer[all] installs optional deps like rich
+    "typer",
     "supervisor",
     "psutil",
 ]
