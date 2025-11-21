@@ -128,8 +128,8 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
 
    Edit the `.env` file with your database credentials:
    ```env
-   DB_PASSWORD='admin'  # Match your Docker/local PostgreSQL password
-   SECRET_KEY='django-insecure-dev-key-for-testing-only-change-for-production-12345678901234567890'
+   export DB_PASSWORD='admin'  # Match your Docker/local PostgreSQL password
+   export SECRET_KEY='django-insecure-dev-key-for-testing-only-change-for-production-12345678901234567890'
    ```
 
 ## Step 5: Set Up Python Environment and Install Dependencies
