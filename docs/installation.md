@@ -134,6 +134,21 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
 
 ## Step 5: Set Up Python Environment and Install Dependencies
 
+You can either use **uv** or plain **pip** to set up the Python environment.
+
+### Using `uv`
+
+The following commands will create a virtual environment in `.venv` (if needed) and install
+`swf-testbed` and all of its dependencies:
+
+```bash
+cd ../swf-testbed
+uv sync
+source .venv/bin/activate
+```
+
+### Using `pip`
+
 1. **Navigate to swf-testbed and create virtual environment:**
    ```bash
    cd ../swf-testbed

@@ -29,3 +29,7 @@ swf-testbed = "swf_testbed_cli.main:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv.sources]
+swf-common-lib = { path = "../swf-common-lib", editable = true }
+swf-monitor    = { path = "../swf-monitor",    editable = true }
