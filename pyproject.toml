@@ -27,5 +27,9 @@ test = [
 # This creates the `swf-testbed` command in the user's PATH
 swf-testbed = "swf_testbed_cli.main:app"
 
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools.packages.find]
 where = ["src"]
