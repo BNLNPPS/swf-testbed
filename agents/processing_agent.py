@@ -26,15 +26,16 @@ class PROCESSING:
 
 
     # ---
-    def test_panda(self):
-        #  Construct the full list of arguments for PrunScript.main
-        
-        out_ds_name = f"user.potekhin.test1"
+    def test_panda(self, inDS, outDS):
+        # Construct the full list of arguments for PrunScript.main
+        # Datasets:
+        # Example: inDS="group.daq:swf.101871.run", outDS="user.potekhin.test1"        
+
         
         prun_args = [
         "--exec", "./my_script.sh",
-        "--inDS",   "group.daq:swf.101871.run",
-        "--outDS",  out_ds_name,
+        "--inDS",   inDS,
+        "--outDS",  outDS,
         "--nJobs", "1",
         "--vo", "wlcg",
         "--site", "E1_BNL",
@@ -66,7 +67,7 @@ class PROCESSING:
 
 
         # Submit the task
-        print(f"Submitting task to PanDA with output dataset: {out_ds_name}")
+        print(f"Submitting task to PanDA with output dataset: {outDS} ...")
         status, result_tuple = c.submit_task(params)
 
         # Check the submission status
