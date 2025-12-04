@@ -26,14 +26,14 @@ class PROCESSING:
 
 
     # ---
-    def test_panda(self, inDS, outDS, script):
+    def test_panda(self, inDS, outDS, output):
         # Construct the full list of arguments for PrunScript.main
         # Datasets:
         # Example: inDS="group.daq:swf.101871.run", outDS="user.potekhin.test1"        
 
         
         prun_args = [
-        "--exec",   "./my_script.sh", # script,
+        "--exec",   "./payload.sh",
         "--inDS",   inDS,
         "--outDS",  outDS,
         "--nJobs",  "1",
@@ -43,7 +43,7 @@ class PROCESSING:
         "--workingGroup",       "EIC",
         "--noBuild",
         "--expertOnly_skipScout",
-        "--outputs", "myout.txt"
+        "--outputs", output
         ]
         #  Call PrunScript.main to get the task parameters dictionary
         try:
