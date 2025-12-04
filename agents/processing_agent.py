@@ -26,21 +26,21 @@ class PROCESSING:
 
 
     # ---
-    def test_panda(self, inDS, outDS):
+    def test_panda(self, inDS, outDS, script):
         # Construct the full list of arguments for PrunScript.main
         # Datasets:
         # Example: inDS="group.daq:swf.101871.run", outDS="user.potekhin.test1"        
 
         
         prun_args = [
-        "--exec", "./my_script.sh",
+        "--exec",   "./my_script.sh", # script,
         "--inDS",   inDS,
         "--outDS",  outDS,
-        "--nJobs", "1",
-        "--vo", "wlcg",
-        "--site", "E1_BNL",
-        "--prodSourceLabel", "test",
-        "--workingGroup", "EIC",
+        "--nJobs",  "1",
+        "--vo",     "wlcg",
+        "--site",   "E1_BNL",
+        "--prodSourceLabel",    "test",
+        "--workingGroup",       "EIC",
         "--noBuild",
         "--expertOnly_skipScout",
         "--outputs", "myout.txt"
