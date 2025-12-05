@@ -33,3 +33,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv.sources]
+swf-common-lib = { path = "../swf-common-lib", editable = true }
+swf-monitor    = { path = "../swf-monitor",    editable = true }
