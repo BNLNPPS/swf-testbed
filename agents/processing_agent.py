@@ -27,10 +27,14 @@ class PROCESSING:
 
     # ---
     def test_panda(self, inDS, outDS, output):
+        '''
+        Simple test of PanDA submission with given input and output datasets,
+        essentailly static.
+        '''
         # Construct the full list of arguments for PrunScript.main
-        # Datasets:
-        # Example: inDS="group.daq:swf.101871.run", outDS="user.potekhin.test1"        
-
+        # I/O datasets examples: inDS="group.daq:swf.101871.run", outDS="user.potekhin.test1"
+        # Note there is only one name of the payload, which gets overwritten each time if needed
+        # in the driver script.
         
         prun_args = [
         "--exec",   "./payload.sh",
@@ -45,6 +49,7 @@ class PROCESSING:
         "--expertOnly_skipScout",
         "--outputs", output
         ]
+
         #  Call PrunScript.main to get the task parameters dictionary
         try:
             params = PrunScript.main(True, prun_args)
@@ -52,6 +57,7 @@ class PROCESSING:
             print(f"PRUN CRITICAL: - {str(e)}")
             return None
 
+        # Important: to process input files as they are added to the dataset
         params['runUntilClosed'] = True
     
         if self.verbose:
@@ -62,22 +68,16 @@ class PROCESSING:
             print(f"********************")
 
         # Get the PanDA API client
-        print("Getting PanDA API client...")
-        c = panda_api.get_api()
-
+        if self.verbose: print("*** Getting PanDA API client... ***")
+        panda_api = panda_api.get_api()
 
         # Submit the task
         print(f"Submitting task to PanDA with output dataset: {outDS} ...")
-        status, result_tuple = c.submit_task(params)
+        status, result_tuple = panda_api.submit_task(params)
 
         # Check the submission status
         if status == 0:
             print(result_tuple)
-            # jedi_task_id = result_tuple[2]
-            # panda_monitor_url = os.environ.get('PANDAMON_URL')
-
-            # print(f"Task submitted successfully! JediTaskID: {jedi_task_id}")
-            # print(f"You can monitor your task at: {panda_monitor_url}/task/{jedi_task_id}/")
         else:
             print(f"Task submission failed. Status: {status}, Message: {result_tuple}")
 
@@ -101,7 +101,9 @@ class PROCESSING:
 
         try:
             message_data = json.loads(msg)
+            
             msg_type = message_data.get('msg_type')
+            
             if msg_type == 'data_ready':
                 self.handle_data_ready(message_data)
             elif msg_type == 'stf_gen':
@@ -120,8 +122,11 @@ class PROCESSING:
     # ---
     def handle_data_ready(self, message_data):
         """Handle data_ready message"""
+        
         run_id = message_data.get('run_id')
+        
         print(f"*** MQ: data ready for run {run_id} ***")
+        
         self.run_id = run_id
         self.name_current_datasets()
 
@@ -210,8 +215,7 @@ class PROCESSING:
         ''' Run the listener loop, which will start receiving MQ messages.
             It will process these messages and handle processing management tasks.
         '''
-        if self.verbose:
-            print(f'''*** PROCESSING class run method called ***''')
+        if self.verbose: print(f'''*** PROCESSING class run method called ***''')
 
         try:
             if self.verbose: print(f"*** Processing agent is running. Press Ctrl+C to stop. ***")
@@ -220,3 +224,12 @@ class PROCESSING:
         except KeyboardInterrupt:
             if self.verbose:
                 print(f'''*** PROCESSING class run method interrupted by the KeyboardInterrupt ***''')
+                
+                
+########## ATTIC ##############
+# ---
+            # jedi_task_id = result_tuple[2]
+            # panda_monitor_url = os.environ.get('PANDAMON_URL')
+
+            # print(f"Task submitted successfully! JediTaskID: {jedi_task_id}")
+            # print(f"You can monitor your task at: {panda_monitor_url}/task/{jedi_task_id}/")
