@@ -8,21 +8,21 @@ class PROCESSING:
         Main functionality is to manage PanDA tasks for the testbed.
     '''
 
-    def __init__(self,
-                 verbose=False):
+    def __init__(self, verbose=False, test=False):
 
         # username = getpass.getuser()
         # agent_id = self.get_next_agent_id()
         # self.agent_name = f"{self.agent_type.lower()}-agent-{username}-{agent_id}"
 
         self.verbose    = verbose
+        self.test       = test
         self.run_id     = None  # Current run number
         self.inDS       = None  # Input dataset name
         self.outDS      = None  # Output dataset name
         
         self.init_mq()
 
-        if self.verbose: print(f'''*** Initialized the PROCESSING class ***''')
+        if self.verbose: print(f'''*** Initialized the PROCESSING class, test mode is {self.test} ***''')
 
 
     # ---
@@ -221,6 +221,9 @@ class PROCESSING:
             if self.verbose: print(f"*** Processing agent is running. Press Ctrl+C to stop. ***")
             while True:
                 time.sleep(1) # Keep the main thread alive, heartbeats can be added here
+                if self.test:
+                    if self.verbose: print(f'''*** TEST mode is enabled, exiting the run loop after one iteration ***''')
+                    break # Exit after one iteration in test mode
         except KeyboardInterrupt:
             if self.verbose:
                 print(f'''*** PROCESSING class run method interrupted by the KeyboardInterrupt ***''')
