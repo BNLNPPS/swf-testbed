@@ -39,7 +39,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import DataIdentifierAlreadyExists, RSENotFound
 
-from rucio_comms.utils import calculate_adler32_from_file, register_file_on_rse
+from rucio_comms.utils import calculate_adler32_from_file, register_file_on_rse, RucioUtils
 
 from api_utils import get_next_agent_id
 
@@ -53,6 +53,7 @@ class DATA:
 
     def __init__(self,
                 verbose:        bool = False,
+                mqxmit:         bool = True,
                 xrdup:          bool = False,
                 rucio_scope:    str  = '',
                 data_folder:    str  = '',
@@ -66,6 +67,7 @@ class DATA:
                 rse (str): RSE to target for upload; if empty, no data will be uploaded
         '''
         self.verbose                = verbose
+        self.mqxmit                 = mqxmit
         self.xrdup                  = xrdup
 
         self.rucio_client           = None
@@ -165,14 +167,18 @@ class DATA:
             if self.verbose: print('*** Failed to import the Sender and Receiver from comms, exiting...***')
             exit(-1)
 
-        try:
-            self.sndr = Sender(verbose=self.verbose)
-            if self.verbose: print(f'''*** Successfully instantiated the Sender ***''')
-            self.sndr.connect()
-            if self.verbose: print(f'''*** Successfully connected the Sender to MQ ***''')
-        except:
-            print('*** Failed to instantiate the Sender, exiting...***')
-            exit(-1)
+        if self.mqxmit:
+            try:
+                self.sndr = Sender(verbose=self.verbose)
+                if self.verbose: print(f'''*** Successfully instantiated the Sender ***''')
+                self.sndr.connect()
+                if self.verbose: print(f'''*** Successfully connected the Sender to MQ ***''')
+            except:
+                print('*** Failed to instantiate the Sender, exiting...***')
+                exit(-1)
+        else:
+            self.sndr = None
+            if self.verbose: print(f'''*** MQ transmission is disabled, Sender will not be instantiated ***''')
 
         try:
             self.rcvr = Receiver(verbose=self.verbose, client_id="data", processor=self.on_message) # a function to process received messages
@@ -202,9 +208,9 @@ class DATA:
     # ---
     def mq_data_ready_message(self):
         '''
-        Create a message to be sent to MQ about the start of the run.
-        This part will evolve as the development progresses, but for now it is a simple JSON message.
+        Create a "data ready" message to be sent to MQ.
         '''
+        
         msg = {}
         
         msg['req_id']       = 1
@@ -221,7 +227,10 @@ class DATA:
 
         try:
             message_data = json.loads(msg)
-            msg_type = message_data.get('msg_type') # print(f'===================================> {msg_type}')
+            
+            msg_type = message_data.get('msg_type')
+            print(f'===================================> {msg_type}')
+            
             if msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
             elif msg_type == 'data_ready':
@@ -253,7 +262,10 @@ class DATA:
         self.run_id     = run_id
         self.dataset    = message_data.get('dataset')
         self.folder     = f"{self.data_folder}/{self.dataset}"
-            
+
+        if self.verbose: print(f'''*** Current dataset set to {self.dataset}, folder set to {self.folder} ***''')
+
+        
         lifetime = 1 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
         if self.verbose: print(f'''*** Dataset {self.dataset}, creation result: {result} ***''')
@@ -317,8 +329,10 @@ class DATA:
 
         # Upload the file using either XRootD or Rucio
         if self.xrdup: # XRootD upload
+
             if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
             status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{self.dataset}/{fn}', force=False) # force=True to overwrite
+
             if self.verbose: print(f"*** xrd copy status type: {type(status)}, status: {status} ***")
             register_file_on_rse(self, file_path, fn)
 
@@ -338,6 +352,11 @@ class DATA:
         # N.B. Rucio does not accept large integers so mind the run ID
         self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
 
+        guid = RucioUtils.generate_guid()
+        formatted_guid = RucioUtils.format_guid_for_rucio(guid)
+        print(f'''*** Generated GUID: {guid}, formatted GUID for Rucio: {formatted_guid} ***''')
+        self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='guid', value=formatted_guid)
+
         # Attach the file to the open dataset
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
 
@@ -346,7 +365,8 @@ class DATA:
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
 
         if self.count == 0:
-            self.sndr.send(destination='epictopic', body=self.mq_data_ready_message(), headers={'persistent': 'true'})
+            if self.sndr is not None:
+                self.sndr.send(destination='epictopic', body=self.mq_data_ready_message(), headers={'persistent': 'true'})
             if self.verbose: print(f'''*** First file for run {self.run_id} has been processed, sending data ready message to MQ ***''')
 
         self.count += 1
@@ -356,27 +376,6 @@ class DATA:
     # ---
     def handle_data_ready(self, message_data):
         run_id = message_data.get('run_id')
-        if self.verbose: print(f"*** MQ: data ready for run {run_id} ***")
+        if self.verbose: print(f"*** MQ: cross-check - data ready for run {run_id} ***")
 
 ############################################################################################
-# -- ATTIC --
-# Realized that the needed path is already covered by SWF-common path.
-# Moved here from init_rucio() for clarity.
-# RUCIO_COMMS_PATH    = ''
-# try:
-#     RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
-#     if self.verbose: print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
-#     sys.path.append(RUCIO_COMMS_PATH)
-# except KeyError:
-#     if self.verbose: print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-
-# Ditto for MQ_COMMS_PATH
-# MQ_COMMS_PATH = ''
-# try:
-#     MQ_COMMS_PATH = os.environ['MQ_COMMS_PATH']
-#     print(f'''*** The MQ_COMMS_PATH is defined in the environment: {MQ_COMMS_PATH}, will be added to sys.path ***''')
-#     if MQ_COMMS_PATH not in sys.path: sys.path.append(MQ_COMMS_PATH)
-# except:
-#     print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-#     if self.verbose: print('*** The variable MQ_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-# if self.verbose: print(f'''*** Set the Python path: {sys.path} ***''')
