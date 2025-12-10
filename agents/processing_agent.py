@@ -132,9 +132,9 @@ class PROCESSING:
 
         #  Construct the full list of arguments for PrunScript.main
         prun_args = [
-        "--exec", "./my_script.sh",
+        "--exec", "./payload.sh",
         "--inDS",   f"group.daq:{self.inDS}",
-        "--outDS",  f"group.daq:{self.outDS}",
+        "--outDS",  f"user.potekhin:{self.outDS}",
         "--nJobs", "1",
         "--vo", "wlcg",
         "--site", "E1_BNL",
