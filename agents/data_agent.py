@@ -353,7 +353,7 @@ class DATA:
         self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
 
         guid = RucioUtils.generate_guid()
-        formatted_guid = RucioUtils.format_guid_for_rucio(guid)
+        formatted_guid = RucioUtils.format_guid(guid)
         print(f'''*** Generated GUID: {guid}, formatted GUID for Rucio: {formatted_guid} ***''')
         self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='guid', value=formatted_guid)
 
