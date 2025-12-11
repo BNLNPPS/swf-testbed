@@ -89,6 +89,12 @@ class PROCESSING:
     def name_current_datasets(self):
         self.inDS   = f'''swf.{self.run_id:06d}.run'''          # INput dataset name based on the run number
         self.outDS  = f'''swf.{self.run_id:06d}.processed'''    # Output dataset
+        
+        if self.verbose:
+            print(f"*** Named datasets for run {self.run_id} ***")
+            print(f"*** inDS: {self.inDS} ***")
+            print(f"*** outDS: {self.outDS} ***")
+    
     # ---
     def panda_submit_task(self, dataset_name):
         pass
@@ -154,7 +160,14 @@ class PROCESSING:
 
         # to process input files as they are added to the dataset
         params['runUntilClosed'] = True
-        print(params)
+        
+        if self.verbose:
+            print(f"*** PANDA PARAMS ***")
+            for k in params.keys():
+                v = params[k]
+                print(f"{k:<20}: {v}")
+            print(f"********************")
+                
         return None
     
     # ---
