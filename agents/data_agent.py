@@ -229,7 +229,7 @@ class DATA:
             message_data = json.loads(msg)
             
             msg_type = message_data.get('msg_type')
-            print(f'===================================> {msg_type}')
+            # Debug only: print(f'===================================> {msg_type}')
             
             if msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
