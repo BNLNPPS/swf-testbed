@@ -58,30 +58,9 @@ class PROCESSING:
             return None
 
         # Important: to process input files as they are added to the dataset
-        params['runUntilClosed'] = True
+        params['runUntilClosed'] = False # for testing, set to False
     
-        if self.verbose:
-            print(f"*** PANDA PARAMS ***")
-            for k in params.keys():
-                v = params[k]
-                print(f"{k:<20}: {v}")
-            print(f"********************")
-
-        # Get the PanDA API client
-        if self.verbose: print("*** Getting PanDA API client... ***")
-        panda_api = panda_api.get_api()
-
-        # Submit the task
-        print(f"Submitting task to PanDA with output dataset: {outDS} ...")
-        status, result_tuple = panda_api.submit_task(params)
-
-        # Check the submission status
-        if status == 0:
-            print(result_tuple)
-        else:
-            print(f"Task submission failed. Status: {status}, Message: {result_tuple}")
-
-
+        self.panda_submit_task(params)
 
         return None
     
@@ -96,8 +75,27 @@ class PROCESSING:
             print(f"*** outDS: {self.outDS} ***")
     
     # ---
-    def panda_submit_task(self, dataset_name):
-        pass
+    def panda_submit_task(self, params):
+        if self.verbose:
+            print(f"*** PANDA PARAMS ***")
+            for k in params.keys():
+                v = params[k]
+                print(f"{k:<20}: {v}")
+            print(f"********************")
+
+        # Get the PanDA API client
+        if self.verbose: print("*** Getting PanDA API client... ***")
+        my_api = panda_api.get_api()
+
+        # Submit the task
+        # print(f"Submitting task to PanDA with output dataset: {outDS} ...")
+        status, result_tuple = my_api.submit_task(params)
+
+        # Check the submission status
+        if status == 0:
+            print(result_tuple)
+        else:
+            print(f"Task submission failed. Status: {status}, Message: {result_tuple}")
 
     # ---
     def on_message(self, msg):
@@ -140,7 +138,7 @@ class PROCESSING:
         prun_args = [
         "--exec", "./payload.sh",
         "--inDS",   f"group.daq:{self.inDS}",
-        "--outDS",  f"user.potekhin:{self.outDS}",
+        "--outDS",  f"user.potekhin.{self.outDS}",
         "--nJobs", "1",
         "--vo", "wlcg",
         "--site", "E1_BNL",
@@ -148,7 +146,7 @@ class PROCESSING:
         "--workingGroup", "EIC",
         "--noBuild",
         "--expertOnly_skipScout",
-        "--outputs", "myout.txt"
+        "--outputs", "myout.*.txt"
         ]
         #  Call PrunScript.main to get the task parameters dictionary
         try:
@@ -157,16 +155,10 @@ class PROCESSING:
             print(f"PRUN CRITICAL: - {str(e)}")
             return None
 
-
         # to process input files as they are added to the dataset
         params['runUntilClosed'] = True
-        
-        if self.verbose:
-            print(f"*** PANDA PARAMS ***")
-            for k in params.keys():
-                v = params[k]
-                print(f"{k:<20}: {v}")
-            print(f"********************")
+    
+        self.panda_submit_task(params)
                 
         return None
     
