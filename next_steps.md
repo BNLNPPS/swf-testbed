@@ -1,11 +1,14 @@
 # Next Steps - Streaming Workflow Testbed
 
-**Last Updated:** 2025-12-05
+**Last Updated:** 2025-12-23
 **Branch:** infra/baseline-v26
 
 ---
 
-## 1. Test Fast Processing Agent
+## 1. Test Fast Processing Agent - DONE (2025-12-23)
+
+Verified: RunState created, 5% sampling, 15 TFSlices/sample, slices sent to queue.
+Start agent BEFORE simulator.
 
 ```bash
 # Terminal 1: Start workflow simulator (use --realtime for proper pacing)
