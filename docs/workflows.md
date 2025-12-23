@@ -231,11 +231,14 @@ class WorkflowExecution(models.Model):
 Workflows are executed via the `workflow_simulator.py` command-line tool:
 
 ```bash
-# Run workflow with default configuration
+# Run workflow with default configuration (fast simulation mode)
 python workflows/workflow_simulator.py stf_datataking --config stf_processing_default --duration 60
 
 # Run with fast processing configuration
 python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 600
+
+# Run in REAL-TIME mode (for testing with downstream agents)
+python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 120 --realtime
 
 # Override specific parameters
 python workflows/workflow_simulator.py stf_datataking \
@@ -250,9 +253,27 @@ python workflows/workflow_simulator.py stf_datataking \
 - `workflow_name` - Name of workflow Python file (e.g., `stf_datataking`)
 - `--config` - TOML configuration file name (without .toml extension)
 - `--duration` - Simulation duration in seconds (default: 3600)
+- `--realtime` - Run in real-time mode (see Simulation Modes below)
 - `--physics-period-count` - Override physics period count
 - `--physics-period-duration` - Override physics period duration (seconds)
 - `--stf-interval` - Override STF generation interval (seconds)
+
+### Simulation Modes
+
+The workflow simulator supports two execution modes:
+
+**Fast Simulation Mode (default)**
+- SimPy discrete-event simulation runs as fast as possible
+- A 120-second workflow completes in ~2 seconds of wall-clock time
+- Useful for testing workflow logic and database integration
+- Messages are broadcast instantly without timing constraints
+
+**Real-Time Mode (`--realtime`)**
+- Uses SimPy's `RealtimeEnvironment` to tie simulation time to wall-clock time
+- A 120-second workflow takes ~120 seconds to complete
+- Essential for testing with downstream agents (e.g., `fast_processing_agent`)
+- Messages are paced realistically, allowing agents to process them in sequence
+- Use `strict=False` to allow the simulation to catch up if it falls behind
 
 **What Happens:**
 1. `workflow_simulator.py` creates a WorkflowRunner instance

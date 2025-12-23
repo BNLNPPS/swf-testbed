@@ -201,6 +201,8 @@ def main():
     parser.add_argument('--physics-period-count', type=int, help='Override physics period count')
     parser.add_argument('--physics-period-duration', type=float, help='Override physics period duration')
     parser.add_argument('--stf-interval', type=float, help='Override STF interval')
+    parser.add_argument('--realtime', action='store_true',
+                        help='Run simulation in real-time (1 sim second = 1 wall-clock second)')
 
     args = parser.parse_args()
 
@@ -230,6 +232,7 @@ def main():
             workflow_name=args.workflow_name,
             config_name=args.config,
             duration=args.duration,
+            realtime=args.realtime,
             **workflow_params
         )
 

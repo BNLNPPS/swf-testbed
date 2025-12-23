@@ -57,7 +57,7 @@ class WorkflowRunner(BaseAgent):
         self.logger.info(f"WorkflowRunner initialized and connected to ActiveMQ: {self.agent_name}")
 
     def run_workflow(self, workflow_name: str, config_name: Optional[str] = None,
-                     duration: float = 3600, **override_params) -> str:
+                     duration: float = 3600, realtime: bool = False, **override_params) -> str:
         """
         Run a workflow by name
 
@@ -65,6 +65,7 @@ class WorkflowRunner(BaseAgent):
             workflow_name: Name of the workflow (e.g., 'stf_processing')
             config_name: Name of config file (defaults to {workflow_name}_default.toml)
             duration: Simulation duration in seconds
+            realtime: If True, run in real-time mode (1 sim second = 1 wall-clock second)
             **override_params: Parameters to override from config
 
         Returns:
@@ -103,7 +104,8 @@ class WorkflowRunner(BaseAgent):
             execution_id=execution_id,
             workflow_code=workflow_code,
             parameters=config['parameters'],
-            duration=duration
+            duration=duration,
+            realtime=realtime
         )
 
         # Update execution status to completed
@@ -327,10 +329,26 @@ class WorkflowRunner(BaseAgent):
             raise Exception(f"Failed to create execution record: {response.status_code}")
 
     def _execute_workflow(self, execution_id: str, workflow_code: str,
-                         parameters: Dict[str, Any], duration: float):
-        """Execute workflow using SimPy"""
+                         parameters: Dict[str, Any], duration: float,
+                         realtime: bool = False):
+        """Execute workflow using SimPy
+
+        Args:
+            execution_id: Unique identifier for this execution
+            workflow_code: Python code containing WorkflowExecutor class
+            parameters: Workflow parameters from config
+            duration: Simulation duration in seconds
+            realtime: If True, use RealtimeEnvironment (1 sim sec = 1 wall sec)
+        """
         # Create SimPy environment
-        env = simpy.Environment()
+        if realtime:
+            # RealtimeEnvironment ties simulation time to wall-clock time
+            # factor=1 means 1 simulation second = 1 real second
+            self.logger.info("Using real-time simulation mode")
+            env = simpy.rt.RealtimeEnvironment(factor=1, strict=False)
+        else:
+            # Standard discrete-event simulation (runs as fast as possible)
+            env = simpy.Environment()
 
         # Prepare execution namespace with runner access
         namespace = {

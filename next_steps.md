@@ -1,21 +1,25 @@
 # Next Steps - Streaming Workflow Testbed
 
 **Last Updated:** 2025-12-05
-**Branch:** infra/baseline-v27
+**Branch:** infra/baseline-v26
 
 ---
 
 ## 1. Test Fast Processing Agent
 
 ```bash
-# Terminal 1: Start workflow simulator
+# Terminal 1: Start workflow simulator (use --realtime for proper pacing)
 cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
-python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 120
+python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 120 --realtime
 
 # Terminal 2: Start fast processing agent
 cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
 python example_agents/fast_processing_agent.py --debug
 ```
+
+**Note:** The `--realtime` flag is essential when testing with downstream agents.
+Without it, the workflow runs in fast simulation mode (completing instantly),
+which doesn't allow agents time to process messages.
 
 Verify:
 - Agent receives `run_imminent`, queries WorkflowExecution API
