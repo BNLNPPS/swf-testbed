@@ -10,14 +10,10 @@
 # Both packages are located in the swf-common repository.
 #
 # Datasets are created upon receiving the run_imminent message.
-# This is the only run-related message that the DATA class processes, other
-# are placeholders.
-#
 # Files are registered upon receiving the stf_gen message.
-#
 # The run_id and dataset name are extracted from the run_imminent message.
-# The data folder is defined globally.
-# The Rucio scope and RSE are defined globally.
+#
+# The data folder and the Rucio scope and RSE are defined globally.
 # The file is attached to the dataset after it is uploaded to Rucio.
 # The file metadata is set upon registration.
 # The file is registered under the provided Rucio scope.
@@ -27,28 +23,31 @@
 #
 # ###############################################################################
 
+
+# Ad hoc settings for XRootD upload mode, reflecting the EIC storage setup
 xrd_server = 'root://dcintdoor.sdcc.bnl.gov:1094/'
 xrd_folder = '/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/'
 
+# Generic imports
 import os, sys, time, json
 
-
 # Rucio imports
-from rucio.client.client import Client
+from rucio.client.client        import Client
 from rucio.client.replicaclient import ReplicaClient
-from rucio.client.didclient import DIDClient
-from rucio.common.exception import DataIdentifierAlreadyExists, RSENotFound
+from rucio.client.didclient     import DIDClient
+from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 
-from rucio_comms.utils import calculate_adler32_from_file, register_file_on_rse, RucioUtils
-
-from api_utils import get_next_agent_id
+# Common lib imports
+from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse, RucioUtils
+from api_utils import           get_next_agent_id
 
 #################################################################################
 class DATA:
     ''' The DATA class is the main data management class.
         It receives messages from the DAQ simulator and handles them.
-        Main functionality is to create Rucio datasets and register files to
+        Main functionality is to create Rucio datasets, upload and register files to
         these datasets. Then, to notify the processing agent that the data is ready.
+        Upload can be done either via Rucio or XRootD.
     '''
 
     def __init__(self,
@@ -242,7 +241,7 @@ class DATA:
             elif msg_type == 'end_run':
                 self.handle_end_run(message_data)
             else:
-                print("Ignoring unknown message type", msg_type)
+                if self.verbose: print(f"*** Ignoring unknown message type {msg_type} ***")
         except Exception as e:
             print(f"CRITICAL: Message processing failed - {str(e)}")
 
@@ -294,6 +293,13 @@ class DATA:
         """Handle end_run message"""
         run_id = message_data.get('run_id')
         if self.verbose: print(f"*** MQ: end_run message for run_id: {run_id} ***")
+
+        # Close the dataset
+        self.rucio_client.set_status(
+            scope=self.rucio_scope,
+            name=self.dataset,
+            open=False  # Setting to False closes the dataset
+        )
 
     # ---
     def handle_stf_gen(self, message_data):
