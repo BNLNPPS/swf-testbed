@@ -32,11 +32,12 @@ Verify:
 
 ---
 
-## 2. Verify Artemis Queue Configuration
+## 2. Verify Artemis Queue Configuration - DONE (2025-12-23)
 
-Ensure `/queue/panda.transformer.slices` exists in Artemis broker config.
+Configured `/queue/panda.transformer.slices` as **anycast** (workers compete for messages).
+Added divert to copy all messages to `/topic/panda.transformer.slices.monitor` for debugging.
 
-Reference: https://github.com/wguanicedew/documents/blob/main/artemis/configure.md
+See: [docs/artemis-queue-configuration.md](docs/artemis-queue-configuration.md)
 
 ---
 
