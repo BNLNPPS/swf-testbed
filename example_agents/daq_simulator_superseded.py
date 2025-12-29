@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 """
+SUPERSEDED: Use workflows/workflow_simulator.py instead.
+
+This standalone DAQ simulator has been superseded by the runner-based
+simulators in workflows/ which integrate with BaseAgent namespace support.
+
+Original description:
 DAQ Simulator - SimPy-based ePIC DAQ state machine simulation
 Generates workflow events that drive the testbed agents
 """

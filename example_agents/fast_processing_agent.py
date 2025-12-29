@@ -27,11 +27,12 @@ class FastProcessingAgent(BaseAgent):
     # Queue for transformer workers (from Wen's iDDS design)
     TRANSFORMER_QUEUE = '/queue/panda.transformer.slices'
 
-    def __init__(self, debug=False):
+    def __init__(self, debug=False, config_path=None):
         super().__init__(
             agent_type='FAST_PROCESSING',
             subscription_queue='epictopic',
-            debug=debug
+            debug=debug,
+            config_path=config_path
         )
 
         # Workflow parameters (populated on run_imminent)
@@ -54,6 +55,8 @@ class FastProcessingAgent(BaseAgent):
     def on_message(self, frame):
         """Handle incoming workflow messages."""
         message_data, msg_type = self.log_received_message(frame)
+        if message_data is None:
+            return
 
         try:
             if msg_type == 'run_imminent':
@@ -425,12 +428,17 @@ class FastProcessingAgent(BaseAgent):
 
 if __name__ == "__main__":
     import argparse
+    from pathlib import Path
+
+    script_dir = Path(__file__).parent
 
     parser = argparse.ArgumentParser(
         description="Fast Processing Agent - samples STFs and creates TF slices"
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--testbed-config", default=str(script_dir / "testbed.toml"),
+                        help="Testbed config file (default: testbed.toml)")
     args = parser.parse_args()
 
-    agent = FastProcessingAgent(debug=args.debug)
+    agent = FastProcessingAgent(debug=args.debug, config_path=args.testbed_config)
     agent.run()

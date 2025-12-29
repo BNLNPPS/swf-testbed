@@ -1,0 +1,18 @@
+# Testbed Instance Configuration
+#
+# [testbed] section: required, defines the testbed instance context
+# [parameters] section: optional, overrides workflow config parameters
+
+[testbed]
+# Namespace for this testbed instance.
+# Must be set before running workflows - empty string will cause an error.
+# Examples: "epic-fastmon-dev", "collab-dec29", "wenauseic-test1"
+#
+# Multiple users can collaborate in one namespace.
+# Users are responsible for namespace uniqueness.
+namespace = ""
+
+# Optional: override workflow parameters
+# [parameters]
+# physics_period_count = 2
+# stf_interval = 5.0

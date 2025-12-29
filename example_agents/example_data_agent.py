@@ -13,8 +13,9 @@ class DataAgent(BaseAgent):
     It listens for 'stf_gen' messages and sends 'data_ready' messages.
     """
 
-    def __init__(self, debug=False):
-        super().__init__(agent_type='DATA', subscription_queue='epictopic', debug=debug)
+    def __init__(self, debug=False, config_path=None):
+        super().__init__(agent_type='DATA', subscription_queue='epictopic', debug=debug,
+                         config_path=config_path)
         self.active_runs = {}  # Track active runs and their monitor IDs
         self.active_files = {}  # Track STF files being processed
 
@@ -24,6 +25,8 @@ class DataAgent(BaseAgent):
         """
         # Use base class helper for consistent logging
         message_data, msg_type = self.log_received_message(frame)
+        if message_data is None:
+            return
 
         try:
             if msg_type == 'stf_gen':
@@ -308,10 +311,15 @@ class DataAgent(BaseAgent):
 
 if __name__ == "__main__":
     import argparse
+    from pathlib import Path
+
+    script_dir = Path(__file__).parent
 
     parser = argparse.ArgumentParser(description="Data Agent - handles STF files and run management")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--testbed-config", default=str(script_dir / "testbed.toml"),
+                        help="Testbed config file (default: testbed.toml)")
     args = parser.parse_args()
 
-    agent = DataAgent(debug=args.debug)
+    agent = DataAgent(debug=args.debug, config_path=args.testbed_config)
     agent.run()

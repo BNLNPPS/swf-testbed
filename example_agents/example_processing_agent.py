@@ -13,8 +13,9 @@ class ProcessingAgent(BaseAgent):
     It listens for 'data_ready' messages.
     """
 
-    def __init__(self, debug=False):
-        super().__init__(agent_type='PROCESSING', subscription_queue='epictopic', debug=debug)
+    def __init__(self, debug=False, config_path=None):
+        super().__init__(agent_type='PROCESSING', subscription_queue='epictopic', debug=debug,
+                         config_path=config_path)
         self.active_processing = {}  # Track files being processed
         self.processing_stats = {'total_processed': 0, 'failed_count': 0}
 
@@ -24,6 +25,8 @@ class ProcessingAgent(BaseAgent):
         """
         # Use base class helper for consistent logging
         message_data, msg_type = self.log_received_message(frame)
+        if message_data is None:
+            return
 
         # Update heartbeat on message activity
         self.send_processing_agent_heartbeat()
@@ -261,10 +264,15 @@ class ProcessingAgent(BaseAgent):
 
 if __name__ == "__main__":
     import argparse
+    from pathlib import Path
+
+    script_dir = Path(__file__).parent
 
     parser = argparse.ArgumentParser(description="Processing Agent - handles workflow data processing")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--testbed-config", default=str(script_dir / "testbed.toml"),
+                        help="Testbed config file (default: testbed.toml)")
     args = parser.parse_args()
 
-    agent = ProcessingAgent(debug=args.debug)
+    agent = ProcessingAgent(debug=args.debug, config_path=args.testbed_config)
     agent.run()

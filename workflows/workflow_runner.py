@@ -19,19 +19,22 @@ from swf_common_lib.base_agent import BaseAgent
 class WorkflowRunner(BaseAgent):
     """Loads, registers, and executes workflow definitions"""
 
-    def __init__(self, monitor_url: Optional[str] = None, debug: bool = False):
+    def __init__(self, monitor_url: Optional[str] = None, debug: bool = False,
+                 config_path: Optional[str] = None):
         """
         Initialize WorkflowRunner as an agent
 
         Args:
             monitor_url: Optional override for SWF monitor URL (uses env if not provided)
             debug: Enable debug logging
+            config_path: Path to testbed.toml config file
         """
         # Initialize as BaseAgent (workflow_runner type, workflow_control queue)
         super().__init__(
             agent_type='workflow_runner',
             subscription_queue='workflow_control',
-            debug=debug
+            debug=debug,
+            config_path=config_path
         )
 
         # Override monitor_url if provided
@@ -41,6 +44,17 @@ class WorkflowRunner(BaseAgent):
         # Use self.api from BaseAgent (already configured with auth)
         self.api_session = self.api
         self.workflows_dir = Path(__file__).parent  # workflows/ directory
+
+        # Load testbed config overrides (all sections except [testbed])
+        self.testbed_overrides = {}
+        if config_path:
+            testbed_config_file = Path(config_path)
+            if testbed_config_file.exists():
+                with open(testbed_config_file, 'rb') as f:
+                    testbed_config = tomllib.load(f)
+                    for section, values in testbed_config.items():
+                        if section != 'testbed' and isinstance(values, dict):
+                            self.testbed_overrides[section] = values
 
         # Connect to ActiveMQ (we only send, don't need to subscribe)
         self.conn.connect(
@@ -75,7 +89,14 @@ class WorkflowRunner(BaseAgent):
         workflow_code = self._load_workflow_code(workflow_name)
         config = self._load_workflow_config(workflow_name, config_name)
 
-        # Apply parameter overrides
+        # Apply testbed config overrides (by section)
+        for section, values in self.testbed_overrides.items():
+            if section in config:
+                config[section].update(values)
+            else:
+                config[section] = values
+
+        # Apply CLI parameter overrides (highest priority)
         if override_params:
             config['parameters'].update(override_params)
 
