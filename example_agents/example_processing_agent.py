@@ -194,6 +194,7 @@ class ProcessingAgent(BaseAgent):
         # TODO: Finalize processing tasks for this run
         
         self.logger.info("Processing complete for run", extra={"run_id": run_id, "total_files": total_files})
+        self.logger.info("Waiting for next run...")
 
     def handle_data_ready(self, message_data):
         """Handle data_ready message - process STF file"""

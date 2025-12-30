@@ -57,14 +57,21 @@ class WorkflowExecutor:
 
     def generate_stfs_during_physics(self, env, duration_seconds):
         interval = self.parameters['stf_interval']
-        start_time = env.now
+        stf_count = self.parameters.get('stf_count')
 
-        while (env.now - start_time) < duration_seconds:
-            yield from self.generate_single_stf(env)
-
-            # Only wait for interval if not at end of physics period
-            if (env.now - start_time) < duration_seconds:
-                yield env.timeout(interval)
+        if stf_count:
+            # Count-based: generate exactly stf_count files
+            for i in range(stf_count):
+                yield from self.generate_single_stf(env)
+                if i < stf_count - 1:  # Don't wait after last STF
+                    yield env.timeout(interval)
+        else:
+            # Duration-based: generate STFs for physics_period_duration
+            start_time = env.now
+            while (env.now - start_time) < duration_seconds:
+                yield from self.generate_single_stf(env)
+                if (env.now - start_time) < duration_seconds:
+                    yield env.timeout(interval)
 
     def generate_single_stf(self, env):
         self.stf_sequence += 1

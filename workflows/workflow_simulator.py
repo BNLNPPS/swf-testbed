@@ -203,7 +203,8 @@ def main():
     parser.add_argument('--testbed-config', default=str(script_dir / 'testbed.toml'),
                         help='Testbed config file (default: testbed.toml)')
     parser.add_argument('--workflow-config', help='Workflow configuration file name')
-    parser.add_argument('--duration', type=float, default=3600, help='Simulation duration in seconds')
+    parser.add_argument('--duration', type=float, default=0, help='Max duration in seconds (0 = run until workflow completes)')
+    parser.add_argument('--stf-count', type=int, help='Override STF count (generates exactly N files)')
     parser.add_argument('--physics-period-count', type=int, help='Override physics period count')
     parser.add_argument('--physics-period-duration', type=float, help='Override physics period duration')
     parser.add_argument('--stf-interval', type=float, help='Override STF interval')
@@ -214,6 +215,8 @@ def main():
 
     # Build workflow parameters from arguments
     workflow_params = {}
+    if args.stf_count is not None:
+        workflow_params['stf_count'] = args.stf_count
     if args.physics_period_count is not None:
         workflow_params['physics_period_count'] = args.physics_period_count
     if args.physics_period_duration is not None:

@@ -33,7 +33,7 @@ swf-testbed start
 **Run a test (two terminals):**
 ```bash
 # Terminal 1: Workflow simulator
-cd /eic/u/wenauseic/github/swf-testbed/workflows && source ../.venv/bin/activate && source ~/.env && python workflow_simulator.py stf_datataking --workflow-config fast_processing_default --duration 120 --realtime
+cd /eic/u/wenauseic/github/swf-testbed/workflows && source ../.venv/bin/activate && source ~/.env && python workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
 
 # Terminal 2: Processing agent
 cd /eic/u/wenauseic/github/swf-testbed/example_agents && source ../.venv/bin/activate && source ~/.env && python example_processing_agent.py

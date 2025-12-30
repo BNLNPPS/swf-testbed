@@ -396,10 +396,13 @@ class WorkflowRunner(BaseAgent):
             )
 
             # Start workflow process
-            env.process(executor.execute(env))
+            workflow_process = env.process(executor.execute(env))
 
-            # Run simulation for specified duration
-            env.run(until=duration)
+            # Run until workflow completes (or duration timeout if specified)
+            if duration and duration > 0:
+                env.run(until=min(workflow_process, duration))
+            else:
+                env.run(until=workflow_process)
         else:
             raise ValueError("WorkflowExecutor class not found in workflow code")
 

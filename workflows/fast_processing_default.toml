@@ -6,8 +6,8 @@ includes = ["daq_state_machine.toml"]
 
 [parameters]
 # DAQ state machine parameters inherited from daq_state_machine.toml
-# Override for longer physics period for fast processing
-physics_period_duration = 600   # Duration of physics period (seconds, 10 min)
+# Count-based STF generation (overrides physics_period_duration)
+stf_count = 10                  # Generate exactly 10 STF files
 physics_period_count = 1        # Single physics period
 
 # Fast processing specific parameters (used by fast_processing_agent)
