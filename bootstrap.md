@@ -106,3 +106,114 @@ All in swf-monitor, grep for `STFWorkflow`:
 - `activemq_processor.py`: STFWorkflow references REMOVED
 
 **Decision needed:** Either deprecate STFWorkflow entirely (use WorkflowMessage for grouping), or wire it up properly. Current path is deprecation since WorkflowMessage has all needed fields.
+
+---
+
+## SESSION WORK IN PROGRESS (UNCOMMITTED in swf-monitor)
+
+### Message Detail View - COMPLETED
+- Added `message_detail` view, URL (`/workflow/messages/<uuid>/`), template
+- Timestamps in agent_detail and workflow_messages list link to message detail
+- Message detail shows all model fields + flattened JSON content/metadata tables
+
+### execution_id Filter - COMPLETED
+- Added execution_id to workflow_messages filter dropdowns
+- Updated view, datatable ajax, filter counts
+
+### Workflow Execution Detail - COMPLETED
+- Added "Messages: View Messages" link to execution detail page
+
+### Workflow Executions List - COMPLETED
+- Added "STFs" column showing count of stf_gen messages per execution
+
+**Needs commit and push to swf-monitor, then deploy.**
+
+---
+
+## NEXT MAJOR TASK: WORKFLOW ORCHESTRATION
+
+### Problem
+- Each agent requires its own terminal/process
+- No way to define "this workflow needs these agents"
+- No single command to start/stop agent group
+- Multiple testbed.toml files (workflows/, example_agents/) - should be ONE
+
+### Architecture Decision
+Use **supervisord** for agent management (already in project), NOT subprocesses.
+
+**Agent behavior:**
+- Agents are **persistent** - they start, wait for work, process it, close out, go back to waiting
+- Agents should not exit after processing - they're long-running services
+- This is the production architecture we're building toward
+
+### Solution Design
+
+**1. Single testbed.toml in workflows/**
+
+All agents use `workflows/testbed.toml`. Delete `example_agents/testbed.toml`.
+
+```toml
+[testbed]
+namespace = "torre1"
+
+[workflow]
+name = "stf_datataking"
+config = "fast_processing_default"
+duration = 120
+realtime = true
+
+[agents]
+# Agents managed by supervisord
+
+[agents.processing]
+enabled = true
+script = "example_agents/example_processing_agent.py"
+
+[agents.data]
+enabled = false
+script = "example_agents/example_data_agent.py"
+
+[agents.fastmon]
+enabled = false
+script = "example_agents/example_fastmon_agent.py"
+
+[parameters]
+# Optional workflow parameter overrides
+# physics_period_count = 2
+# stf_interval = 5.0
+```
+
+**2. Workflow Orchestrator**
+
+New CLI command: `swf-testbed run [testbed.toml]`
+
+Orchestrator behavior:
+1. Read testbed.toml
+2. For each enabled agent:
+   - If not running in supervisord → start it
+   - If running → health check (heartbeat recent?)
+3. When all agents verified running and healthy → start the workflow run
+4. Graceful shutdown on Ctrl+C (stop workflow, optionally stop agents)
+
+**3. supervisord Integration**
+
+- Generate/update supervisord.conf from testbed.toml agent definitions
+- Use supervisorctl to start/stop/status agents
+- Agents report health via heartbeat to monitor
+
+### Implementation Steps
+
+1. Extend testbed.toml schema with [agents] section
+2. Delete example_agents/testbed.toml, update agents to use workflows/testbed.toml
+3. Create orchestrator module in swf-testbed
+4. Update supervisord.conf generation to include agents from testbed.toml
+5. Implement health check via monitor API (check last_heartbeat)
+6. Single CLI command to run workflow with agent management
+
+### Files to Modify
+
+- `workflows/testbed.toml` - extend schema
+- `example_agents/testbed.toml` - DELETE
+- `example_agents/*.py` - update config_path to use workflows/testbed.toml
+- `src/swf_testbed_cli/main.py` - add `run` command
+- `supervisord.conf` template - agent definitions
