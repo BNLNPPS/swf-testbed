@@ -30,9 +30,13 @@ swf-testbed start
 - Monitor: http://localhost:8002/
 - ActiveMQ: http://localhost:8161/admin/ (admin/admin)
 
-**Run a test:**
+**Run a test (two terminals):**
 ```bash
-python example_agents/daq_simulator.py
+# Terminal 1: Workflow simulator
+cd /eic/u/wenauseic/github/swf-testbed/workflows && source ../.venv/bin/activate && source ~/.env && python workflow_simulator.py stf_datataking --workflow-config fast_processing_default --duration 120 --realtime
+
+# Terminal 2: Processing agent
+cd /eic/u/wenauseic/github/swf-testbed/example_agents && source ../.venv/bin/activate && source ~/.env && python example_processing_agent.py
 ```
 
 **Check STF files appear:**

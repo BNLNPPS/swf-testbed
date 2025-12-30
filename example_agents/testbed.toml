@@ -10,7 +10,7 @@
 #
 # Multiple users can collaborate in one namespace.
 # Users are responsible for namespace uniqueness.
-namespace = "test1"
+namespace = "torre1"
 
 # Optional: override workflow parameters
 # [parameters]

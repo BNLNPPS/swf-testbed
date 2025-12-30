@@ -1,4 +1,6 @@
 """
+SUPERSEDED - Current simulator code is in workflows/workflow_simulator.py
+
 Example DAQ Simulator Agent: Originates the workflow.
 """
 
