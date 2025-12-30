@@ -72,10 +72,10 @@ See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
 ---
 
-### 5. agent_detail View Fix - COMPLETED
+### 5. agent_detail View - SIMPLIFIED
 - **File:** `views.py` (line 1438) and `agent_detail.html` template
-- **Change:** Now queries WorkflowMessages by sender_agent instead of STFWorkflow
-- **Template:** Shows message activity (timestamp, type, namespace, run_id, status)
+- **Change:** Removed redundant message table; now links to workflow_messages with sender_agent filter
+- **Benefit:** DRY - single message table implementation, full filtering capability
 
 ---
 
@@ -126,7 +126,12 @@ All in swf-monitor, grep for `STFWorkflow`:
 ### Workflow Executions List - COMPLETED
 - Added "STFs" column showing count of stf_gen messages per execution
 
-**Needs commit and push to swf-monitor, then deploy.**
+**Committed and pushed.**
+
+### execution_id Filter - FIXED
+- Template was missing execution_id in initial_filters and update_active_filters_display blocks
+- Fix: Added execution_id to workflow_messages_dynamic.html template
+- Commit: ec81362
 
 ---
 
