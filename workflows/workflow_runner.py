@@ -67,6 +67,10 @@ class WorkflowRunner(BaseAgent):
                 'heart-beat': '30000,30000'
             }
         )
+        self.mq_connected = True
+
+        # Register agent in SystemAgent table
+        self.send_heartbeat()
 
         self.logger.info(f"WorkflowRunner initialized and connected to ActiveMQ: {self.agent_name}")
 
