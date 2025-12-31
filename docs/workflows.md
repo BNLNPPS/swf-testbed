@@ -5,11 +5,13 @@
 The Workflow Orchestration Framework provides a structured approach for defining, executing, and monitoring complex multi-step processes using TOML configuration, Python+SimPy execution logic, ActiveMQ messaging, and database persistence.
 
 **Key Architecture Principles:**
+- **Namespace Isolation**: Workflows operate within namespaces, allowing users to discriminate their workflows from others
 - **One Workflow, Multiple Configurations**: The same DAQ datataking workflow serves different downstream processing strategies through TOML configuration
 - **Configuration Composition**: TOML configs can include base configurations for reusability
 - **ActiveMQ Messaging**: Workflows broadcast real messages that agents respond to
 - **Database as Truth**: Fully expanded configurations stored in database for reproducibility
 - **Agent-Driven Processing**: Workflows simulate DAQ; agents implement downstream processing logic
+- **Immutable Definitions**: Once created, workflow definitions are not modified; each execution records its specific git version
 
 ## Configuration Format and Composition
 
@@ -49,6 +51,49 @@ target_worker_count = 30
 
 **Database Storage:**
 The fully expanded configuration (with all includes merged) is saved to the database, ensuring execution records are complete snapshots with no external file dependencies.
+
+## Namespace Configuration
+
+Namespaces allow users to isolate their workflows from others. All workflows and agents operate within a namespace, and messages include the namespace for filtering.
+
+### Testbed Configuration
+
+Before running workflows, configure your namespace in `workflows/testbed.toml`:
+
+```toml
+# workflows/testbed.toml
+[testbed]
+# Namespace for this testbed instance.
+# Examples: "epic-fastmon-dev", "collab-dec29", "wenauseic-test1"
+namespace = "your-namespace"
+
+# Optional: Override workflow config values
+[fast_processing]
+stf_count = 5                   # Fewer STF files for quick testing
+```
+
+**Namespace Purpose:**
+- Discriminate your workflows from other users' workflows
+- Filter messages and data in the monitor UI
+- Allow multiple users to collaborate in one namespace
+- Enable parallel testing without interference
+
+**Important:** The namespace must be set before running workflows. An empty namespace will cause an error.
+
+## Source Traceability
+
+Workflow definitions and executions include source tracking for reproducibility:
+
+**Workflow Definitions** store:
+- GitHub org/repo/path/branch at time of creation
+- Link to source script in repository
+
+**Workflow Executions** store:
+- Git commit hash at time of execution
+- Branch/tag information
+- Links to specific version of source code
+
+The monitor UI displays these as clickable GitHub links.
 
 ## STF Datataking Workflow Implementation
 
@@ -235,28 +280,29 @@ class WorkflowExecution(models.Model):
 Workflows are executed via the `workflow_simulator.py` command-line tool:
 
 ```bash
-# Run workflow with default configuration (fast simulation mode)
-python workflows/workflow_simulator.py stf_datataking --config stf_processing_default --duration 60
-
-# Run with fast processing configuration
-python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 600
+# Run workflow with count-based completion (preferred)
+python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 10
 
 # Run in REAL-TIME mode (for testing with downstream agents)
-python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 120 --realtime
+python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
+
+# Run with duration limit
+python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --duration 120
 
 # Override specific parameters
 python workflows/workflow_simulator.py stf_datataking \
-    --config stf_processing_default \
-    --duration 3600 \
-    --physics-period-count 5 \
-    --physics-period-duration 600 \
+    --workflow-config fast_processing_default \
+    --stf-count 20 \
+    --physics-period-count 2 \
     --stf-interval 1.5
 ```
 
 **Command Line Arguments:**
 - `workflow_name` - Name of workflow Python file (e.g., `stf_datataking`)
-- `--config` - TOML configuration file name (without .toml extension)
-- `--duration` - Simulation duration in seconds (default: 3600)
+- `--workflow-config` - TOML configuration file name (with or without .toml extension)
+- `--testbed-config` - Path to testbed.toml (default: `workflows/testbed.toml`)
+- `--stf-count` - Generate exactly N STF files then complete (preferred over duration)
+- `--duration` - Maximum simulation duration in seconds (0 = run until workflow completes)
 - `--realtime` - Run in real-time mode (see Simulation Modes below)
 - `--physics-period-count` - Override physics period count
 - `--physics-period-duration` - Override physics period duration (seconds)
@@ -301,6 +347,7 @@ The sequence numbers are generated atomically via the monitor API to ensure uniq
 ## Directory Structure
 ```
 workflows/
+├── testbed.toml                         # Testbed instance config (namespace, overrides)
 ├── stf_datataking.py                    # Unified DAQ datataking workflow
 ├── daq_state_machine.toml               # Base DAQ parameters (included by others)
 ├── stf_processing_default.toml          # STF processing configuration
@@ -325,7 +372,7 @@ Workflows integrate seamlessly with the agent-based messaging system:
 
 **WorkflowRunner as Agent:**
 - Inherits from `BaseAgent`
-- Registers as `workflow_runner` agent type
+- Registers using the workflow name as agent type (e.g., `STF_Datataking`)
 - Sends messages to `epictopic` ActiveMQ topic
 - Connects to monitor API for database operations
 

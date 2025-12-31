@@ -93,6 +93,23 @@ The `supervisord.conf` file is configured to use the `SWF_HOME` environment
 variable to locate the various `swf-*` repositories. This is automatically
 configured when you run any `swf-testbed` commands.
 
+### Namespace Configuration
+
+Namespaces isolate workflows and messages, allowing multiple users or projects to share infrastructure without interference.
+
+**Configure your namespace** in `workflows/testbed.toml`:
+
+```toml
+[testbed]
+namespace = "your-namespace"  # e.g., "epic-fastmon-dev", "team-dec29"
+```
+
+**Namespace guidelines:**
+- Set namespace before running any workflows
+- Use descriptive names (project, team, or purpose)
+- Multiple users can collaborate in one namespace
+- Filter by namespace in the monitor UI to see only your data
+
 ### Message Broker
 
 The [ActiveMQ](https://activemq.apache.org/) message broker provides the
