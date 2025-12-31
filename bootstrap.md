@@ -10,6 +10,7 @@ ePIC Streaming Workflow Testbed. Agent-based system with ActiveMQ messaging.
 **Attention AIs:** This is not a chronicle of completed work. This is quick essential background to current status and next steps.
 Be concise and to the point. When something is done and isn't essential background for next steps, remove it.
 
+
 **Repos** (siblings in /eic/u/wenauseic/github/):
 - **swf-testbed** - workflows, example agents
 - **swf-monitor** - Django web app, REST API
@@ -129,3 +130,7 @@ Orchestrator behavior:
 - `example_agents/*.py` - update config_path to use workflows/testbed.toml
 - `src/swf_testbed_cli/main.py` - add `run` command
 - `supervisord.conf` template - agent definitions
+
+### To Consider
+
+- **Namespace model** - Currently namespace is just a string field on SystemAgent, WorkflowExecution, WorkflowMessage. Consider creating a proper Namespace model with name (PK), description, metadata (JSON), timestamps. Would enable namespace-level configuration and richer namespace detail views.
