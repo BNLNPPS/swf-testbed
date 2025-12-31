@@ -382,18 +382,14 @@ class WorkflowRunner(BaseAgent):
                 existing_definition = results[0] if results else None
 
             if existing_definition:
-                # Update existing definition
-                definition_id = existing_definition['id']
-                response = self.api_session.put(
-                    f"{self.monitor_url}/api/workflow-definitions/{definition_id}/",
-                    json=payload
-                )
-            else:
-                # Create new definition
-                response = self.api_session.post(
-                    f"{self.monitor_url}/api/workflow-definitions/",
-                    json=payload
-                )
+                # Definition is immutable - don't update, just return existing
+                return existing_definition
+
+            # Create new definition
+            response = self.api_session.post(
+                f"{self.monitor_url}/api/workflow-definitions/",
+                json=payload
+            )
         else:
             # Create new definition
             response = self.api_session.post(
