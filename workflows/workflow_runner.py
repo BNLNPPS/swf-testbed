@@ -14,6 +14,7 @@ from typing import Optional, Dict, Any
 # Add swf-common-lib to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "swf-common-lib" / "src"))
 from swf_common_lib.base_agent import BaseAgent
+from swf_common_lib.api_utils import ensure_namespace
 
 
 class WorkflowRunner(BaseAgent):
@@ -333,8 +334,13 @@ class WorkflowRunner(BaseAgent):
                 return
             workflow_definition_id = results[0]['id']
 
-        # Get namespace from testbed config
+        # Get namespace from testbed config and ensure it exists in database
         namespace = config.get('testbed', {}).get('namespace')
+        if namespace:
+            try:
+                ensure_namespace(self.monitor_url, self.api_session, namespace, logger=self.logger)
+            except Exception:
+                pass  # Warning already logged by ensure_namespace
 
         payload = {
             'execution_id': execution_id,

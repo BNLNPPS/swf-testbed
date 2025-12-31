@@ -133,4 +133,4 @@ Orchestrator behavior:
 
 ### To Consider
 
-- **Namespace model** - Currently namespace is just a string field on SystemAgent, WorkflowExecution, WorkflowMessage. Consider creating a proper Namespace model with name (PK), description, metadata (JSON), timestamps. Would enable namespace-level configuration and richer namespace detail views.
+- **Namespace model population** - Namespace model created (swf_namespace table with name, owner, description, metadata, timestamps). Currently empty - orchestrator should create/update namespace records when workflows run.
