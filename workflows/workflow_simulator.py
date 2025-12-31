@@ -73,8 +73,9 @@ class WorkflowSimulatorAgent(BaseAgent):
         self.execution_id = None
         self.config_path = config_path
 
-        # Initialize WorkflowRunner with monitor URL and config path
-        self.workflow_runner = WorkflowRunner(self.monitor_url, config_path=config_path)
+        self.workflow_runner = WorkflowRunner(
+            self.monitor_url, config_path=config_path, workflow_name='STF_Datataking'
+        )
 
         # Enhanced status for workflow execution
         self.workflow_status = "initialized"

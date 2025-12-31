@@ -30,7 +30,7 @@ swf-testbed start
 - Monitor: http://localhost:8002/
 - ActiveMQ: http://localhost:8161/admin/ (admin/admin)
 
-**Run a test (two terminals):**
+**Run a processing agent test (two terminals):**
 ```bash
 # Terminal 1: Workflow simulator
 cd /eic/u/wenauseic/github/swf-testbed/workflows && source ../.venv/bin/activate && source ~/.env && python workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
@@ -41,6 +41,21 @@ cd /eic/u/wenauseic/github/swf-testbed/example_agents && source ../.venv/bin/act
 
 **Check STF files appear:**
 - http://localhost:8002/stf-files/
+
+## Fast Processing Test
+
+**Run a fast processing test (two terminals):**
+```bash
+# Terminal 1: Workflow simulator
+cd /eic/u/wenauseic/github/swf-testbed/workflows && source ../.venv/bin/activate && source ~/.env && python workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
+
+# Terminal 2: Fast processing agent
+cd /eic/u/wenauseic/github/swf-testbed/example_agents && source ../.venv/bin/activate && source ~/.env && python fast_processing_agent.py --testbed-config ../workflows/testbed.toml
+```
+
+**Check results:**
+- TF Slices: http://localhost:8002/tf-slices/
+- Run States: http://localhost:8002/run-states/
 
 ## Key Environment Variables
 

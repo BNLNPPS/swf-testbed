@@ -29,7 +29,7 @@ class FastProcessingAgent(BaseAgent):
 
     def __init__(self, debug=False, config_path=None):
         super().__init__(
-            agent_type='FAST_PROCESSING',
+            agent_type='Fast_Processing',
             subscription_queue='epictopic',
             debug=debug,
             config_path=config_path
@@ -58,6 +58,9 @@ class FastProcessingAgent(BaseAgent):
         if message_data is None:
             return
 
+        # Extract run context from each message (agents may start mid-run)
+        self._update_run_context(message_data)
+
         try:
             if msg_type == 'run_imminent':
                 self.handle_run_imminent(message_data)
@@ -78,40 +81,41 @@ class FastProcessingAgent(BaseAgent):
             import traceback
             self.logger.error(traceback.format_exc())
 
-    def handle_run_imminent(self, message_data):
+    def _update_run_context(self, message_data):
         """
-        Handle run_imminent: Query WorkflowExecution for parameters, create RunState.
+        Update run context from message. Agents may start mid-run and miss run_imminent,
+        so we extract run_id/execution_id from every message and fetch params if needed.
         """
-        self.current_execution_id = message_data.get('execution_id')
-        self.current_run_id = message_data.get('run_id')
+        run_id = message_data.get('run_id')
+        execution_id = message_data.get('execution_id')
 
+        # Update current run context if provided
+        if run_id and run_id != self.current_run_id:
+            self.current_run_id = run_id
+            # Reset stats for new run
+            self.stf_count = 0
+            self.slices_created = 0
+            self.stats = {
+                'stf_received': 0,
+                'stf_sampled': 0,
+                'slices_created': 0,
+                'slices_sent': 0
+            }
+
+        if execution_id and execution_id != self.current_execution_id:
+            self.current_execution_id = execution_id
+            # Fetch workflow params if we don't have them
+            if not self.workflow_params:
+                self.workflow_params = self._fetch_workflow_parameters(execution_id)
+                if self.workflow_params:
+                    self.logger.info(f"Workflow parameters loaded (mid-run): {self.workflow_params}")
+
+    def handle_run_imminent(self, message_data):
+        """Handle run_imminent message."""
         self.logger.info(
             f"Run imminent: execution_id={self.current_execution_id}, run_id={self.current_run_id}"
         )
 
-        # Query WorkflowExecution for full parameters
-        self.workflow_params = self._fetch_workflow_parameters(self.current_execution_id)
-
-        if not self.workflow_params:
-            self.logger.error(f"Failed to fetch workflow parameters for {self.current_execution_id}")
-            return
-
-        self.logger.info(f"Workflow parameters loaded: {self.workflow_params}")
-
-        # Reset counters for new run
-        self.stf_count = 0
-        self.slices_created = 0
-        self.stats = {
-            'stf_received': 0,
-            'stf_sampled': 0,
-            'slices_created': 0,
-            'slices_sent': 0
-        }
-
-        # Create RunState record
-        self._create_run_state()
-
-        # Log event
         self._log_system_event('run_imminent', {
             'execution_id': self.current_execution_id,
             'target_worker_count': self.workflow_params.get('target_worker_count', 0),
@@ -141,8 +145,11 @@ class FastProcessingAgent(BaseAgent):
 
         self.logger.info(f"STF generated: {stf_filename} (seq={sequence})")
 
+        # Get sampling rate from workflow params (via fast_processing section)
+        fast_processing = self.workflow_params.get('fast_processing', {})
+        sampling_rate = fast_processing.get('stf_sampling_rate', 1.0)
+
         # Sampling decision
-        sampling_rate = self.workflow_params.get('stf_sampling_rate', 0.05)
         if random.random() > sampling_rate:
             self.logger.debug(f"STF {stf_filename} not sampled (rate={sampling_rate})")
             return
@@ -151,7 +158,7 @@ class FastProcessingAgent(BaseAgent):
         self.logger.info(f"STF {stf_filename} SAMPLED for fast processing")
 
         # Create TF slices
-        slices_per_sample = self.workflow_params.get('slices_per_sample', 15)
+        slices_per_sample = fast_processing.get('slices_per_sample', 15)
         slices = self._create_tf_slices(stf_filename, slices_per_sample)
 
         # Push each slice to transformer queue
@@ -229,39 +236,6 @@ class FastProcessingAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Failed to fetch workflow parameters: {e}")
             return {}
-
-    def _create_run_state(self):
-        """Create RunState record for current run."""
-        run_state_data = {
-            'run_number': self.current_run_id,
-            'phase': 'initializing',
-            'state': 'run_imminent',
-            'substate': 'preparing',
-            'target_worker_count': self.workflow_params.get('target_worker_count', 30),
-            'active_worker_count': 0,
-            'stf_samples_received': 0,
-            'slices_created': 0,
-            'slices_queued': 0,
-            'slices_processing': 0,
-            'slices_completed': 0,
-            'slices_failed': 0,
-            'state_changed_at': datetime.now().isoformat(),
-            'metadata': {
-                'execution_id': self.current_execution_id,
-                'agent_name': self.agent_name,
-                'stf_sampling_rate': self.workflow_params.get('stf_sampling_rate', 0.05),
-                'slices_per_sample': self.workflow_params.get('slices_per_sample', 15)
-            }
-        }
-
-        try:
-            result = self.call_monitor_api('POST', '/run-states/', run_state_data)
-            if result:
-                self.logger.info(f"RunState created for run {self.current_run_id}")
-            else:
-                self.logger.warning(f"Failed to create RunState for run {self.current_run_id}")
-        except Exception as e:
-            self.logger.error(f"Error creating RunState: {e}")
 
     def _update_run_state(self, phase=None, state=None, substate=None):
         """Update RunState record."""

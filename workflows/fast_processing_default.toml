@@ -11,7 +11,7 @@ physics_period_count = 1        # Single physics period
 
 # Fast processing parameters
 target_worker_count = 30        # Target number of workers for processing
-stf_sampling_rate = 0.05        # Fraction of STF data sampled by FastMon (5%)
+stf_sampling_rate = 1.0         # Fraction of STF data sampled by FastMon (100% for testing)
 slices_per_sample = 15          # Number of TF slices per STF sample
 slice_processing_time = 30      # Time to process one slice (seconds)
 worker_rampup_time = 300        # Time to bring workers online (seconds, 5 min)

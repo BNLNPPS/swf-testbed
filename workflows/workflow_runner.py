@@ -3,6 +3,8 @@ Workflow Runner - Executes workflow definitions with SimPy
 """
 
 import os
+import re
+import subprocess
 import sys
 import json
 import tomllib
@@ -10,6 +12,93 @@ import simpy
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
+
+
+def get_github_source_info(file_path: Path) -> Optional[Dict[str, str]]:
+    """
+    Discover GitHub source info for a file in a git checkout.
+    Returns dict with org, repo, script_path, or None if not in a git repo.
+    """
+    try:
+        file_path = Path(file_path).resolve()
+        file_dir = file_path.parent
+
+        # Get git root
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            cwd=file_dir, capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            return None
+        git_root = Path(result.stdout.strip())
+
+        # Get remote URL
+        result = subprocess.run(
+            ['git', 'remote', 'get-url', 'origin'],
+            cwd=git_root, capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            return None
+        remote_url = result.stdout.strip()
+
+        # Parse org/repo from URL (handles https and ssh formats)
+        match = re.search(r'github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$', remote_url)
+        if not match:
+            return None
+        org, repo = match.groups()
+
+        # Get relative path within repo
+        script_path = str(file_path.relative_to(git_root))
+
+        return {
+            'org': org,
+            'repo': repo,
+            'script_path': script_path
+        }
+    except Exception:
+        return None
+
+
+def get_git_version(directory: Path) -> Optional[Dict[str, str]]:
+    """
+    Get git version info for a directory.
+    Returns dict with commit, tag (if on tag), branch.
+    """
+    try:
+        directory = Path(directory).resolve()
+
+        # Get commit hash
+        result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=directory, capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            return None
+        commit = result.stdout.strip()
+
+        # Get tag if on one
+        result = subprocess.run(
+            ['git', 'describe', '--tags', '--exact-match'],
+            cwd=directory, capture_output=True, text=True
+        )
+        tag = result.stdout.strip() if result.returncode == 0 else None
+
+        # Get branch
+        result = subprocess.run(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            cwd=directory, capture_output=True, text=True
+        )
+        branch = result.stdout.strip() if result.returncode == 0 else None
+
+        version_info = {'commit': commit}
+        if tag:
+            version_info['tag'] = tag
+        if branch:
+            version_info['branch'] = branch
+
+        return version_info
+    except Exception:
+        return None
 
 # Add swf-common-lib to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "swf-common-lib" / "src"))
@@ -21,7 +110,7 @@ class WorkflowRunner(BaseAgent):
     """Loads, registers, and executes workflow definitions"""
 
     def __init__(self, monitor_url: Optional[str] = None, debug: bool = False,
-                 config_path: Optional[str] = None):
+                 config_path: Optional[str] = None, workflow_name: Optional[str] = None):
         """
         Initialize WorkflowRunner as an agent
 
@@ -29,10 +118,15 @@ class WorkflowRunner(BaseAgent):
             monitor_url: Optional override for SWF monitor URL (uses env if not provided)
             debug: Enable debug logging
             config_path: Path to testbed.toml config file
+            workflow_name: Name of workflow to run
         """
-        # Initialize as BaseAgent (workflow_runner type, workflow_control queue)
+        if workflow_name:
+            agent_type = workflow_name.replace(' ', '_')
+        else:
+            agent_type = 'Workflow_Runner'
+
         super().__init__(
-            agent_type='workflow_runner',
+            agent_type=agent_type,
             subscription_queue='workflow_control',
             debug=debug,
             config_path=config_path
@@ -114,11 +208,13 @@ class WorkflowRunner(BaseAgent):
         execution_id = self._generate_execution_id(workflow_name, executed_by)
 
         # Register/update workflow definition in database
+        workflow_file = self.workflows_dir / f"{workflow_name}.py"
         self._register_workflow_definition(
             name=config['workflow']['name'],
             version=config['workflow']['version'],
             code=workflow_code,
-            config=config
+            config=config,
+            workflow_file=workflow_file
         )
 
         # Create execution record (store full config for auditability)
@@ -226,7 +322,8 @@ class WorkflowRunner(BaseAgent):
         # Format: workflow-username-NNNN
         return f"{workflow_name}-{executed_by}-{sequence:04d}"
 
-    def _register_workflow_definition(self, name: str, version: str, code: str, config: Dict[str, Any]):
+    def _register_workflow_definition(self, name: str, version: str, code: str, config: Dict[str, Any],
+                                       workflow_file: Path = None):
         """Register or update workflow definition in database"""
         # Check if workflow definition already exists
         check_url = f"{self.monitor_url}/api/workflow-definitions/"
@@ -235,14 +332,18 @@ class WorkflowRunner(BaseAgent):
             params={'workflow_name': name, 'version': version}
         )
 
-        # Build expanded config for database storage (no includes directive)
-        # Store all sections except 'workflow' metadata
+        # Discover GitHub source info from workflow file
+        source_info = get_github_source_info(workflow_file) if workflow_file else None
+
+        # Build expanded config for database storage
         expanded_config = {
             'workflow': {
                 'name': config['workflow']['name'],
                 'version': config['workflow']['version']
             }
         }
+        if source_info:
+            expanded_config['source'] = source_info
         # Preserve description if present
         if 'description' in config['workflow']:
             expanded_config['workflow']['description'] = config['workflow']['description']
@@ -342,6 +443,12 @@ class WorkflowRunner(BaseAgent):
             except Exception:
                 pass  # Warning already logged by ensure_namespace
 
+        # Add git version to config for auditability
+        git_version = get_git_version(self.workflows_dir)
+        config_with_version = dict(config)
+        if git_version:
+            config_with_version['git_version'] = git_version
+
         payload = {
             'execution_id': execution_id,
             'workflow_definition': workflow_definition_id,
@@ -349,7 +456,7 @@ class WorkflowRunner(BaseAgent):
             'status': 'running',
             'executed_by': os.getenv('USER', 'unknown'),
             'start_time': datetime.now().isoformat(),
-            'parameter_values': config
+            'parameter_values': config_with_version
         }
 
         response = self.api_session.post(
@@ -433,3 +540,57 @@ class WorkflowRunner(BaseAgent):
 
         if response.status_code != 200:
             print(f"Warning: Failed to update execution status: {response.status_code}")
+
+    def initialize_state(self, state_id: int, execution_id: str, config: dict = None):
+        """
+        Initialize state machine record for workflow execution.
+        Currently creates RunState (run-level subset).
+        Future: broader state machine tracking.
+
+        Args:
+            state_id: Run number / state identifier
+            execution_id: Workflow execution ID
+            config: Full workflow config for extracting workflow-specific params
+        """
+        # Extract workflow-specific params for metadata
+        workflow_params = {}
+        for section in ['fast_processing', 'daq_state_machine']:
+            if config and section in config:
+                workflow_params.update(config[section])
+
+        state_data = {
+            'run_number': state_id,
+            'phase': 'initializing',
+            'state': 'imminent',
+            'substate': 'preparing',
+            'target_worker_count': workflow_params.get('target_worker_count', 0),
+            'active_worker_count': 0,
+            'stf_samples_received': 0,
+            'slices_created': 0,
+            'slices_queued': 0,
+            'slices_processing': 0,
+            'slices_completed': 0,
+            'slices_failed': 0,
+            'state_changed_at': datetime.now().isoformat(),
+            'metadata': {
+                'execution_id': execution_id,
+                'stf_sampling_rate': workflow_params.get('stf_sampling_rate'),
+                'slices_per_sample': workflow_params.get('slices_per_sample')
+            }
+        }
+
+        response = self.api_session.post(
+            f"{self.monitor_url}/api/run-states/",
+            json=state_data
+        )
+
+        if response.status_code in [200, 201]:
+            self.logger.info(f"State initialized: {state_id}")
+            return True
+
+        self.logger.error(f"Failed to initialize state: {response.status_code}")
+        try:
+            self.logger.error(f"Response: {response.json()}")
+        except Exception:
+            self.logger.error(f"Response: {response.text}")
+        return False

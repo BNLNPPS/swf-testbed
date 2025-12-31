@@ -22,6 +22,9 @@ class WorkflowExecutor:
             self.runner.logger
         )
 
+        # Initialize state machine for this execution
+        self.runner.initialize_state(self.run_id, self.execution_id, self.config)
+
         # State 1: no_beam / not_ready (Collider not operating)
         yield env.timeout(self.daq['no_beam_not_ready_delay'])
 

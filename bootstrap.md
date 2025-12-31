@@ -3,13 +3,19 @@
 **Date:** 2025-12-31
 **Branch:** infra/baseline-v26 (all 3 repos)
 
+## POST-COMPRESS: READ THIS FIRST
+
+After context compression, you lose critical knowledge. Immediately:
+1. Re-read this entire file
+2. Check `git status` in all 3 repos for uncommitted work
+3. Ask user what we were doing if unclear
+
 ## Project
 
 ePIC Streaming Workflow Testbed. Agent-based system with ActiveMQ messaging.
 
 **Attention AIs:** This is not a chronicle of completed work. This is quick essential background to current status and next steps.
 Be concise and to the point. When something is done and isn't essential background for next steps, remove it.
-
 
 **Repos** (siblings in /eic/u/wenauseic/github/):
 - **swf-testbed** - workflows, example agents
@@ -24,8 +30,6 @@ Be concise and to the point. When something is done and isn't essential backgrou
 - Activate venv before any python
 - All 3 repos on same branch (currently v26, shorthand for infra/baseline-v26)
 - Redeploy swf-monitor after Django changes: `sudo bash /eic/u/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v26`
-- Never delete without permission
-- FIX problems, don't hide them
 
 ## Commands
 
@@ -34,6 +38,19 @@ See [docs/quick-start.md](docs/quick-start.md) for run commands.
 ---
 
 # SESSION STATUS 2025-12-31
+
+## UNCOMMITTED CHANGES - TEST BEFORE COMMIT
+
+**swf-testbed** has uncommitted changes:
+- `example_agents/fast_processing_agent.py` - Fixed to extract run_id/execution_id from each message (agents can start mid-run)
+- `workflows/fast_processing_default.toml` - Sampling rate set to 1.0 (100%)
+- `docs/quick-start.md` - Added fast processing test commands
+
+**swf-monitor** has uncommitted changes:
+- Log summary: Agent/Agent Instance filters
+- Namespace list: Uses Namespace model, shows owner/description/modified
+
+Test fast processing with commands from `docs/quick-start.md`, then commit both repos.
 
 ## PENDING: STFWorkflow DEPRECATION
 
@@ -131,6 +148,3 @@ Orchestrator behavior:
 - `src/swf_testbed_cli/main.py` - add `run` command
 - `supervisord.conf` template - agent definitions
 
-### To Consider
-
-- **Namespace model population** - Namespace model created (swf_namespace table with name, owner, description, metadata, timestamps). Currently empty - orchestrator should create/update namespace records when workflows run.
