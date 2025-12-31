@@ -333,9 +333,13 @@ class WorkflowRunner(BaseAgent):
                 return
             workflow_definition_id = results[0]['id']
 
+        # Get namespace from testbed config
+        namespace = config.get('testbed', {}).get('namespace')
+
         payload = {
             'execution_id': execution_id,
             'workflow_definition': workflow_definition_id,
+            'namespace': namespace,
             'status': 'running',
             'executed_by': os.getenv('USER', 'unknown'),
             'start_time': datetime.now().isoformat(),

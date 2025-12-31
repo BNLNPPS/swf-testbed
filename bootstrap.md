@@ -7,7 +7,7 @@
 
 ePIC Streaming Workflow Testbed. Agent-based system with ActiveMQ messaging.
 
-**Attention AIs:** This is not a chronicle of completed work. This is quick essential background to present status and next steps.
+**Attention AIs:** This is not a chronicle of completed work. This is quick essential background to current status and next steps.
 Be concise and to the point. When something is done and isn't essential background for next steps, remove it.
 
 **Repos** (siblings in /eic/u/wenauseic/github/):
