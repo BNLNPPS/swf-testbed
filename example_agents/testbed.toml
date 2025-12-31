@@ -1,7 +1,10 @@
 # Testbed Instance Configuration
 #
 # [testbed] section: required, defines the testbed instance context
-# [parameters] section: optional, overrides workflow config parameters
+#
+# Override sections: Any section matching a workflow config section will override
+# those values. Section names are descriptive (e.g., [daq_state_machine],
+# [fast_processing]) so overrides are unambiguous.
 
 [testbed]
 # Namespace for this testbed instance.
@@ -12,7 +15,6 @@
 # Users are responsible for namespace uniqueness.
 namespace = "torre1"
 
-# Optional: override workflow parameters
-# [parameters]
-# physics_period_count = 2
-# stf_interval = 5.0
+# Example: Override fast_processing settings for this testbed
+# [fast_processing]
+# stf_count = 5                   # Fewer STF files for quick testing

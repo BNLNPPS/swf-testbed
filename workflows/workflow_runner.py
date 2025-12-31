@@ -100,9 +100,13 @@ class WorkflowRunner(BaseAgent):
             else:
                 config[section] = values
 
-        # Apply CLI parameter overrides (highest priority)
+        # Apply CLI parameter overrides (highest priority) to all matching sections
         if override_params:
-            config['parameters'].update(override_params)
+            for section, values in config.items():
+                if section != 'workflow' and isinstance(values, dict):
+                    for key, value in override_params.items():
+                        if key in values:
+                            values[key] = value
 
         # Generate execution ID
         executed_by = os.getenv('USER', 'unknown')
@@ -116,19 +120,19 @@ class WorkflowRunner(BaseAgent):
             config=config
         )
 
-        # Create execution record
+        # Create execution record (store full config for auditability)
         self._create_execution_record(
             execution_id=execution_id,
             workflow_name=config['workflow']['name'],
             workflow_version=config['workflow']['version'],
-            parameters=config['parameters']
+            config=config
         )
 
         # Execute the workflow
         self._execute_workflow(
             execution_id=execution_id,
             workflow_code=workflow_code,
-            parameters=config['parameters'],
+            config=config,
             duration=duration,
             realtime=realtime
         )
@@ -148,7 +152,12 @@ class WorkflowRunner(BaseAgent):
             return f.read()
 
     def _load_workflow_config(self, workflow_name: str, config_name: Optional[str] = None) -> Dict[str, Any]:
-        """Load workflow TOML configuration with includes support"""
+        """Load workflow TOML configuration with includes support.
+
+        Config files use descriptive section names (e.g., [daq_state_machine], [fast_processing]).
+        Included configs are loaded first, then main config sections are added/merged.
+        Sections are kept intact for explicit access by workflow code.
+        """
         if config_name is None:
             config_name = f"{workflow_name}_default.toml"
         elif not config_name.endswith('.toml'):
@@ -166,13 +175,9 @@ class WorkflowRunner(BaseAgent):
         includes = main_config.get('workflow', {}).get('includes', [])
 
         if not includes:
-            # No includes, return main config as-is
             return main_config
 
-        # Merge included configs
-        merged_params = {}
-
-        # Load and merge each included file in order
+        # Load included configs and add their sections to main_config
         for include_file in includes:
             include_path = self.workflows_dir / include_file
             if not include_path.exists():
@@ -180,16 +185,10 @@ class WorkflowRunner(BaseAgent):
 
             with open(include_path, 'rb') as f:
                 included_config = tomllib.load(f)
-                # Merge parameters from included file
-                if 'parameters' in included_config:
-                    merged_params.update(included_config['parameters'])
-
-        # Final override: main config parameters have final say
-        if 'parameters' in main_config:
-            merged_params.update(main_config['parameters'])
-
-        # Replace parameters section with fully merged parameters
-        main_config['parameters'] = merged_params
+                # Add each section from included file (don't overwrite existing)
+                for section, values in included_config.items():
+                    if section != 'workflow' and section not in main_config:
+                        main_config[section] = values
 
         return main_config
 
@@ -236,16 +235,20 @@ class WorkflowRunner(BaseAgent):
         )
 
         # Build expanded config for database storage (no includes directive)
+        # Store all sections except 'workflow' metadata
         expanded_config = {
             'workflow': {
                 'name': config['workflow']['name'],
                 'version': config['workflow']['version']
-            },
-            'parameters': config['parameters']  # Already merged/expanded
+            }
         }
         # Preserve description if present
         if 'description' in config['workflow']:
             expanded_config['workflow']['description'] = config['workflow']['description']
+        # Copy all parameter sections (daq_state_machine, fast_processing, etc.)
+        for section, values in config.items():
+            if section != 'workflow' and isinstance(values, dict):
+                expanded_config[section] = values
 
         payload = {
             'workflow_name': name,
@@ -300,8 +303,8 @@ class WorkflowRunner(BaseAgent):
         return response.json()
 
     def _create_execution_record(self, execution_id: str, workflow_name: str,
-                                 workflow_version: str, parameters: Dict[str, Any]):
-        """Create workflow execution record"""
+                                 workflow_version: str, config: Dict[str, Any]):
+        """Create workflow execution record with full config for auditability."""
         # Get workflow definition ID
         def_response = self.api_session.get(
             f"{self.monitor_url}/api/workflow-definitions/",
@@ -336,7 +339,7 @@ class WorkflowRunner(BaseAgent):
             'status': 'running',
             'executed_by': os.getenv('USER', 'unknown'),
             'start_time': datetime.now().isoformat(),
-            'parameter_values': parameters
+            'parameter_values': config
         }
 
         response = self.api_session.post(
@@ -354,14 +357,14 @@ class WorkflowRunner(BaseAgent):
             raise Exception(f"Failed to create execution record: {response.status_code}")
 
     def _execute_workflow(self, execution_id: str, workflow_code: str,
-                         parameters: Dict[str, Any], duration: float,
+                         config: Dict[str, Any], duration: float,
                          realtime: bool = False):
         """Execute workflow using SimPy
 
         Args:
             execution_id: Unique identifier for this execution
             workflow_code: Python code containing WorkflowExecutor class
-            parameters: Workflow parameters from config
+            config: Full workflow config with descriptive sections
             duration: Simulation duration in seconds
             realtime: If True, use RealtimeEnvironment (1 sim sec = 1 wall sec)
         """
@@ -378,7 +381,7 @@ class WorkflowRunner(BaseAgent):
         # Prepare execution namespace with runner access
         namespace = {
             'env': env,
-            'parameters': parameters,
+            'config': config,
             'runner': self,
             'execution_id': execution_id
         }
@@ -388,9 +391,9 @@ class WorkflowRunner(BaseAgent):
 
         # Instantiate and run workflow
         if 'WorkflowExecutor' in namespace:
-            # Pass parameters, runner (for messaging), and execution_id
+            # Pass config, runner (for messaging), and execution_id
             executor = namespace['WorkflowExecutor'](
-                parameters=parameters,
+                config=config,
                 runner=self,
                 execution_id=execution_id
             )

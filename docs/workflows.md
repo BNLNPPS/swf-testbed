@@ -22,25 +22,24 @@ version = "1.0"
 description = "STF datataking workflow for standard processing"
 includes = ["daq_state_machine.toml"]
 
-[parameters]
-# Uses all DAQ state machine parameters from daq_state_machine.toml
-# Add processing-specific overrides here if needed
+[stf_processing]
+# Uses daq_state_machine defaults; add stf_processing-specific values here
 ```
 
 ### Configuration Composition via Includes
 
-Configurations support composition through the `includes` directive:
+Configurations support composition through the `includes` directive. Each config file uses a descriptive section name (e.g., `[daq_state_machine]`, `[fast_processing]`) that identifies the component:
 
 ```toml
 [workflow]
 name = "stf_datataking"
 version = "1.0"
-includes = ["base_config.toml", "another_config.toml"]
+includes = ["daq_state_machine.toml"]
 
-[parameters]
-# Parameters from included files are merged in order
-# Main config parameters override all included parameters
-custom_parameter = 42
+[fast_processing]
+# Values here override daq_state_machine values and add fast_processing-specific config
+stf_count = 10
+target_worker_count = 30
 ```
 
 **Loading Order:**
@@ -60,12 +59,18 @@ The unified STF datataking workflow simulates the ePIC DAQ state machine, broadc
 ```python
 # workflows/stf_datataking.py
 class WorkflowExecutor:
-    def __init__(self, parameters, runner, execution_id):
-        self.parameters = parameters
+    def __init__(self, config, runner, execution_id):
+        self.config = config
         self.runner = runner  # WorkflowRunner instance (BaseAgent)
         self.execution_id = execution_id
         self.stf_sequence = 0
         self.run_id = None
+
+        # Build merged params: daq_state_machine base, with workflow-specific overrides
+        self.daq = config.get('daq_state_machine', {})
+        for section in ['fast_processing', 'stf_processing']:
+            if section in config:
+                self.daq = {**self.daq, **config[section]}
 
     def execute(self, env):
         # Generate run ID for this execution
@@ -77,41 +82,41 @@ class WorkflowExecutor:
         )
 
         # State 1: no_beam / not_ready (Collider not operating)
-        yield env.timeout(self.parameters['no_beam_not_ready_delay'])
+        yield env.timeout(self.daq['no_beam_not_ready_delay'])
 
         # State 2: beam / not_ready (Run start imminent)
         yield env.process(self.broadcast_run_imminent(env))
-        yield env.timeout(self.parameters['broadcast_delay'])
-        yield env.timeout(self.parameters['beam_not_ready_delay'])
+        yield env.timeout(self.daq['broadcast_delay'])
+        yield env.timeout(self.daq['beam_not_ready_delay'])
 
         # State 3: beam / ready (Ready for physics)
-        yield env.timeout(self.parameters['beam_ready_delay'])
+        yield env.timeout(self.daq['beam_ready_delay'])
 
         # Physics periods loop with standby between them
         period = 0
-        while self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
+        while self.daq['physics_period_count'] == 0 or period < self.daq['physics_period_count']:
             # Broadcast start or resume message
             if period == 0:
                 yield env.process(self.broadcast_run_start(env))
             else:
                 yield env.process(self.broadcast_resume_run(env))
-            yield env.timeout(self.parameters['broadcast_delay'])
+            yield env.timeout(self.daq['broadcast_delay'])
 
             # STF generation during physics
-            yield from self.generate_stfs_during_physics(env, self.parameters['physics_period_duration'])
+            yield from self.generate_stfs_during_physics(env, self.daq['physics_period_duration'])
 
             period += 1
 
             # Standby between physics periods
-            if self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
+            if self.daq['physics_period_count'] == 0 or period < self.daq['physics_period_count']:
                 yield env.process(self.broadcast_pause_run(env))
-                yield env.timeout(self.parameters['broadcast_delay'])
-                yield env.timeout(self.parameters['standby_duration'])
+                yield env.timeout(self.daq['broadcast_delay'])
+                yield env.timeout(self.daq['standby_duration'])
 
         # State 7: beam / not_ready + broadcast run end
         yield env.process(self.broadcast_run_end(env))
-        yield env.timeout(self.parameters['broadcast_delay'])
-        yield env.timeout(self.parameters['beam_not_ready_end_delay'])
+        yield env.timeout(self.daq['broadcast_delay'])
+        yield env.timeout(self.daq['beam_not_ready_end_delay'])
 
     def broadcast_stf_gen(self, env, stf_filename):
         """Broadcast STF generation via ActiveMQ."""
@@ -150,13 +155,12 @@ version = "1.0"
 description = "STF datataking workflow for fast processing"
 includes = ["daq_state_machine.toml"]
 
-[parameters]
-# DAQ state machine parameters inherited from daq_state_machine.toml
-# Override for longer physics period
-physics_period_duration = 600   # 10 minutes
+[fast_processing]
+# Count-based STF generation
+stf_count = 10                  # Generate exactly 10 STF files
 physics_period_count = 1        # Single physics period
 
-# Fast processing specific parameters (used by fast_processing_agent)
+# Fast processing parameters
 target_worker_count = 30        # Target number of workers
 stf_sampling_rate = 0.05        # FastMon sampling fraction (5%)
 slices_per_sample = 15          # TF slices per STF sample

@@ -1,10 +1,17 @@
 class WorkflowExecutor:
-    def __init__(self, parameters, runner, execution_id):
-        self.parameters = parameters
+    def __init__(self, config, runner, execution_id):
+        self.config = config
         self.runner = runner
         self.execution_id = execution_id
         self.stf_sequence = 0
         self.run_id = None
+
+        # Build merged params: daq_state_machine base, with workflow-specific overrides
+        self.daq = config.get('daq_state_machine', {})
+        # Check for workflow-specific sections that override daq_state_machine values
+        for section in ['fast_processing', 'stf_processing']:
+            if section in config:
+                self.daq = {**self.daq, **config[section]}
 
     def execute(self, env):
         # Generate run ID for this execution
@@ -16,48 +23,48 @@ class WorkflowExecutor:
         )
 
         # State 1: no_beam / not_ready (Collider not operating)
-        yield env.timeout(self.parameters['no_beam_not_ready_delay'])
+        yield env.timeout(self.daq['no_beam_not_ready_delay'])
 
         # State 2: beam / not_ready (Run start imminent) + broadcast run imminent
         yield env.process(self.broadcast_run_imminent(env))
-        yield env.timeout(self.parameters['broadcast_delay'])
-        yield env.timeout(self.parameters['beam_not_ready_delay'])
+        yield env.timeout(self.daq['broadcast_delay'])
+        yield env.timeout(self.daq['beam_not_ready_delay'])
 
         # State 3: beam / ready (Ready for physics)
-        yield env.timeout(self.parameters['beam_ready_delay'])
+        yield env.timeout(self.daq['beam_ready_delay'])
 
         # Physics periods loop with standby between them
         period = 0
-        while self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
+        while self.daq['physics_period_count'] == 0 or period < self.daq['physics_period_count']:
             # Broadcast appropriate message
             if period == 0:
                 yield env.process(self.broadcast_run_start(env))
-                yield env.timeout(self.parameters['broadcast_delay'])
+                yield env.timeout(self.daq['broadcast_delay'])
             else:
                 yield env.process(self.broadcast_resume_run(env))
-                yield env.timeout(self.parameters['broadcast_delay'])
+                yield env.timeout(self.daq['broadcast_delay'])
 
             # STF generation during physics
-            yield from self.generate_stfs_during_physics(env, self.parameters['physics_period_duration'])
+            yield from self.generate_stfs_during_physics(env, self.daq['physics_period_duration'])
 
             period += 1
 
             # Standby between physics periods (always for infinite mode, except after last for finite mode)
-            if self.parameters['physics_period_count'] == 0 or period < self.parameters['physics_period_count']:
+            if self.daq['physics_period_count'] == 0 or period < self.daq['physics_period_count']:
                 yield env.process(self.broadcast_pause_run(env))
-                yield env.timeout(self.parameters['broadcast_delay'])
-                yield env.timeout(self.parameters['standby_duration'])
+                yield env.timeout(self.daq['broadcast_delay'])
+                yield env.timeout(self.daq['standby_duration'])
 
         # State 7: beam / not_ready + broadcast run end
         yield env.process(self.broadcast_run_end(env))
-        yield env.timeout(self.parameters['broadcast_delay'])
-        yield env.timeout(self.parameters['beam_not_ready_end_delay'])
+        yield env.timeout(self.daq['broadcast_delay'])
+        yield env.timeout(self.daq['beam_not_ready_end_delay'])
 
         # State 8: no_beam / not_ready (final) - no delay needed
 
     def generate_stfs_during_physics(self, env, duration_seconds):
-        interval = self.parameters['stf_interval']
-        stf_count = self.parameters.get('stf_count')
+        interval = self.daq['stf_interval']
+        stf_count = self.daq.get('stf_count')
 
         if stf_count:
             # Count-based: generate exactly stf_count files
@@ -80,7 +87,7 @@ class WorkflowExecutor:
         # Broadcast STF generation
         yield env.process(self.broadcast_stf_gen(env, stf_filename))
 
-        generation_time = self.parameters['stf_generation_time']
+        generation_time = self.daq['stf_generation_time']
         yield env.timeout(generation_time)
 
     def broadcast_run_imminent(self, env):

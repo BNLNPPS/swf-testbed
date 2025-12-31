@@ -4,6 +4,5 @@ version = "1.0"
 description = "STF datataking workflow for standard processing"
 includes = ["daq_state_machine.toml"]
 
-[parameters]
-# Uses all DAQ state machine parameters from daq_state_machine.toml
-# Add processing-specific overrides here if needed
+[stf_processing]
+# Uses daq_state_machine defaults; add stf_processing-specific values here

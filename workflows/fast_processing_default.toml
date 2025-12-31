@@ -4,13 +4,12 @@ version = "1.0"
 description = "STF datataking workflow for fast processing"
 includes = ["daq_state_machine.toml"]
 
-[parameters]
-# DAQ state machine parameters inherited from daq_state_machine.toml
-# Count-based STF generation (overrides physics_period_duration)
+[fast_processing]
+# Count-based STF generation
 stf_count = 10                  # Generate exactly 10 STF files
 physics_period_count = 1        # Single physics period
 
-# Fast processing specific parameters (used by fast_processing_agent)
+# Fast processing parameters
 target_worker_count = 30        # Target number of workers for processing
 stf_sampling_rate = 0.05        # Fraction of STF data sampled by FastMon (5%)
 slices_per_sample = 15          # Number of TF slices per STF sample

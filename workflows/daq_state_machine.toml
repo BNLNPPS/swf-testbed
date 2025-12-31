@@ -2,7 +2,7 @@
 # This file contains standard DAQ state transition parameters
 # that are common across different downstream processing workflows
 
-[parameters]
+[daq_state_machine]
 # DAQ state transition delays (matching DAQ simulator sequence)
 no_beam_not_ready_delay = 5     # Initial collider not operating (seconds)
 beam_not_ready_delay = 5        # Run start imminent (seconds)
