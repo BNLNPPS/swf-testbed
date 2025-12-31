@@ -76,8 +76,12 @@ def setup_environment():
                     if line.startswith('export '):
                         line = line[7:]  # Remove 'export '
                     key, value = line.split('=', 1)
-                    os.environ[key] = value.strip('"\'')
-    
+                    value = value.strip('"\'')
+                    # Skip entries with unexpanded shell variables
+                    if '$' in value:
+                        continue
+                    os.environ[key] = value
+
     return True
 
 def get_active_services():

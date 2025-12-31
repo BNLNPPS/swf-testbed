@@ -17,7 +17,7 @@ from typing import Optional, Dict, Any
 def get_github_source_info(file_path: Path) -> Optional[Dict[str, str]]:
     """
     Discover GitHub source info for a file in a git checkout.
-    Returns dict with org, repo, script_path, or None if not in a git repo.
+    Returns dict with org, repo, script_path, branch, or None if not in a git repo.
     """
     try:
         file_path = Path(file_path).resolve()
@@ -50,10 +50,18 @@ def get_github_source_info(file_path: Path) -> Optional[Dict[str, str]]:
         # Get relative path within repo
         script_path = str(file_path.relative_to(git_root))
 
+        # Get current branch
+        result = subprocess.run(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            cwd=git_root, capture_output=True, text=True
+        )
+        branch = result.stdout.strip() if result.returncode == 0 else 'main'
+
         return {
             'org': org,
             'repo': repo,
-            'script_path': script_path
+            'script_path': script_path,
+            'branch': branch
         }
     except Exception:
         return None
