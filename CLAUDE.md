@@ -235,7 +235,6 @@ cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/
 ```
 
 **This applies to:**
-- `python example_agents/daq_simulator.py`
 - `pip install anything`
 - `pytest tests/`
 - `swf-testbed` commands

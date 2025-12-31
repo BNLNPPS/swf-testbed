@@ -18,8 +18,9 @@ from swf_common_lib.base_agent import BaseAgent
 
 
 class ProcessingAgent(BaseAgent):
-    def __init__(self):
-        super().__init__(agent_type='PROCESSING', subscription_queue='processing_agent')
+    def __init__(self, config_path=None):
+        super().__init__(agent_type='PROCESSING', subscription_queue='processing_agent',
+                         config_path=config_path)
 
         self.scope = os.getenv('RUCIO_SCOPE', 'user.your_username')
         self.account = os.getenv('RUCIO_ACCOUNT', 'your_username')
@@ -40,21 +41,23 @@ class ProcessingAgent(BaseAgent):
         self._rucio = None
 
     def on_message(self, frame):
+        message_data, msg_type = self.log_received_message(frame)
+        if message_data is None:
+            return
+
         self.logger.info("Processing Agent received message")
         self.send_processing_agent_heartbeat()
         try:
-            msg = json.loads(frame.body)
-            t = msg.get('msg_type')
-            if t == 'run_imminent':
-                self.handle_run_imminent(msg)
-            elif t == 'start_run':
-                self.handle_start_run(msg)
-            elif t == 'data_ready':
-                self.handle_data_ready(msg)
-            elif t == 'end_run':
-                self.handle_end_run(msg)
+            if msg_type == 'run_imminent':
+                self.handle_run_imminent(message_data)
+            elif msg_type == 'start_run':
+                self.handle_start_run(message_data)
+            elif msg_type == 'data_ready':
+                self.handle_data_ready(message_data)
+            elif msg_type == 'end_run':
+                self.handle_end_run(message_data)
             else:
-                self.logger.info("Ignoring unknown message type", extra={"msg_type": t})
+                self.logger.info("Ignoring unknown message type", extra={"msg_type": msg_type})
         except Exception as e:
             import traceback
             self.logger.error(f"CRITICAL: Message processing failed - {e}")
@@ -382,7 +385,17 @@ class ProcessingAgent(BaseAgent):
 
 
 if __name__ == "__main__":
+    import argparse
+    from pathlib import Path
+
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
-    agent = ProcessingAgent()
+
+    script_dir = Path(__file__).parent
+    parser = argparse.ArgumentParser(description="Processing Agent - PanDA/Rucio integration")
+    parser.add_argument("--testbed-config", default=str(script_dir / "testbed.toml"),
+                        help="Testbed config file (default: testbed.toml)")
+    args = parser.parse_args()
+
+    agent = ProcessingAgent(config_path=args.testbed_config)
     agent.run()

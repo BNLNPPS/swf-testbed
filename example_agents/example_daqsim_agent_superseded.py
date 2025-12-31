@@ -1,4 +1,6 @@
 """
+SUPERSEDED - Current simulator code is in workflows/workflow_simulator.py
+
 Example DAQ Simulator Agent: Originates the workflow.
 """
 
@@ -15,17 +17,21 @@ class DaqSimAgent(BaseAgent):
     and listens on a control queue for commands.
     """
 
-    def __init__(self):
+    def __init__(self, config_path=None):
         # This agent listens for control messages and produces STF messages.
-        super().__init__(agent_type='daqsim', subscription_queue='daq_control')
+        super().__init__(agent_type='daqsim', subscription_queue='daq_control',
+                         config_path=config_path)
         self.running = True
 
     def on_message(self, frame):
         """
         Handles incoming control messages.
         """
+        message_data, msg_type = self.log_received_message(frame)
+        if message_data is None:
+            return
+
         try:
-            message_data = json.loads(frame.body)
             command = message_data.get('command')
             self.logger.info(f"Received command: {command}")
             
@@ -69,5 +75,15 @@ class DaqSimAgent(BaseAgent):
 
 
 if __name__ == "__main__":
-    agent = DaqSimAgent()
+    import argparse
+    from pathlib import Path
+
+    script_dir = Path(__file__).parent
+
+    parser = argparse.ArgumentParser(description="DAQ Simulator Agent - generates STF messages")
+    parser.add_argument("--testbed-config", default=str(script_dir / "testbed.toml"),
+                        help="Testbed config file (default: testbed.toml)")
+    args = parser.parse_args()
+
+    agent = DaqSimAgent(config_path=args.testbed_config)
     agent.run()

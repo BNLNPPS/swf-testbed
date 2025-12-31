@@ -40,7 +40,11 @@ def setup_environment():
                     if line.startswith('export '):
                         line = line[7:]  # Remove 'export '
                     key, value = line.split('=', 1)
-                    os.environ[key] = value.strip('"\'')
+                    value = value.strip('"\'')
+                    # Skip entries with unexpanded shell variables
+                    if '$' in value:
+                        continue
+                    os.environ[key] = value
 
     # Unset proxy variables to prevent localhost routing through proxy
     for proxy_var in ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY']:
@@ -62,17 +66,20 @@ from workflow_runner import WorkflowRunner
 class WorkflowSimulatorAgent(BaseAgent):
     """Agent that executes workflows using WorkflowRunner"""
 
-    def __init__(self, workflow_name, config_name=None, duration=3600, **workflow_params):
-        super().__init__(agent_type='WORKFLOW_SIMULATOR', subscription_queue='workflow_simulator')
+    def __init__(self, workflow_name, config_name=None, duration=3600, config_path=None, **workflow_params):
+        super().__init__(agent_type='WORKFLOW_SIMULATOR', subscription_queue='workflow_simulator',
+                         config_path=config_path)
 
         self.workflow_name = workflow_name
         self.config_name = config_name
         self.duration = duration
         self.workflow_params = workflow_params
         self.execution_id = None
+        self.config_path = config_path
 
-        # Initialize WorkflowRunner with monitor URL and API session
-        self.workflow_runner = WorkflowRunner(self.monitor_url, self.api)
+        self.workflow_runner = WorkflowRunner(
+            self.monitor_url, config_path=config_path, workflow_name='STF_Datataking'
+        )
 
         # Enhanced status for workflow execution
         self.workflow_status = "initialized"
@@ -194,18 +201,27 @@ class WorkflowSimulatorAgent(BaseAgent):
 
 def main():
     """Main entry point with command line argument support"""
+    script_dir = Path(__file__).parent
+
     parser = argparse.ArgumentParser(description='Workflow Simulator Agent')
     parser.add_argument('workflow_name', help='Name of the workflow to execute')
-    parser.add_argument('--config', help='Configuration file name')
-    parser.add_argument('--duration', type=float, default=3600, help='Simulation duration in seconds')
+    parser.add_argument('--testbed-config', default=str(script_dir / 'testbed.toml'),
+                        help='Testbed config file (default: testbed.toml)')
+    parser.add_argument('--workflow-config', help='Workflow configuration file name')
+    parser.add_argument('--duration', type=float, default=0, help='Max duration in seconds (0 = run until workflow completes)')
+    parser.add_argument('--stf-count', type=int, help='Override STF count (generates exactly N files)')
     parser.add_argument('--physics-period-count', type=int, help='Override physics period count')
     parser.add_argument('--physics-period-duration', type=float, help='Override physics period duration')
     parser.add_argument('--stf-interval', type=float, help='Override STF interval')
+    parser.add_argument('--realtime', action='store_true',
+                        help='Run simulation in real-time (1 sim second = 1 wall-clock second)')
 
     args = parser.parse_args()
 
     # Build workflow parameters from arguments
     workflow_params = {}
+    if args.stf_count is not None:
+        workflow_params['stf_count'] = args.stf_count
     if args.physics_period_count is not None:
         workflow_params['physics_period_count'] = args.physics_period_count
     if args.physics_period_duration is not None:
@@ -216,8 +232,9 @@ def main():
     # Create workflow simulator
     simulator = WorkflowSimulatorAgent(
         workflow_name=args.workflow_name,
-        config_name=args.config,
+        config_name=args.workflow_config,
         duration=args.duration,
+        config_path=args.testbed_config,
         **workflow_params
     )
 
@@ -228,8 +245,9 @@ def main():
         # Execute workflow
         execution_id = simulator.workflow_runner.run_workflow(
             workflow_name=args.workflow_name,
-            config_name=args.config,
+            config_name=args.workflow_config,
             duration=args.duration,
+            realtime=args.realtime,
             **workflow_params
         )
 

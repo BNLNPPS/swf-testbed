@@ -158,6 +158,22 @@ The testbed uses a global sequential agent ID system to ensure unique agent iden
 
 This replaces the previous random suffix approach and ensures long-term uniqueness as the system scales.
 
+### Namespace Isolation
+
+Namespaces provide logical isolation for workflows and agents:
+
+- **Purpose**: Allow users to discriminate their workflows from others and from other users
+- **Scope**: All workflow messages include namespace for filtering
+- **Configuration**: Set in `workflows/testbed.toml` before running workflows
+- **Collaboration**: Multiple users can share a namespace for collaborative work
+- **UI Integration**: Monitor UI supports namespace filtering on agents, executions, and messages
+
+Example namespace configuration:
+```toml
+[testbed]
+namespace = "epic-fastmon-dev"
+```
+
 ### Workflow Definition Architecture
 
 The testbed implements a three-layer workflow architecture to support both complex orchestration and agile parameter experimentation:

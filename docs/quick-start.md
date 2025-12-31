@@ -24,19 +24,53 @@ cd ../swf-monitor/src && python manage.py createsuperuser && cd ../../swf-testbe
 swf-testbed start
 ```
 
+## Configure Namespace
+
+Before running workflows, set your namespace in `workflows/testbed.toml`:
+
+```toml
+[testbed]
+namespace = "your-namespace"  # e.g., "myname-dev", "team-test1"
+```
+
+This isolates your workflows from others in the system.
+
 ## Verification
 
 **Check these URLs work:**
 - Monitor: http://localhost:8002/
 - ActiveMQ: http://localhost:8161/admin/ (admin/admin)
 
-**Run a test:**
+**Run a processing agent test (two terminals):**
 ```bash
-python example_agents/daq_simulator.py
+# Terminal 1: Workflow simulator
+cd swf-testbed && source .venv/bin/activate && source ~/.env
+python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
+
+# Terminal 2: Processing agent
+cd swf-testbed && source .venv/bin/activate && source ~/.env
+python example_agents/example_processing_agent.py
 ```
 
 **Check STF files appear:**
 - http://localhost:8002/stf-files/
+
+## Fast Processing Test
+
+**Run a fast processing test (two terminals):**
+```bash
+# Terminal 1: Workflow simulator
+cd swf-testbed && source .venv/bin/activate && source ~/.env
+python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
+
+# Terminal 2: Fast processing agent
+cd swf-testbed && source .venv/bin/activate && source ~/.env
+python example_agents/fast_processing_agent.py --testbed-config workflows/testbed.toml
+```
+
+**Check results:**
+- TF Slices: http://localhost:8002/tf-slices/
+- Run States: http://localhost:8002/run-states/
 
 ## Key Environment Variables
 

@@ -23,7 +23,7 @@ class FastMonitorAgent(BaseAgent):
     Then broadcasts the TF notifications via ActiveMQ.
     """
 
-    def __init__(self, config: dict, debug=False):
+    def __init__(self, config: dict, debug=False, config_path=None):
         """
         Initialize the fast monitoring agent.
 
@@ -34,10 +34,12 @@ class FastMonitorAgent(BaseAgent):
                 - tf_size_fraction: Fraction of STF size for each TF
                 - tf_sequence_start: Starting sequence number for TF files
             debug: Enable debug logging for heartbeat messages
+            config_path: Path to testbed.toml config file
         """
 
         # Initialize base agent with fast monitoring specific parameters
-        super().__init__(agent_type='fastmon', subscription_queue='epictopic', debug=debug)
+        super().__init__(agent_type='fastmon', subscription_queue='epictopic', debug=debug,
+                         config_path=config_path)
         self.running = True
 
         self.logger.info("Fast Monitor Agent initialized successfully")
@@ -83,6 +85,8 @@ class FastMonitorAgent(BaseAgent):
         """
         # Use base class helper for consistent logging
         message_data, msg_type = self.log_received_message(frame, {'stf_ready'})
+        if message_data is None:
+            return
 
         # Update heartbeat on message activity
         self.send_heartbeat()
@@ -144,9 +148,14 @@ class FastMonitorAgent(BaseAgent):
 def main():
     """Main entry point for the agent."""
     import argparse
+    from pathlib import Path
+
+    script_dir = Path(__file__).parent
 
     parser = argparse.ArgumentParser(description='Fast Monitor Agent')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging for heartbeat messages')
+    parser.add_argument('--testbed-config', default=str(script_dir / 'testbed.toml'),
+                        help='Testbed config file (default: testbed.toml)')
     args = parser.parse_args()
 
     # Configuration for message-driven agent
@@ -159,7 +168,7 @@ def main():
     }
 
     # Create agent with config and debug flag
-    agent = FastMonitorAgent(config, debug=args.debug)
+    agent = FastMonitorAgent(config, debug=args.debug, config_path=args.testbed_config)
 
     # Run in message-driven mode (reacts to stf_ready messages)
     agent.run()

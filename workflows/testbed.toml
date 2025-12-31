@@ -1,0 +1,24 @@
+# Testbed Instance Configuration
+#
+# [testbed] section: required, defines the testbed instance context
+#
+# Override sections: Any section matching a workflow config section will override
+# those values. Section names are descriptive (e.g., [daq_state_machine],
+# [fast_processing]) so overrides are unambiguous.
+
+[testbed]
+# Namespace for this testbed instance.
+# Must be set before running workflows - empty string will cause an error.
+# Examples: "epic-fastmon-dev", "collab-dec29", "wenauseic-test1"
+#
+# Multiple users can collaborate in one namespace.
+# Users are responsible for namespace uniqueness.
+namespace = "torre1"
+
+# Example: Override fast_processing settings for this testbed
+# [fast_processing]
+# stf_count = 5                   # Fewer STF files for quick testing
+#
+# Example: Override daq_state_machine timing for this testbed
+# [daq_state_machine]
+# stf_interval = 1.0              # Faster STF generation

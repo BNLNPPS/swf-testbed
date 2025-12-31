@@ -1,0 +1,20 @@
+# DAQ State Machine Base Configuration
+# This file contains standard DAQ state transition parameters
+# that are common across different downstream processing workflows
+
+[daq_state_machine]
+# DAQ state transition delays (matching DAQ simulator sequence)
+no_beam_not_ready_delay = 5     # Initial collider not operating (seconds)
+beam_not_ready_delay = 5        # Run start imminent (seconds)
+beam_ready_delay = 2            # Ready for physics (seconds)
+beam_not_ready_end_delay = 5    # Run ended by shifters (seconds)
+broadcast_delay = 1             # Message broadcast time (seconds)
+
+# STF generation parameters
+stf_interval = 2.0              # STFs every 2 seconds during physics (~0.5Hz)
+stf_generation_time = 0.1       # Time to generate each STF (seconds)
+
+# Physics periods
+physics_period_duration = 10    # Duration of each physics period (seconds)
+physics_period_count = 2        # Number of physics periods (0 = infinite)
+standby_duration = 2            # Standby time between physics periods (seconds)

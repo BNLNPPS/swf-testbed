@@ -10,6 +10,9 @@ This document contains mandatory critical thinking requirements, coding rules, a
 
 ## Documentation Structure
 
+### Release Notes
+- [**Release Notes**](RELEASE_NOTES.md) - What's new in each version
+
 ### Getting Started
 - [**Installation Guide**](docs/installation.md) - Complete setup instructions
 - [**Architecture Overview**](docs/architecture.md) - System design and components
