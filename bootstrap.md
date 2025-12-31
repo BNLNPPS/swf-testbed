@@ -3,13 +3,6 @@
 **Date:** 2025-12-31
 **Branch:** infra/baseline-v26 (all 3 repos)
 
-## POST-COMPRESS: READ THIS FIRST
-
-After context compression, you lose critical knowledge. Immediately:
-1. Re-read this entire file
-2. Check `git status` in all 3 repos for uncommitted work
-3. Ask user what we were doing if unclear
-
 ## Project
 
 ePIC Streaming Workflow Testbed. Agent-based system with ActiveMQ messaging.
@@ -35,28 +28,8 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
----
 
 # SESSION STATUS 2025-12-31
-
-## UNCOMMITTED CHANGES - TEST BEFORE COMMIT
-
-**swf-testbed** has uncommitted changes:
-- `example_agents/fast_processing_agent.py` - Fixed to extract run_id/execution_id from each message (agents can start mid-run)
-- `workflows/fast_processing_default.toml` - Sampling rate set to 1.0 (100%)
-- `docs/quick-start.md` - Added fast processing test commands
-
-**swf-monitor** has uncommitted changes:
-- Log summary: Agent/Agent Instance filters
-- Namespace list: Uses Namespace model, shows owner/description/modified
-
-Test fast processing with commands from `docs/quick-start.md`, then commit both repos.
-
-## PENDING: STFWorkflow DEPRECATION
-
-STFWorkflow model is unused - WorkflowMessage has all needed fields. UI still references it (dashboard stats, workflow list). Decision: deprecate entirely.
-
----
 
 ## NEXT MAJOR TASK: WORKFLOW ORCHESTRATION
 
@@ -148,3 +121,7 @@ Orchestrator behavior:
 - `src/swf_testbed_cli/main.py` - add `run` command
 - `supervisord.conf` template - agent definitions
 
+
+## PENDING: STFWorkflow DEPRECATION
+
+STFWorkflow model is unused - WorkflowMessage has all needed fields. UI still references it (dashboard stats, workflow list). Decision: deprecate entirely.
