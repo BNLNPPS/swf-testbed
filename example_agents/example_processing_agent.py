@@ -223,8 +223,10 @@ class ProcessingAgent(BaseAgent):
         self.processing_stats['total_processed'] += 1
         
         # Send processing_complete message
+        # namespace is also auto-injected by BaseAgent.send_message()
         processing_complete_message = {
             "msg_type": "processing_complete",
+            "namespace": self.namespace,
             "filename": filename,
             "run_id": run_id,
             "input_file_url": file_url,
