@@ -29,7 +29,77 @@ Be concise and to the point. When something is done and isn't essential backgrou
 See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
 
-# SESSION STATUS 2025-12-31
+# SESSION STATUS 2026-01-07
+
+## MCP MODERNIZATION - DONE (Basic Implementation)
+
+MCP integration complete. Old custom `mcp_app/` removed, replaced with proper MCP via django-mcp-server.
+
+**Endpoint:** `/mcp/mcp`
+**Documentation:** `swf-monitor/docs/MCP.md`
+**Tools defined in:** `swf-monitor/src/monitor_app/mcp.py`
+
+### Current Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_system_status()` | Overall health: agent counts, executions, messages |
+| `list_agents(namespace=None)` | List agents with status and heartbeat |
+| `get_agent(name)` | Specific agent details |
+| `list_namespaces()` | List isolation namespaces |
+| `list_workflow_definitions()` | Available workflow definitions |
+| `list_workflow_executions(namespace, status, hours)` | Recent executions with filters |
+| `get_workflow_execution(execution_id)` | Specific execution details |
+| `list_messages(namespace, sender, message_type, minutes)` | Recent messages with filters |
+| `start_workflow`, `stop_workflow` | Stubs - not yet implemented |
+
+### Key Design Points
+
+- **Tools only** - MCP Resources not used (they're for passive context injection, not interactive queries)
+- **Tool docstrings are critical** - they're the only documentation the LLM sees for discovery
+- **Simple tools with optional filters** - LLM-friendly, not complex query languages
+
+### Pending
+
+- Commit and push changes to swf-monitor
+- Redeploy: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v27`
+- Test with Claude Desktop or Claude Code
+
+---
+
+## IMMEDIATE NEXT STEP: Expand MCP Tools Based on Monitor UI
+
+The browser-based monitor (swf-monitor Django UI) is the definitive expression of what information users want. The MCP service should provide natural language access to this same information.
+
+**Task:** Study the monitor UI views and templates to understand the full data model and user workflows, then expand MCP tools to cover:
+
+1. **High-level views**
+   - Workflow definitions and executions overview
+   - System dashboard statistics
+
+2. **Drilling down by namespace/user**
+   - Agent ensembles grouped by namespace
+   - User ownership (username embedded in agent names)
+   - Execution history per namespace
+
+3. **Workflow artifacts**
+   - STF files in the workflow
+   - TF sample files created from STF files
+   - File metadata and relationships
+
+4. **Message details**
+   - Messages by agent, by type, by workflow stage
+   - Message payloads and timing
+
+**Files to study:**
+- `swf-monitor/src/monitor_app/views.py` - what data the UI presents
+- `swf-monitor/src/monitor_app/templates/` - how data is structured for users
+- `swf-monitor/src/monitor_app/models.py` - StfFile, TFSlice, Run, etc.
+- `swf-monitor/src/monitor_app/workflow_models.py` - workflow data model
+
+**Goal:** MCP tools should enable the same queries and drill-downs that users can do in the browser, but via natural language.
+
+---
 
 ## NEXT MAJOR TASK: WORKFLOW ORCHESTRATION
 
