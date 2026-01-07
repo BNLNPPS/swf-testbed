@@ -181,6 +181,7 @@ Use `python report_system_status.py` to verify which mode is active and check se
   - Example: `git push -u origin infra/baseline-v10`
 - Document specific features and changes through descriptive commit messages
 - Never push directly to main - always use branches and pull requests
+- **NEVER delete branches after PR merges** - branch history must be preserved as a record of the development thread
 - Run `./run_all_tests.sh` before merging infrastructure changes
 - Maintain sibling directory structure for all swf-* repositories
 
