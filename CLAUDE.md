@@ -7,7 +7,7 @@ We are working on a streaming workflow testbed project for which stf-testbed is 
 # 🚨 MANDATORY CHECKLIST - READ FIRST - NO EXCEPTIONS 🚨
 
 **BEFORE RUNNING ANY PYTHON COMMANDS:**
-1. ✅ **ALWAYS ACTIVATE VENV FIRST**: `cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate`
+1. ✅ **ALWAYS ACTIVATE VENV FIRST**: `cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate`
 2. ✅ **LOAD ENVIRONMENT**: `source ~/.env` (all variables are exported)
 3. ✅ **VERIFY LOCATION**: Run `pwd` to confirm current directory
 
@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Environment Setup Rule
 **DO NOT RUN PYTHON COMMANDS WITHOUT VENV:** Every Python command must be preceded by:
 ```bash
-cd /eic/u/wenauseic/github/swf-testbed && source ~/.env
+cd /data/wenauseic/github/swf-testbed && source ~/.env
 ```
 **This includes:** python, pip, pytest, any example_agents scripts, or swf-testbed commands
 
@@ -111,7 +111,7 @@ Before implementing ANY solution, Claude must explain:
 
 **EVERY PYTHON COMMAND MUST START WITH:**
 ```bash
-cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
+cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
 ```
 
 **Commands:**
@@ -231,7 +231,7 @@ This maintenance should be part of any commit that involves adding, removing, or
 
 **Before ANY Python operation, you MUST run:**
 ```bash
-cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
+cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
 ```
 
 **This applies to:**
@@ -250,7 +250,7 @@ cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/
 - **ALWAYS use absolute paths** - Never use relative paths like `../swf-monitor`
 - **ALWAYS run `pwd` before any file operations** - Claude frequently loses track of current directory
 - **NEVER assume your location** - explicitly verify with `pwd` at start of file access attempts
-- **Use full paths**: `/eic/u/wenauseic/github/swf-testbed` not `swf-testbed`
+- **Use full paths**: `/data/wenauseic/github/swf-testbed` not `swf-testbed`
 - This is a recurring Claude issue that causes confusion and wasted time
 
 ### Git Branch Management
