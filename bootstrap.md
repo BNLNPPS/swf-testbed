@@ -1,7 +1,7 @@
 # Bootstrap Guide for Claude
 
 **Date:** 2026-01-08
-**Branch:** infra/baseline-v27 (all 3 repos)
+**Branch:** infra/baseline-v28 (all 3 repos)
 
 ## Project
 
@@ -21,8 +21,8 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 - **COMMIT BEFORE DEPLOY** - Deploy pulls from git repo, not local files. Always commit and push changes before running deploy script.
 - Activate venv before any python
-- All 3 repos on same branch (currently v27, shorthand for infra/baseline-v27)
-- Redeploy swf-monitor after Django changes: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v27`
+- All 3 repos on same branch (currently v28, shorthand for infra/baseline-v28)
+- Redeploy swf-monitor after Django changes: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v28`
 
 ## Commands
 
