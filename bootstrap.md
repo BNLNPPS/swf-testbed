@@ -66,19 +66,71 @@ MCP integration complete via django-mcp-server. Claude Code auto-connects via `.
 - No single command to start/stop agent group
 - Multiple testbed.toml files (workflows/, example_agents/) - should be ONE
 
-### Architecture Decision
-Use **supervisord** for agent management (already in project), NOT subprocesses.
+### Architecture Decisions
 
-**Agent behavior:**
-- Agents are **persistent** - they start, wait for work, process it, close out, go back to waiting
-- Agents should not exit after processing - they're long-running services
-- This is the production architecture we're building toward
+**1. Command name:** `testbed` (package remains `swf-testbed`)
+- `testbed run`, `testbed status`, etc.
 
-### Solution Design
+**2. Supervisord separation:** Two config files
+- `supervisord.conf` - backend services (postgres, monitor, redis)
+- `agents.supervisord.conf` - workflow agents (processing, fastmon, etc.)
+- Different lifecycle: backend always running, agents start/stop per workflow
 
-**1. Single testbed.toml in workflows/**
+**3. Orchestrator location:** `workflows/orchestrator.py`
+- Consistent with workflow_runner.py, workflow_simulator.py
+- CLI command imports from there
 
-All agents use `workflows/testbed.toml`. Delete `example_agents/testbed.toml`.
+**4. Agent naming:**
+- **Program name** (supervisord): `example-processing-agent` - stable, for management
+- **Instance name** (agent): `processing-agent-wenauseic-0042` - unique with sequence ID for logging/tracking
+
+**5. Agent states (operational_state field):**
+- STARTING - process coming up
+- READY - connected to MQ, waiting for work, sending heartbeats
+- PROCESSING - handling workflow messages
+- EXITED - process terminated
+
+**6. Agents are persistent:**
+- Start, wait for work (READY), process (PROCESSING), return to READY
+- Between workflow runs: sit in READY state, maintain heartbeats
+- Don't exit after processing - long-running services
+
+### Schema Changes (SystemAgent model)
+
+Add to `swf-monitor/src/monitor_app/models.py`:
+
+```python
+# New fields for SystemAgent
+pid = models.IntegerField(null=True, blank=True, help_text="Process ID for kill operations")
+hostname = models.CharField(max_length=100, null=True, blank=True, help_text="Host where agent runs")
+operational_state = models.CharField(
+    max_length=20,
+    choices=[
+        ('STARTING', 'Starting'),
+        ('READY', 'Ready'),
+        ('PROCESSING', 'Processing'),
+        ('EXITED', 'Exited'),
+    ],
+    default='STARTING',
+    help_text="What the agent is doing (vs status which is health)"
+)
+```
+
+Note: `status` = health (OK/WARNING/ERROR), `operational_state` = activity
+
+### MCP Tools for Agent Management
+
+**Supervisord level:**
+- `list_supervised_agents()` - programs under supervisord, process status
+- `start_supervised_agent(program_name)`
+- `stop_supervised_agent(program_name)`
+- `restart_supervised_agent(program_name)`
+
+**Instance level:**
+- `get_agent_instance_status(instance_name)` - detailed instance info
+- `kill_agent(instance_name)` - kill -9 by PID, with confirmation (for stuck agents)
+
+### testbed.toml Schema
 
 ```toml
 [testbed]
@@ -87,25 +139,18 @@ namespace = "torre1"
 [workflow]
 name = "stf_datataking"
 config = "fast_processing_default"
-duration = 120
+duration = 0
 realtime = true
-
-[agents]
-# Agents managed by supervisord
 
 [agents.processing]
 enabled = true
-script = "example_agents/example_processing_agent.py"
+program = "example-processing-agent"
 
-[agents.data]
-enabled = false
-script = "example_agents/example_data_agent.py"
+[agents.fast_processing]
+enabled = true
+program = "example-fast-processing-agent"
 
-[agents.fastmon]
-enabled = false
-script = "example_agents/example_fastmon_agent.py"
-
-# Override workflow config values using descriptive section names
+# Workflow config overrides
 [fast_processing]
 stf_count = 5
 
@@ -113,40 +158,52 @@ stf_count = 5
 stf_interval = 1.0
 ```
 
-**2. Workflow Orchestrator**
+### Orchestrator Behavior (`testbed run`)
 
-New CLI command: `swf-testbed run [testbed.toml]`
-
-Orchestrator behavior:
 1. Read testbed.toml
-2. For each enabled agent:
-   - If not running in supervisord → start it
-   - If running → health check (heartbeat recent?)
-3. When all agents verified running and healthy → start the workflow run
-4. Graceful shutdown on Ctrl+C (stop workflow, optionally stop agents)
+2. Ensure supervisord running (for agents config)
+3. For each enabled agent:
+   - Start via `supervisorctl -c agents.supervisord.conf start <program>`
+4. Wait for agents healthy (heartbeat + operational_state=READY)
+5. Run workflow via WorkflowRunner
+6. On completion: agents remain in READY state (default) or stop with `--stop-agents`
+7. Ctrl+C: stop workflow gracefully, agents stay running
 
-**3. supervisord Integration**
+### Implementation Order
 
-- Generate/update supervisord.conf from testbed.toml agent definitions
-- Use supervisorctl to start/stop/status agents
-- Agents report health via heartbeat to monitor
+**Phase 1: Schema & Agent Updates**
+1. Add pid, hostname, operational_state to SystemAgent model
+2. Run migration
+3. Update BaseAgent to populate new fields in heartbeat
+4. Update agents to track operational_state (READY ↔ PROCESSING)
 
-### Implementation Steps
+**Phase 2: Supervisord Separation**
+1. Create agents.supervisord.conf with example agent programs
+2. Set autostart=false (orchestrator controls startup)
+3. Keep existing supervisord.conf for backend services
 
-1. Extend testbed.toml schema with [agents] section
-2. Delete example_agents/testbed.toml, update agents to use workflows/testbed.toml
-3. Create orchestrator module in swf-testbed
-4. Update supervisord.conf generation to include agents from testbed.toml
-5. Implement health check via monitor API (check last_heartbeat)
-6. Single CLI command to run workflow with agent management
+**Phase 3: Orchestrator & CLI**
+1. Create workflows/orchestrator.py
+2. Add `testbed run` command to CLI
+3. Implement health check, workflow execution
+
+**Phase 4: MCP Tools**
+1. Add supervised agent management tools
+2. Add kill_agent with PID lookup
 
 ### Files to Modify
 
-- `workflows/testbed.toml` - extend schema
-- `example_agents/testbed.toml` - DELETE
-- `example_agents/*.py` - update config_path to use workflows/testbed.toml
-- `src/swf_testbed_cli/main.py` - add `run` command
-- `supervisord.conf` template - agent definitions
+| File | Action |
+|------|--------|
+| `swf-monitor/src/monitor_app/models.py` | Add pid, hostname, operational_state |
+| `swf-common-lib/src/swf_common_lib/base_agent.py` | Populate new fields in heartbeat |
+| `swf-testbed/agents.supervisord.conf` | CREATE - agent programs |
+| `swf-testbed/workflows/orchestrator.py` | CREATE - orchestration logic |
+| `swf-testbed/workflows/testbed.toml` | Extend with [workflow], [agents] |
+| `swf-testbed/src/swf_testbed_cli/main.py` | Add `run` command, rename to `testbed` |
+| `swf-testbed/pyproject.toml` | Rename command to `testbed` |
+| `swf-testbed/example_agents/testbed.toml` | DELETE |
+| `swf-monitor/src/monitor_app/mcp.py` | Add agent management tools |
 
 
 ## PENDING: STFWorkflow DEPRECATION
