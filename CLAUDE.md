@@ -7,7 +7,7 @@ We are working on a streaming workflow testbed project for which stf-testbed is 
 # 🚨 MANDATORY CHECKLIST - READ FIRST - NO EXCEPTIONS 🚨
 
 **BEFORE RUNNING ANY PYTHON COMMANDS:**
-1. ✅ **ALWAYS ACTIVATE VENV FIRST**: `cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate`
+1. ✅ **ALWAYS ACTIVATE VENV FIRST**: `cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate`
 2. ✅ **LOAD ENVIRONMENT**: `source ~/.env` (all variables are exported)
 3. ✅ **VERIFY LOCATION**: Run `pwd` to confirm current directory
 
@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Environment Setup Rule
 **DO NOT RUN PYTHON COMMANDS WITHOUT VENV:** Every Python command must be preceded by:
 ```bash
-cd /eic/u/wenauseic/github/swf-testbed && source ~/.env
+cd /data/wenauseic/github/swf-testbed && source ~/.env
 ```
 **This includes:** python, pip, pytest, any example_agents scripts, or swf-testbed commands
 
@@ -111,7 +111,7 @@ Before implementing ANY solution, Claude must explain:
 
 **EVERY PYTHON COMMAND MUST START WITH:**
 ```bash
-cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
+cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
 ```
 
 **Commands:**
@@ -181,6 +181,7 @@ Use `python report_system_status.py` to verify which mode is active and check se
   - Example: `git push -u origin infra/baseline-v10`
 - Document specific features and changes through descriptive commit messages
 - Never push directly to main - always use branches and pull requests
+- **NEVER delete branches after PR merges** - branch history must be preserved as a record of the development thread
 - Run `./run_all_tests.sh` before merging infrastructure changes
 - Maintain sibling directory structure for all swf-* repositories
 
@@ -231,7 +232,7 @@ This maintenance should be part of any commit that involves adding, removing, or
 
 **Before ANY Python operation, you MUST run:**
 ```bash
-cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
+cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
 ```
 
 **This applies to:**
@@ -250,7 +251,7 @@ cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/
 - **ALWAYS use absolute paths** - Never use relative paths like `../swf-monitor`
 - **ALWAYS run `pwd` before any file operations** - Claude frequently loses track of current directory
 - **NEVER assume your location** - explicitly verify with `pwd` at start of file access attempts
-- **Use full paths**: `/eic/u/wenauseic/github/swf-testbed` not `swf-testbed`
+- **Use full paths**: `/data/wenauseic/github/swf-testbed` not `swf-testbed`
 - This is a recurring Claude issue that causes confusion and wasted time
 
 ### Git Branch Management

@@ -174,9 +174,11 @@ def create_tf_message(tf_file: Dict[str, Any], stf_file: Dict[str, Any], agent_n
     
     # Extract run number from message data
     run_number = stf_file.get('run_id')
-    
+
+    # namespace is also auto-injected by BaseAgent.send_message()
     message = {
         "msg_type": "tf_file_registered",
+        "namespace": stf_file.get('namespace'),
         "processed_by": agent_name,
         "tf_file_id": tf_file.get('tf_file_id'),
         "tf_filename": tf_file.get('tf_filename'),

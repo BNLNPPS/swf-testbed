@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "swf-testbed": {
+      "type": "http",
+      "url": "https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/"
+    }
+  }
+}

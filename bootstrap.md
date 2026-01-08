@@ -1,7 +1,7 @@
 # Bootstrap Guide for Claude
 
-**Date:** 2025-12-31
-**Branch:** infra/baseline-v26 (all 3 repos)
+**Date:** 2026-01-08
+**Branch:** infra/baseline-v27 (all 3 repos)
 
 ## Project
 
@@ -10,9 +10,9 @@ ePIC Streaming Workflow Testbed. Agent-based system with ActiveMQ messaging.
 **Attention AIs:** This is not a chronicle of completed work. This is quick essential background to current status and next steps.
 Be concise and to the point. When something is done and isn't essential background for next steps, remove it.
 
-**Repos** (siblings in /eic/u/wenauseic/github/):
+**Repos** (siblings in /data/wenauseic/github/):
 - **swf-testbed** - workflows, example agents
-- **swf-monitor** - Django web app, REST API
+- **swf-monitor** - Django web app, REST API, MCP service
 - **swf-common-lib** - BaseAgent class
 
 **Host:** pandaserver02.sdcc.bnl.gov
@@ -21,15 +21,42 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 - **COMMIT BEFORE DEPLOY** - Deploy pulls from git repo, not local files. Always commit and push changes before running deploy script.
 - Activate venv before any python
-- All 3 repos on same branch (currently v26, shorthand for infra/baseline-v26)
-- Redeploy swf-monitor after Django changes: `sudo bash /eic/u/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v26`
+- All 3 repos on same branch (currently v27, shorthand for infra/baseline-v27)
+- Redeploy swf-monitor after Django changes: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v27`
 
 ## Commands
 
 See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
 
-# SESSION STATUS 2025-12-31
+# SESSION STATUS 2026-01-08
+
+## MCP - COMPLETE
+
+MCP integration complete via django-mcp-server. Claude Code auto-connects via `.mcp.json`.
+
+**Endpoint:** `https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/`
+**Documentation:** `swf-monitor/docs/MCP.md`, `swf-testbed/README.md`
+**Tools defined in:** `swf-monitor/src/monitor_app/mcp.py`
+
+### MCP Tools
+
+| Category | Tools |
+|----------|-------|
+| System | `get_system_state`, `list_agents`, `get_agent`, `list_namespaces`, `get_namespace` |
+| Workflows | `list_workflow_definitions`, `list_workflow_executions`, `get_workflow_execution`, `end_execution` |
+| Data | `list_runs`, `get_run`, `list_stf_files`, `get_stf_file`, `list_tf_slices`, `get_tf_slice` |
+| Messages | `list_messages` |
+| Logs | `list_logs`, `get_log_entry` |
+| Actions | `start_workflow` (stub), `stop_workflow` (stub) |
+
+### Monitor DB Logging
+
+- `DbLogHandler` class in `monitor_app/db_log_handler.py`
+- All `monitor_app.*` loggers write to AppLog DB table
+- MCP actions logged via standard Python logging
+
+---
 
 ## NEXT MAJOR TASK: WORKFLOW ORCHESTRATION
 

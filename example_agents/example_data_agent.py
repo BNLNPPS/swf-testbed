@@ -268,8 +268,10 @@ class DataAgent(BaseAgent):
         time.sleep(0.1)
         
         # Send stf_ready message to processing agent
+        # namespace is also auto-injected by BaseAgent.send_message()
         stf_ready_message = {
             "msg_type": "stf_ready",
+            "namespace": self.namespace,
             "filename": filename,
             "run_id": run_id,
             "file_url": file_url,

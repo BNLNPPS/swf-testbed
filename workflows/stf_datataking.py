@@ -6,6 +6,9 @@ class WorkflowExecutor:
         self.stf_sequence = 0
         self.run_id = None
 
+        # Get namespace from testbed config for message routing
+        self.namespace = config.get('testbed', {}).get('namespace')
+
         # Build merged params: daq_state_machine base, with workflow-specific overrides
         self.daq = config.get('daq_state_machine', {})
         # Check for workflow-specific sections that override daq_state_machine values
@@ -97,8 +100,10 @@ class WorkflowExecutor:
         """Broadcast run imminent message - triggers dataset creation and worker preparation."""
         from datetime import datetime
 
+        # namespace is also auto-injected by BaseAgent.send_message()
         message = {
             "msg_type": "run_imminent",
+            "namespace": self.namespace,
             "execution_id": self.execution_id,
             "run_id": self.run_id,
             "timestamp": datetime.now().isoformat(),
@@ -124,8 +129,10 @@ class WorkflowExecutor:
         """Broadcast run start message - triggers PanDA task creation."""
         from datetime import datetime
 
+        # namespace is also auto-injected by BaseAgent.send_message()
         message = {
             "msg_type": "start_run",
+            "namespace": self.namespace,
             "execution_id": self.execution_id,
             "run_id": self.run_id,
             "timestamp": datetime.now().isoformat(),
@@ -151,8 +158,10 @@ class WorkflowExecutor:
         """Broadcast run pause message - entering standby."""
         from datetime import datetime
 
+        # namespace is also auto-injected by BaseAgent.send_message()
         message = {
             "msg_type": "pause_run",
+            "namespace": self.namespace,
             "execution_id": self.execution_id,
             "run_id": self.run_id,
             "timestamp": datetime.now().isoformat(),
@@ -179,8 +188,10 @@ class WorkflowExecutor:
         """Broadcast run resume message - returning to physics."""
         from datetime import datetime
 
+        # namespace is also auto-injected by BaseAgent.send_message()
         message = {
             "msg_type": "resume_run",
+            "namespace": self.namespace,
             "execution_id": self.execution_id,
             "run_id": self.run_id,
             "timestamp": datetime.now().isoformat(),
@@ -206,8 +217,10 @@ class WorkflowExecutor:
         """Broadcast run end message."""
         from datetime import datetime
 
+        # namespace is also auto-injected by BaseAgent.send_message()
         message = {
             "msg_type": "end_run",
+            "namespace": self.namespace,
             "execution_id": self.execution_id,
             "run_id": self.run_id,
             "timestamp": datetime.now().isoformat(),
@@ -233,8 +246,10 @@ class WorkflowExecutor:
         """Broadcast STF generation."""
         from datetime import datetime
 
+        # namespace is also auto-injected by BaseAgent.send_message()
         message = {
             "msg_type": "stf_gen",
+            "namespace": self.namespace,
             "execution_id": self.execution_id,
             "run_id": self.run_id,
             "filename": stf_filename,
