@@ -29,9 +29,14 @@ This document contains mandatory critical thinking requirements, coding rules, a
 
 This repository includes `.mcp.json` which automatically configures [Claude Code](https://claude.ai/code) to connect to the testbed's MCP service. When you open this project in Claude Code, the `swf-testbed` MCP server is available for natural language queries about system state, agents, workflows, and logs.
 
-To manually add the MCP server:
+**SSL Setup (required for BNL/SDCC servers):** Add to your `~/.bashrc`:
+```bash
+export NODE_EXTRA_CA_CERTS=/etc/pki/tls/certs/ca-bundle.crt
 ```
-/mcp add swf-testbed --transport http --url https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/
+
+To manually add the MCP server:
+```bash
+claude mcp add --transport http swf-testbed https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/
 ```
 
 ### Development
