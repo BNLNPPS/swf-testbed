@@ -21,8 +21,18 @@ This document contains mandatory critical thinking requirements, coding rules, a
 - [**Running the Testbed**](docs/operations.md) - Starting, stopping, and monitoring services
 - [**Workflow Orchestration**](docs/workflows.md) - Running and managing workflows
 - [**Monitor Integration**](docs/monitor.md) - Web interface and API usage
+- [**MCP Integration**](../swf-monitor/docs/MCP.md) - Model Context Protocol for LLM interaction
 - [**SSE Real-Time Streaming**](docs/sse-streaming.md) - Remote workflow event monitoring via HTTPS
 - [**Production Deployment**](../swf-monitor/docs/PRODUCTION_DEPLOYMENT.md) - Complete Apache production deployment guide
+
+### MCP for Claude Code
+
+This repository includes `.mcp.json` which automatically configures [Claude Code](https://claude.ai/code) to connect to the testbed's MCP service. When you open this project in Claude Code, the `swf-testbed` MCP server is available for natural language queries about system state, agents, workflows, and logs.
+
+To manually add the MCP server:
+```
+/mcp add swf-testbed --transport http --url https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/
+```
 
 ### Development
 - [**Development Guide**](docs/development.md) - Contributing and development workflow
