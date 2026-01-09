@@ -1,5 +1,55 @@
 # Release Notes
 
+## v27 (2026-01-08)
+
+### MCP Integration
+
+The swf-monitor now exposes a **Model Context Protocol (MCP)** API, enabling AI assistants like Claude to query and interact with the testbed system.
+
+**20+ MCP tools** for:
+- **System state**: `get_system_state`, `list_agents`, `get_agent`, `list_namespaces`
+- **Workflows**: `list_workflow_definitions`, `list_workflow_executions`, `get_workflow_execution`
+- **Data**: `list_runs`, `get_run`, `list_stf_files`, `get_stf_file`, `list_tf_slices`
+- **Messages & Logs**: `list_messages`, `list_logs`, `get_log_entry`
+
+**Auto-discovery**: Add `.mcp.json` to your project root for Claude Code to automatically connect:
+```json
+{
+  "mcpServers": {
+    "swf-testbed": {
+      "type": "sse",
+      "url": "https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/"
+    }
+  }
+}
+```
+
+**Endpoint**: `https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/`
+
+### Agent Lifecycle Management
+
+Agents now report process information for lifecycle management:
+- **pid**: Process ID for kill operations
+- **hostname**: Host where agent is running
+- **operational_state**: STARTING → READY → PROCESSING → EXITED
+
+These fields enable future orchestration features like agent health monitoring and remote termination.
+
+### Database Logging
+
+New `DbLogHandler` sends Python log records to the monitor database, enabling centralized log viewing:
+- View logs via monitor UI at `/logs/`
+- Filter by app, instance, level, time range
+- Query via MCP: `list_logs(level='ERROR')`, `get_log_entry(log_id)`
+
+### BaseAgent Improvements
+
+- Agents report EXITED status on shutdown
+- Warning logged when sending messages without namespace set
+- Heartbeats include pid, hostname, operational_state
+
+---
+
 ## v26 (2025-12-31)
 
 ### Namespaces

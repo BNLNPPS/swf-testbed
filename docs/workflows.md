@@ -277,24 +277,38 @@ class WorkflowExecution(models.Model):
 
 ### Running Workflows
 
-Workflows are executed via the `workflow_simulator.py` command-line tool:
+**One-time CLI mode** - run a single workflow and exit:
 
 ```bash
 # Run workflow with count-based completion (preferred)
-python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 10
+python workflows/workflow_runner.py --run-once stf_datataking --workflow-config fast_processing_default --stf-count 10
 
 # Run in REAL-TIME mode (for testing with downstream agents)
-python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
+python workflows/workflow_runner.py --run-once stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
 
 # Run with duration limit
-python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --duration 120
+python workflows/workflow_runner.py --run-once stf_datataking --workflow-config fast_processing_default --duration 120
 
 # Override specific parameters
-python workflows/workflow_simulator.py stf_datataking \
+python workflows/workflow_runner.py --run-once stf_datataking \
     --workflow-config fast_processing_default \
     --stf-count 20 \
     --physics-period-count 2 \
     --stf-interval 1.5
+```
+
+**Persistent agent mode** - run as daemon, receive commands via ActiveMQ:
+
+```bash
+# Start persistent agent (listens on workflow_control queue)
+python workflows/workflow_runner.py
+
+# Send commands via CLI utility
+python workflows/send_workflow_command.py run --workflow stf_datataking --stf-count 5 --no-realtime
+python workflows/send_workflow_command.py stop --execution-id <exec_id>
+python workflows/send_workflow_command.py status
+
+# Or via MCP tools: start_workflow, stop_workflow, list_workflow_executions
 ```
 
 **Command Line Arguments:**
@@ -326,12 +340,11 @@ The workflow simulator supports two execution modes:
 - Use `strict=False` to allow the simulation to catch up if it falls behind
 
 **What Happens:**
-1. `workflow_simulator.py` creates a WorkflowRunner instance
-2. WorkflowRunner inherits from BaseAgent (connects to ActiveMQ, registers as agent)
-3. Configuration files are loaded with includes merged
-4. Fully expanded config saved to WorkflowDefinition and WorkflowExecution
-5. Workflow broadcasts ActiveMQ messages during execution
-6. Downstream agents receive messages and query WorkflowExecution for parameters
+1. WorkflowRunner (a BaseAgent) connects to ActiveMQ and registers as agent
+2. Configuration files are loaded with includes merged
+3. Fully expanded config saved to WorkflowDefinition and WorkflowExecution
+4. Workflow broadcasts ActiveMQ messages during execution
+5. Downstream agents receive messages and query WorkflowExecution for parameters
 
 ### Execution ID Generation
 
@@ -352,8 +365,8 @@ workflows/
 ├── daq_state_machine.toml               # Base DAQ parameters (included by others)
 ├── stf_processing_default.toml          # STF processing configuration
 ├── fast_processing_default.toml         # Fast processing configuration
-├── workflow_runner.py                   # Workflow execution engine (BaseAgent)
-└── workflow_simulator.py                # Command-line tool to run workflows
+├── workflow_runner.py                   # Workflow execution agent (BaseAgent, persistent or CLI)
+└── send_workflow_command.py             # CLI utility to send commands to persistent agent
 ```
 
 ## Web Interface

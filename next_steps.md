@@ -11,12 +11,12 @@ Verified: RunState created, 5% sampling, 15 TFSlices/sample, slices sent to queu
 Start agent BEFORE simulator.
 
 ```bash
-# Terminal 1: Start workflow simulator (use --realtime for proper pacing)
-cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
-python workflows/workflow_simulator.py stf_datataking --config fast_processing_default --duration 120 --realtime
+# Terminal 1: Start workflow runner (use --realtime for proper pacing)
+cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
+python workflows/workflow_runner.py --run-once stf_datataking --workflow-config fast_processing_default --duration 120 --realtime
 
 # Terminal 2: Start fast processing agent
-cd /eic/u/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
+cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.env
 python example_agents/fast_processing_agent.py --debug
 ```
 
