@@ -837,6 +837,20 @@ class WorkflowRunner(BaseAgent):
             self._send_response('stop_workflow_response', {'status': 'no_workflow_running'})
             return
 
+        # Check execution_id if provided (for targeted stop)
+        requested_exec_id = message_data.get('execution_id')
+        if requested_exec_id and requested_exec_id != self.current_execution_id:
+            self.logger.info(
+                f"Stop request for {requested_exec_id} ignored - "
+                f"current execution is {self.current_execution_id}"
+            )
+            self._send_response('stop_workflow_response', {
+                'status': 'wrong_execution',
+                'requested_execution_id': requested_exec_id,
+                'current_execution_id': self.current_execution_id
+            })
+            return
+
         self.logger.info(f"Stopping workflow: {self.current_workflow_name}")
         self.stop_event.set()
         self._send_response('stop_workflow_response', {

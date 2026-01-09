@@ -122,15 +122,17 @@ class CommandSender:
         self.conn.send(destination='/queue/workflow_control', body=json.dumps(msg))
         print(f"Sent run_workflow: {workflow_name} (namespace: {self.namespace})")
 
-    def send_stop_workflow(self):
+    def send_stop_workflow(self, execution_id: str = None):
         """Send stop_workflow command."""
         msg = {
             'msg_type': 'stop_workflow',
             'namespace': self.namespace,
             'timestamp': datetime.now().isoformat()
         }
+        if execution_id:
+            msg['execution_id'] = execution_id
         self.conn.send(destination='/queue/workflow_control', body=json.dumps(msg))
-        print(f"Sent stop_workflow (namespace: {self.namespace})")
+        print(f"Sent stop_workflow (execution_id: {execution_id}, namespace: {self.namespace})")
 
     def send_status_request(self):
         """Send status_request command."""
@@ -153,6 +155,7 @@ def main():
     parser.add_argument('--stf-count', type=int, help='STF count parameter')
     parser.add_argument('--realtime', action='store_true', default=True)
     parser.add_argument('--no-realtime', action='store_false', dest='realtime')
+    parser.add_argument('--execution-id', help='Execution ID (for stop command)')
     parser.add_argument('--testbed-config', help='Path to testbed.toml')
 
     args = parser.parse_args()
@@ -172,7 +175,7 @@ def main():
                 **params
             )
         elif args.command == 'stop':
-            sender.send_stop_workflow()
+            sender.send_stop_workflow(execution_id=args.execution_id)
         elif args.command == 'status':
             sender.send_status_request()
     finally:
