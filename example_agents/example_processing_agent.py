@@ -165,12 +165,15 @@ class ProcessingAgent(BaseAgent):
     def handle_start_run(self, message_data):
         """Handle start_run message - run is starting physics"""
         run_id = message_data.get('run_id')
-        self.logger.info("Processing start_run message", 
+        self.logger.info("Processing start_run message",
                         extra={"run_id": run_id, "simulation_tick": message_data.get('simulation_tick')})
-        
+
+        # Agent is now actively processing this run
+        self.set_processing()
+
         # Send enhanced heartbeat with run context
         self.send_processing_agent_heartbeat()
-        
+
         # TODO: Start monitoring for data_ready messages
         self.logger.info("Ready to process data for run", extra={"run_id": run_id})
 
@@ -178,22 +181,25 @@ class ProcessingAgent(BaseAgent):
         """Handle end_run message - run has ended"""
         run_id = message_data.get('run_id')
         total_files = message_data.get('total_files', 0)
-        self.logger.info("Processing end_run message", 
+        self.logger.info("Processing end_run message",
                         extra={"run_id": run_id, "total_files": total_files, "simulation_tick": message_data.get('simulation_tick')})
-        
+
         # Report final statistics via heartbeat
         self.send_processing_agent_heartbeat()
-        
+
         # Report completion status
         active_tasks = len(self.active_processing)
         if active_tasks > 0:
             self.report_agent_status('WARNING', f'Run {run_id} ended with {active_tasks} tasks still processing')
         else:
             self.report_agent_status('OK', f'Run {run_id} processing completed successfully')
-        
+
         # TODO: Finalize processing tasks for this run
-        
+
         self.logger.info("Processing complete for run", extra={"run_id": run_id, "total_files": total_files})
+
+        # Agent is now idle, waiting for next run
+        self.set_ready()
         self.logger.info("Waiting for next run...")
 
     def handle_data_ready(self, message_data):

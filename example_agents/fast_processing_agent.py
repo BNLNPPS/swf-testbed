@@ -127,6 +127,9 @@ class FastProcessingAgent(BaseAgent):
         """Handle start_run: Update RunState phase to 'physics'."""
         self.logger.info(f"Run started: run_id={self.current_run_id}")
 
+        # Agent is now actively processing this run
+        self.set_processing()
+
         self._update_run_state(phase='physics', state='running', substate='physics')
 
         self._log_system_event('start_run', {
@@ -218,6 +221,9 @@ class FastProcessingAgent(BaseAgent):
         self.current_run_id = None
         self.current_execution_id = None
         self.workflow_params = {}
+
+        # Agent is now idle, waiting for next run
+        self.set_ready()
 
     # -------------------------------------------------------------------------
     # Helper methods
