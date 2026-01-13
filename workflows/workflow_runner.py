@@ -215,7 +215,7 @@ class WorkflowRunner(BaseAgent):
         self.api_session = self.api
         self.workflows_dir = Path(__file__).parent  # workflows/ directory
 
-        # Load testbed config overrides (all sections except [testbed])
+        # Load testbed config overrides (all sections including [testbed] for namespace)
         self.testbed_overrides = {}
         if config_path:
             testbed_config_file = Path(config_path)
@@ -223,7 +223,7 @@ class WorkflowRunner(BaseAgent):
                 with open(testbed_config_file, 'rb') as f:
                     testbed_config = tomllib.load(f)
                     for section, values in testbed_config.items():
-                        if section != 'testbed' and isinstance(values, dict):
+                        if isinstance(values, dict):
                             self.testbed_overrides[section] = values
 
         # Connect to ActiveMQ (we only send, don't need to subscribe)
