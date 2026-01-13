@@ -1,6 +1,6 @@
 # Bootstrap Guide for Claude
 
-**Date:** 2026-01-09
+**Date:** 2026-01-13
 **Branch:** infra/baseline-v28 (all 3 repos)
 
 ## Project
@@ -28,33 +28,24 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
+## Current Status
 
-# SESSION 2026-01-13
+### MCP start_workflow() defaults
 
-## User Agent Manager - JUST IMPLEMENTED
+`start_workflow()` now reads defaults from `workflows/testbed.toml`:
+- `[testbed].namespace` - default namespace
+- `[workflow].name/config/realtime` - workflow defaults
+- `[parameters]` section - passes through ALL params without hardcoding
 
-Per-user daemon for MCP-controlled testbed management.
+Call `start_workflow()` with no args to use configured defaults.
 
-**swf-testbed:**
-- `src/swf_testbed_cli/user_agent_manager.py` - UserAgentManager class
-  - Listens on `/queue/agent_control.<username>` for MCP commands
-  - Commands: start_testbed, stop_testbed, status, ping
-  - Sends heartbeats to monitor API
-- `src/swf_testbed_cli/main.py` - Added `testbed agent-manager` CLI command
+### User Agent Manager
 
-**swf-monitor MCP tools:**
-- `check_agent_manager(username)` - Check if user's agent manager is alive
-- `start_user_testbed(username, config)` - Start testbed via agent manager
-- `stop_user_testbed(username)` - Stop testbed via agent manager
+Per-user daemon: `testbed agent-manager`
+- Listens on `/queue/agent_control.<username>`
+- Fixed: SSL support, API auth (like BaseAgent)
+- MCP tools: check_agent_manager, start_user_testbed, stop_user_testbed
 
-**Also committed:**
-- Agent detail page: added logs link
-- BaseAgent: `_log_extra()` helper with username/execution_id/run_id
-- rest_logging.py: captures username field
+### Unapplied Migrations
 
-## TODO
-
-1. Redeploy monitor: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v28`
-2. Test agent manager: `testbed agent-manager` then use MCP tools
-3. Test full flow: agent manager → start_user_testbed → start_workflow
-
+Monitor deploy shows "models have changes not reflected in migration". Low priority - schema changes not critical.
