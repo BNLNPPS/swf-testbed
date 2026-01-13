@@ -288,6 +288,29 @@ def status_local():
     _print_workflow_status()
 
 
+@app.command("agent-manager")
+def agent_manager():
+    """
+    Start the user agent manager daemon.
+
+    This lightweight daemon listens for MCP commands to control your testbed.
+    It manages agent processes via supervisord and sends heartbeats to the monitor.
+
+    Run this once and leave it running. MCP can then start/stop your testbed remotely.
+
+    Example:
+        testbed agent-manager          # Start in foreground
+        testbed agent-manager &        # Start in background
+        nohup testbed agent-manager &  # Start and persist after logout
+    """
+    _setup_environment()
+
+    from .user_agent_manager import UserAgentManager
+
+    manager = UserAgentManager()
+    manager.run()
+
+
 @app.command()
 def run(
     config_name: str = typer.Argument(
