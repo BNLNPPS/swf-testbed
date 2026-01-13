@@ -46,20 +46,43 @@ class UserAgentManager(stomp.ConnectionListener):
         self.mq_port = int(os.getenv('ACTIVEMQ_PORT', 61612))
         self.mq_user = os.getenv('ACTIVEMQ_USER', 'admin')
         self.mq_password = os.getenv('ACTIVEMQ_PASSWORD', 'admin')
+        self.use_ssl = os.getenv('ACTIVEMQ_USE_SSL', 'false').lower() == 'true'
+        self.ssl_ca_certs = os.getenv('ACTIVEMQ_SSL_CA_CERTS', '')
 
-        # Monitor API for heartbeats
-        self.monitor_url = os.getenv('SWF_MONITOR_HTTP_URL', 'http://localhost:8002')
+        # Monitor API for heartbeats (use production monitor)
+        self.monitor_url = os.getenv('SWF_MONITOR_URL', 'https://pandaserver02.sdcc.bnl.gov/swf-monitor')
+        self.api_token = os.getenv('SWF_API_TOKEN')
+
+        # Set up API session with auth token (like BaseAgent)
+        import requests
+        self.api = requests.Session()
+        if self.api_token:
+            self.api.headers.update({'Authorization': f'Token {self.api_token}'})
+        self.api.verify = False  # Allow self-signed certs
 
         # State
         self.running = True
         self.last_heartbeat = None
         self.agents_running = False
 
-        # Set up connection
+        # Set up connection (matching BaseAgent configuration)
         self.conn = stomp.Connection(
             host_and_ports=[(self.mq_host, self.mq_port)],
-            heartbeats=(30000, 30000)
+            vhost=self.mq_host,
+            try_loopback_connect=False,
+            heartbeats=(30000, 30000),
+            auto_content_length=False
         )
+
+        # Configure SSL if enabled
+        if self.use_ssl and self.ssl_ca_certs:
+            import ssl
+            self.conn.transport.set_ssl(
+                for_hosts=[(self.mq_host, self.mq_port)],
+                ca_certs=self.ssl_ca_certs,
+                ssl_version=ssl.PROTOCOL_TLS_CLIENT
+            )
+
         self.conn.set_listener('', self)
 
         # Signal handling for graceful shutdown
@@ -239,9 +262,7 @@ class UserAgentManager(stomp.ConnectionListener):
             return False
 
     def send_heartbeat(self):
-        """Send heartbeat to monitor API."""
-        import requests
-
+        """Send heartbeat to monitor API (using authenticated session like BaseAgent)."""
         try:
             data = {
                 'instance_name': f'agent-manager-{self.username}',
@@ -251,16 +272,14 @@ class UserAgentManager(stomp.ConnectionListener):
                 'namespace': self.username,
                 'pid': os.getpid(),
                 'hostname': os.uname().nodename,
-                'metadata': {
-                    'control_queue': self.control_queue,
-                    'agents_running': self.agents_running
-                }
+                'description': f'Agent manager for {self.username}. MQ: connected',
+                'mq_connected': True,
             }
 
-            response = requests.post(
-                f"{self.monitor_url}/api/agents/heartbeat/",
+            response = self.api.post(
+                f"{self.monitor_url}/api/systemagents/heartbeat/",
                 json=data,
-                timeout=5
+                timeout=5,
             )
 
             if response.ok:
