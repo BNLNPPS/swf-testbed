@@ -45,7 +45,3 @@ Per-user daemon: `testbed agent-manager`
 - Listens on `/queue/agent_control.<username>`
 - Fixed: SSL support, API auth (like BaseAgent)
 - MCP tools: check_agent_manager, start_user_testbed, stop_user_testbed
-
-### Unapplied Migrations
-
-Monitor deploy shows "models have changes not reflected in migration". Low priority - schema changes not critical.
