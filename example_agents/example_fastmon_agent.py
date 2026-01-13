@@ -54,19 +54,6 @@ class FastMonitorAgent(BaseAgent):
         self.stf_messages_processed = 0
         self.last_message_time = None
         self.processing_stats = {'total_stf_messages': 0, 'total_tf_files_created': 0}
-        self.current_execution_id = None  # Track current workflow execution
-        self.current_run_id = None
-
-    def _log_extra(self, **kwargs):
-        """Build extra dict for logging with current workflow context."""
-        extra = {}
-        if self.current_execution_id:
-            extra['execution_id'] = self.current_execution_id
-        if self.current_run_id:
-            extra['run_id'] = self.current_run_id
-        extra.update(kwargs)
-        return extra
-
 
     def send_tf_file_notification(self, tf_file: dict, stf_file: dict):
         """

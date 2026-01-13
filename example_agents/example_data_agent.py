@@ -18,18 +18,6 @@ class DataAgent(BaseAgent):
                          config_path=config_path)
         self.active_runs = {}  # Track active runs and their monitor IDs
         self.active_files = {}  # Track STF files being processed
-        self.current_execution_id = None  # Track current workflow execution
-        self.current_run_id = None
-
-    def _log_extra(self, **kwargs):
-        """Build extra dict for logging with current workflow context."""
-        extra = {}
-        if self.current_execution_id:
-            extra['execution_id'] = self.current_execution_id
-        if self.current_run_id:
-            extra['run_id'] = self.current_run_id
-        extra.update(kwargs)
-        return extra
 
     def on_message(self, frame):
         """
