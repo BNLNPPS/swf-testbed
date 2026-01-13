@@ -14,7 +14,7 @@ class ProcessingAgent(BaseAgent):
     """
 
     def __init__(self, debug=False, config_path=None):
-        super().__init__(agent_type='STF_Processing', subscription_queue='epictopic', debug=debug,
+        super().__init__(agent_type='STF_Processing', subscription_queue='/topic/epictopic', debug=debug,
                          config_path=config_path)
         self.active_processing = {}  # Track files being processed
         self.processing_stats = {'total_processed': 0, 'failed_count': 0}
@@ -248,7 +248,7 @@ class ProcessingAgent(BaseAgent):
         self.register_processing_results(processing_complete_message)
         
         # Send to monitoring/analysis agents
-        self.send_message('monitoring_agent', processing_complete_message)
+        self.send_message('/queue/monitoring_agent', processing_complete_message)
         self.logger.info("Sent processing_complete message", 
                         extra={"stf_filename": filename, "run_id": run_id, "destination": "monitoring_agent"})
 

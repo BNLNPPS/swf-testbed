@@ -30,7 +30,7 @@ class FastProcessingAgent(BaseAgent):
     def __init__(self, debug=False, config_path=None):
         super().__init__(
             agent_type='Fast_Processing',
-            subscription_queue='epictopic',
+            subscription_queue='/topic/epictopic',
             debug=debug,
             config_path=config_path
         )

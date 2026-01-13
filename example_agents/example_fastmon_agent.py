@@ -38,7 +38,7 @@ class FastMonitorAgent(BaseAgent):
         """
 
         # Initialize base agent with fast monitoring specific parameters
-        super().__init__(agent_type='fastmon', subscription_queue='epictopic', debug=debug,
+        super().__init__(agent_type='fastmon', subscription_queue='/topic/epictopic', debug=debug,
                          config_path=config_path)
         self.running = True
 

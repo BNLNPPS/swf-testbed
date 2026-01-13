@@ -26,7 +26,7 @@ class RemoteSSESender(BaseAgent):
         os.environ['SWF_MONITOR_URL'] = prod_base
         os.environ['SWF_MONITOR_HTTP_URL'] = prod_base
 
-        super().__init__(agent_type='sse_sender', subscription_queue='epictopic')
+        super().__init__(agent_type='sse_sender', subscription_queue='/topic/epictopic')
         self.logger.info(f"Monitor base set to: {prod_base}")
         self.messages_to_send = [
             {
@@ -92,7 +92,7 @@ class RemoteSSESender(BaseAgent):
                 for i, message in enumerate(self.messages_to_send, 1):
                     try:
                         self.logger.debug(f"Sending message {i}/{len(self.messages_to_send)}: {message['msg_type']}")
-                        self.send_message('epictopic', message)
+                        self.send_message('/topic/epictopic', message)
                         self.logger.debug(
                             f"Sent message: {message['msg_type']} run={message.get('run_id','N/A')}"
                         )

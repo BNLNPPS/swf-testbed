@@ -196,7 +196,7 @@ class WorkflowRunner(BaseAgent):
 
         super().__init__(
             agent_type=agent_type,
-            subscription_queue='workflow_control',
+            subscription_queue='/queue/workflow_control',
             debug=debug,
             config_path=config_path
         )

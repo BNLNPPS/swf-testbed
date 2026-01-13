@@ -19,7 +19,7 @@ class DaqSimAgent(BaseAgent):
 
     def __init__(self, config_path=None):
         # This agent listens for control messages and produces STF messages.
-        super().__init__(agent_type='daqsim', subscription_queue='daq_control',
+        super().__init__(agent_type='daqsim', subscription_queue='/queue/daq_control',
                          config_path=config_path)
         self.running = True
 
@@ -71,7 +71,7 @@ class DaqSimAgent(BaseAgent):
         }
         
         self.logger.info(f"Generated new STF: {filename}")
-        self.send_message('epictopic', message)
+        self.send_message('/topic/epictopic', message)
 
 
 if __name__ == "__main__":

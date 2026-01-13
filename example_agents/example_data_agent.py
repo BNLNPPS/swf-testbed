@@ -14,7 +14,7 @@ class DataAgent(BaseAgent):
     """
 
     def __init__(self, debug=False, config_path=None):
-        super().__init__(agent_type='DATA', subscription_queue='epictopic', debug=debug,
+        super().__init__(agent_type='DATA', subscription_queue='/topic/epictopic', debug=debug,
                          config_path=config_path)
         self.active_runs = {}  # Track active runs and their monitor IDs
         self.active_files = {}  # Track STF files being processed
@@ -286,7 +286,7 @@ class DataAgent(BaseAgent):
             "processed_by": self.agent_name
         }
         
-        self.send_message('processing_agent', stf_ready_message)
+        self.send_message('/queue/processing_agent', stf_ready_message)
 
         # Update STF file status to processed
         self.update_stf_file_status(filename, 'processed')
