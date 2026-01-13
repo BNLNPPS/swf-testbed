@@ -404,3 +404,121 @@ Workflows integrate seamlessly with the agent-based messaging system:
 6. Agent creates TF slices and distributes to workers
 
 This architecture decouples workflow orchestration (DAQ simulation) from processing logic (agent behavior), enabling multiple downstream processing strategies with the same workflow code.
+
+## Supervisord Agent Orchestration
+
+### Problem
+
+- Each agent requires its own terminal/process
+- No way to define "this workflow needs these agents"
+- No single command to start/stop agent group
+- Multiple testbed.toml files (workflows/, example_agents/) - should be ONE
+
+### Architecture Decision
+
+Use **supervisord** for agent management (already in project), NOT subprocesses.
+
+**Agent behavior:**
+- Agents are **persistent** - they start, wait for work, process it, close out, go back to waiting
+- Agents should not exit after processing - they're long-running services
+- This is the production architecture we're building toward
+
+### Solution Design
+
+**1. Single testbed.toml in workflows/**
+
+All agents use `workflows/testbed.toml`. The `example_agents/testbed.toml` has been deleted.
+
+```toml
+[testbed]
+namespace = "torre1"
+
+[workflow]
+name = "stf_datataking"
+config = "fast_processing_default"
+realtime = true
+
+[agents.processing]
+enabled = true
+script = "example_agents/example_processing_agent.py"
+
+[agents.data]
+enabled = false
+script = "example_agents/example_data_agent.py"
+
+[agents.fastmon]
+enabled = false
+script = "example_agents/example_fastmon_agent.py"
+
+[agents.fast_processing]
+enabled = false
+script = "example_agents/fast_processing_agent.py"
+
+[parameters]
+# Optional workflow parameter overrides
+# stf_count = 5
+# physics_period_count = 2
+```
+
+**2. Workflow Orchestrator**
+
+CLI command: `testbed run <name>` - starts agents, triggers workflow from `<name>.toml`, returns immediately.
+
+```
+testbed run fast_processing
+    │
+    ├── Load workflows/fast_processing.toml (or fast_processing_default.toml)
+    │
+    ├── Start enabled agents via supervisorctl
+    │   └── Verify PID exists (not health check, just process alive)
+    │
+    ├── Send run_workflow command to WorkflowRunner
+    │   └── Via ActiveMQ workflow_control queue
+    │
+    └── Return immediately (async operations running)
+```
+
+**Key design points:**
+- **Non-blocking**: Launches async operations, returns immediately. No Ctrl+C required.
+- **No health check**: Just verify agent PID exists
+- **Status via separate commands**: `testbed status`, monitor page, MCP tools
+
+**3. supervisord Integration**
+
+Agents are managed via a separate supervisord config (`agents.supervisord.conf`):
+- Uses separate socket: `/tmp/swf-agents-supervisor.sock`
+- `autostart=false` - agents start on demand via `testbed run`
+- Programs: workflow-runner, example-data-agent, example-processing-agent, example-fastmon-agent, fast-processing-agent
+
+**4. Status Reporting**
+
+`testbed status` and `testbed status-local` commands report:
+- Running workflow executions (from monitor API)
+- Active agents with operational state and type
+- Standard service status (Docker or system services, supervisord)
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `workflows/testbed.toml` | Testbed instance config with [agents] section |
+| `agents.supervisord.conf` | Agent-specific supervisord configuration |
+| `workflows/orchestrator.py` | Orchestration module - start agents, trigger workflow |
+| `src/swf_testbed_cli/main.py` | CLI with `run` and enhanced `status` commands |
+
+### Usage
+
+```bash
+# Run workflow with default testbed.toml settings
+testbed run
+
+# Run with specific config
+testbed run fast_processing
+
+# Check status (includes workflow and agent info from monitor)
+testbed status
+testbed status-local
+
+# Stop agents
+supervisorctl -c agents.supervisord.conf stop all
+```

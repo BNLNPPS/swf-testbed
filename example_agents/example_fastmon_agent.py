@@ -54,6 +54,18 @@ class FastMonitorAgent(BaseAgent):
         self.stf_messages_processed = 0
         self.last_message_time = None
         self.processing_stats = {'total_stf_messages': 0, 'total_tf_files_created': 0}
+        self.current_execution_id = None  # Track current workflow execution
+        self.current_run_id = None
+
+    def _log_extra(self, **kwargs):
+        """Build extra dict for logging with current workflow context."""
+        extra = {}
+        if self.current_execution_id:
+            extra['execution_id'] = self.current_execution_id
+        if self.current_run_id:
+            extra['run_id'] = self.current_run_id
+        extra.update(kwargs)
+        return extra
 
 
     def send_tf_file_notification(self, tf_file: dict, stf_file: dict):
@@ -88,6 +100,12 @@ class FastMonitorAgent(BaseAgent):
         if message_data is None:
             return
 
+        # Extract workflow context from message
+        if 'execution_id' in message_data:
+            self.current_execution_id = message_data['execution_id']
+        if 'run_id' in message_data:
+            self.current_run_id = message_data['run_id']
+
         # Update heartbeat on message activity
         self.send_heartbeat()
 
@@ -96,10 +114,12 @@ class FastMonitorAgent(BaseAgent):
             if msg_type == 'stf_ready':
                 tf_files = self.sample_timeframes(message_data)
             else:
-                self.logger.warning(f"Ignoring unknown message type {msg_type}", extra={"msg_type": msg_type})
+                self.logger.warning(f"Ignoring unknown message type {msg_type}",
+                                   extra=self._log_extra(msg_type=msg_type))
 
         except Exception as e:
-            self.logger.error("Error processing message", extra={"error": str(e)})
+            self.logger.error("Error processing message",
+                            extra=self._log_extra(error=str(e)))
             self.report_agent_status('ERROR', f'Message processing error: {str(e)}')
 
 
@@ -108,7 +128,7 @@ class FastMonitorAgent(BaseAgent):
         Handle stf_ready message and sample STFs into TFs
         Registers the TFs in the swf-monitor database and notifies clients.
         """
-        self.logger.info("Processing stf_ready message")
+        self.logger.info("Processing stf_ready message", extra=self._log_extra())
 
         # Update message tracking stats
         self.last_message_time = datetime.now()
@@ -116,9 +136,9 @@ class FastMonitorAgent(BaseAgent):
         self.processing_stats['total_stf_messages'] += 1
 
         tf_files_registered = []
-        self.logger.debug(f"Message data received: {message_data}")
+        self.logger.debug(f"Message data received: {message_data}", extra=self._log_extra())
         if not message_data.get('filename'):
-            self.logger.error("No filename provided in message")
+            self.logger.error("No filename provided in message", extra=self._log_extra())
             return tf_files_registered
 
         tf_subsamples = fastmon_utils.simulate_tf_subsamples(message_data, self.config, self.logger, self.agent_name)
@@ -136,7 +156,8 @@ class FastMonitorAgent(BaseAgent):
         # Update TF creation stats
         self.processing_stats['total_tf_files_created'] += tf_files_created
 
-        self.logger.info(f"Registered {tf_files_created} TF subsamples for STF file {message_data.get('filename')}")
+        self.logger.info(f"Registered {tf_files_created} TF subsamples for STF file {message_data.get('filename')}",
+                        extra=self._log_extra(stf_filename=message_data.get('filename'), tf_files_created=tf_files_created))
         return tf_files_registered
 
 

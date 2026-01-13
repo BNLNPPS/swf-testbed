@@ -1,5 +1,33 @@
 # CLAUDE.md
 
+# ⛔ STOP - COMMANDS YOU MUST USE ⛔
+
+```bash
+# Start agents and run workflow
+testbed run                     # Uses workflows/testbed.toml
+testbed run fast_processing     # Uses workflows/fast_processing_default.toml
+
+# Check status
+testbed status-local            # System services + agents
+
+# MCP diagnostics (USE THESE, NOT log files)
+list_logs(instance_name='agent-name')           # Agent logs
+list_logs(level='ERROR')                        # Find failures
+list_messages(execution_id='...')               # Workflow messages
+```
+
+# ⛔ NEVER DO THESE ⛔
+
+| NEVER | ALWAYS |
+|-------|--------|
+| `nohup python agent.py &` | `testbed run` |
+| `python workflows/workflow_runner.py` | `testbed run` |
+| `tail -f logs/file.log` | `list_logs()` via MCP |
+| Bare destination `'epictopic'` | Prefixed `'/topic/epictopic'` |
+| `sleep 5; tail` after backgrounding | Separate bash calls |
+
+---
+
 # Introduction - Bootstrap summary
 
 We are working on a streaming workflow testbed project for which stf-testbed is the top umbrella repository, stf-common-lib is common software and infrastructure, stf-monitor is the system-wide monitor/REST service and MCP (Model Context Protocol) service, and the other stf-* repositories are agents performing parts of the workflows. We work mainly on the core repos testbed, common-lib and monitor. The testbed repo includes examples in agent_examples/ of the DAQ simulator that drives workflows, and the data and processing agents. They are what we presently use to run the system. The system is running on the computer we are working on, a headless server and we are using system-level ActiveMQ and PostgreSQL. Study the AI guidance, adhere to the MANDATORY critical thinking requirements, and review README.md and references therein to familiarize yourself. When writing code, never create from scratch what can be accomplished using the common code in common-lib and the existing code base throughout the core repos. Hence you must be familiar with this full code base. You must be highly professional in your work, applying the highest level of analysis and critical thinking to your tasks in this complex project. You must always do what is asked of you, first. If you wish you may then propose further actions. NEVER undertake actions that have not been asked for and approved. This complex multi-repository project employing many tools and services in performing complex, closely monitored workflows demands of you the highest level of professionalism and deep critical thinking. Our dialogue should be concise and professional, free of hype and ingratiating comments, free of guesses presented as facts. Declarations should be verifiable and verified facts. Do not undertake time consuming actions or sequences of actions without regularly checking in.
@@ -184,6 +212,7 @@ Use `python report_system_status.py` to verify which mode is active and check se
 - **NEVER delete branches after PR merges** - branch history must be preserved as a record of the development thread
 - Run `./run_all_tests.sh` before merging infrastructure changes
 - Maintain sibling directory structure for all swf-* repositories
+- **At PR time**: Ask the user whether RELEASE_NOTES.md should be updated to document user-facing changes
 
 ### Code Organization
 - Shared code goes in `swf-common-lib` package to prevent duplication

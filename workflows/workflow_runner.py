@@ -751,18 +751,12 @@ class WorkflowRunner(BaseAgent):
                 f"Cannot start workflow - already running: {self.current_workflow_name} "
                 f"(execution: {self.current_execution_id})"
             )
-            self._send_response('run_workflow_rejected', {
-                'reason': 'already_running',
-                'current_workflow': self.current_workflow_name,
-                'current_execution_id': self.current_execution_id
-            })
             return
 
         # Extract workflow parameters from message
         workflow_name = message_data.get('workflow_name')
         if not workflow_name:
             self.logger.error("run_workflow message missing 'workflow_name'")
-            self._send_response('run_workflow_rejected', {'reason': 'missing_workflow_name'})
             return
 
         config_name = message_data.get('config')
@@ -775,11 +769,10 @@ class WorkflowRunner(BaseAgent):
         self.set_processing()
         self.current_workflow_name = workflow_name
 
-        self.logger.info(f"Starting workflow in background thread: {workflow_name}")
-        self._send_response('run_workflow_started', {
-            'workflow_name': workflow_name,
-            'config': config_name
-        })
+        self.logger.info(
+            f"Starting workflow: {workflow_name} (config: {config_name})",
+            extra={'workflow_name': workflow_name}
+        )
 
         # Start workflow in background thread
         self.workflow_thread = threading.Thread(
@@ -803,26 +796,26 @@ class WorkflowRunner(BaseAgent):
             )
 
             if self.stop_event.is_set():
-                self.logger.info(f"Workflow stopped: {execution_id}")
-                self._send_response('run_workflow_stopped', {
-                    'workflow_name': workflow_name,
-                    'execution_id': execution_id
-                })
+                self.logger.info(
+                    f"Workflow stopped: {workflow_name} (execution: {execution_id})",
+                    extra={'execution_id': execution_id, 'workflow_name': workflow_name}
+                )
                 # Mark as terminated in database
                 self._update_execution_status(execution_id, 'terminated')
             else:
-                self.logger.info(f"Workflow completed: {execution_id}")
-                self._send_response('run_workflow_completed', {
-                    'workflow_name': workflow_name,
-                    'execution_id': execution_id
-                })
+                self.logger.info(
+                    f"Workflow completed: {workflow_name} (execution: {execution_id})",
+                    extra={'execution_id': execution_id, 'workflow_name': workflow_name}
+                )
 
         except Exception as e:
-            self.logger.error(f"Workflow failed: {e}")
-            self._send_response('run_workflow_failed', {
-                'workflow_name': workflow_name,
-                'error': str(e)
-            })
+            exec_id = getattr(self, 'current_execution_id', None)
+            self.logger.error(
+                f"Workflow failed: {workflow_name} (execution: {exec_id or 'unknown'}): {e}",
+                extra={'execution_id': exec_id, 'workflow_name': workflow_name}
+            )
+            if exec_id:
+                self._update_execution_status(exec_id, 'failed')
 
         finally:
             self.current_execution_id = None
@@ -834,7 +827,6 @@ class WorkflowRunner(BaseAgent):
         """Handle stop_workflow command - signals workflow to stop gracefully."""
         if self.operational_state != 'PROCESSING':
             self.logger.info("No workflow running to stop")
-            self._send_response('stop_workflow_response', {'status': 'no_workflow_running'})
             return
 
         # Check execution_id if provided (for targeted stop)
@@ -844,39 +836,21 @@ class WorkflowRunner(BaseAgent):
                 f"Stop request for {requested_exec_id} ignored - "
                 f"current execution is {self.current_execution_id}"
             )
-            self._send_response('stop_workflow_response', {
-                'status': 'wrong_execution',
-                'requested_execution_id': requested_exec_id,
-                'current_execution_id': self.current_execution_id
-            })
             return
 
-        self.logger.info(f"Stopping workflow: {self.current_workflow_name}")
+        self.logger.info(
+            f"Stopping workflow: {self.current_workflow_name} (execution: {self.current_execution_id})",
+            extra={'execution_id': self.current_execution_id, 'workflow_name': self.current_workflow_name}
+        )
         self.stop_event.set()
-        self._send_response('stop_workflow_response', {
-            'status': 'stop_requested',
-            'current_workflow': self.current_workflow_name,
-            'current_execution_id': self.current_execution_id
-        })
 
     def _handle_status_request(self, message_data: Dict[str, Any]):
-        """Handle status_request command."""
-        self._send_response('status_response', {
-            'operational_state': self.operational_state,
-            'current_workflow': self.current_workflow_name,
-            'current_execution_id': self.current_execution_id,
-            'agent_name': self.agent_name
-        })
-
-    def _send_response(self, msg_type: str, data: Dict[str, Any]):
-        """Send response message to workflow_status queue."""
-        message = {
-            'msg_type': msg_type,
-            'timestamp': datetime.now().isoformat(),
-            'agent_name': self.agent_name,
-            **data
-        }
-        self.send_message('/queue/workflow_status', message)
+        """Handle status_request command - logs current status."""
+        self.logger.info(
+            f"Status: state={self.operational_state}, "
+            f"workflow={self.current_workflow_name}, "
+            f"execution={self.current_execution_id}"
+        )
 
 
 # =============================================================================

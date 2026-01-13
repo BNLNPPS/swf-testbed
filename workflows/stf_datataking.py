@@ -112,7 +112,7 @@ class WorkflowExecutor:
             "substate": "not_ready"
         }
 
-        destination = 'epictopic'
+        destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
         self.runner.logger.info(
             "Broadcasted run_imminent message",
@@ -141,7 +141,7 @@ class WorkflowExecutor:
             "substate": "physics"
         }
 
-        destination = 'epictopic'
+        destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
         self.runner.logger.info(
             "Broadcasted run_start message",
@@ -171,7 +171,7 @@ class WorkflowExecutor:
             "reason": "Brief standby period"
         }
 
-        destination = 'epictopic'
+        destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
         self.runner.logger.info(
             "Broadcasted pause_run message",
@@ -200,7 +200,7 @@ class WorkflowExecutor:
             "substate": "physics"
         }
 
-        destination = 'epictopic'
+        destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
         self.runner.logger.info(
             "Broadcasted resume_run message",
@@ -228,7 +228,7 @@ class WorkflowExecutor:
             "total_stf_files": self.stf_sequence
         }
 
-        destination = 'epictopic'
+        destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
         self.runner.logger.info(
             "Broadcasted run_end message",
@@ -260,7 +260,7 @@ class WorkflowExecutor:
             "substate": "physics"
         }
 
-        destination = 'epictopic'
+        destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
         self.runner.logger.info(
             "Broadcasted stf_gen message",

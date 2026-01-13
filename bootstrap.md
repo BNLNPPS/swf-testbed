@@ -29,110 +29,37 @@ Be concise and to the point. When something is done and isn't essential backgrou
 See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
 
-# CURRENT STATUS 2026-01-09
+# SESSION 2026-01-13
 
-## Phase 2: WorkflowRunner as Persistent Agent - COMPLETE
+## Tested - Message-Driven Workflow WORKS
 
-WorkflowRunner operates in two modes:
-- **Persistent mode** (default): Listens on `workflow_control` queue for commands
-- **CLI mode** (`--run-once`): Runs single workflow and exits
+- MCP `start_workflow` → WorkflowRunner receives on `/queue/workflow_control` → executes → broadcasts to `/topic/epictopic`
+- Execution: `stf_datataking-wenauseic-0044`, run 101988, 3 STF files
 
-**Message handlers:** `run_workflow`, `stop_workflow`, `status_request`
+## Critical Fix: ActiveMQ Destination Naming
 
-## MCP Workflow Tools - COMPLETE
+BaseAgent now validates destinations must have `/queue/` or `/topic/` prefix. Bare names rejected.
 
-| Tool | Description |
-|------|-------------|
-| `start_workflow` | Send run command to DAQ Simulator agent |
-| `stop_workflow` | Send stop command by execution_id |
-| `end_execution` | Mark execution terminated in DB (no agent message) |
-| `kill_agent` | SIGKILL agent process by name |
-| `list_workflow_executions` | Query executions (use `currently_running=True`) |
+## Uncommitted Changes
 
-**start_workflow params:** workflow_name, namespace, config, realtime, duration, stf_count, physics_period_count, physics_period_duration, stf_interval
+**swf-testbed:**
+- `CLAUDE.md` - STOP/NEVER sections for AI guidance, updated MCP diagnostic examples
+- `workflows/README.md` - New, repeated guidance
+- `workflows/stf_datataking.py` - Fixed `/topic/epictopic`
+- `workflows/stf_datataking_default.toml` - New default config
+- `workflows/workflow_runner.py` - Removed _send_response(), logging with extra={execution_id}, fixed status='failed'
 
-## CLI Utility
+**swf-monitor:**
+- `mcp.py` - Updated docstrings, start_workflow monitoring, list_logs(execution_id) filter
+- `settings.py` - MCP instructions: added "AFTER start_workflow" section
 
-```bash
-# Send commands to persistent WorkflowRunner
-python workflows/send_workflow_command.py run --workflow stf_datataking --stf-count 2 --no-realtime
-python workflows/send_workflow_command.py stop --execution-id <exec_id>
-python workflows/send_workflow_command.py status
-```
+**swf-common-lib:**
+- `base_agent.py` - Destination prefix validation (pushed)
+- `rest_logging.py` - Capture execution_id/workflow_name/run_id in extra_data
 
----
+## TODO
 
-## FIRST: Clean Up Stale Agents
+1. Commit uncommitted changes above
+2. Test stop functionality
+3. Redeploy monitor after commits
 
-```
-mcp: list_agents(agent_type='workflow_runner')
-mcp: kill_agent(name='workflow_runner-agent-wenauseic-XXX')  # for each stale agent
-```
-
----
-
-## NEEDS TESTING
-
-1. **Full message-driven flow:**
-   - Start persistent agent: `python workflows/workflow_runner.py`
-   - Send run_workflow via MCP or CLI
-   - Verify agent executes workflow
-
-2. **Stop functionality:**
-   - Start long workflow (realtime mode)
-   - Send stop_workflow with execution_id
-   - Verify graceful stop at checkpoint
-
----
-
-## NEXT STEPS
-
-### Phase 4: Supervisord & Orchestrator
-- Create agents.supervisord.conf
-- Create workflows/orchestrator.py
-- Add `testbed run` CLI command
-
----
-
-## Key Architecture
-
-### WorkflowRunner Threading Model
-```
-Main thread: BaseAgent.run() loop
-  └── sleep(60), send_heartbeat()
-
-STOMP receiver thread: on_message()
-  └── _handle_run_workflow() starts workflow_thread
-  └── _handle_stop_workflow() sets stop_event (checks execution_id)
-  └── Returns immediately, agent stays responsive
-
-Workflow thread: _run_workflow_thread()
-  └── run_workflow() → _execute_workflow()
-  └── SimPy loop with _on_simulation_step() callback
-  └── Checks stop_event between simulation events
-```
-
----
-
-## REFERENCE: Agent States
-
-**operational_state** (what agent is doing):
-- `STARTING` - process coming up
-- `READY` - connected to MQ, waiting for work
-- `PROCESSING` - actively doing work
-- `EXITED` - process terminated
-
----
-
-## REFERENCE: MCP Tools
-
-| Category | Tools |
-|----------|-------|
-| System | `get_system_state`, `list_agents`, `get_agent`, `list_namespaces`, `get_namespace` |
-| Workflows | `list_workflow_definitions`, `list_workflow_executions`, `get_workflow_execution` |
-| Actions | `start_workflow`, `stop_workflow`, `end_execution`, `kill_agent` |
-| Data | `list_runs`, `get_run`, `list_stf_files`, `get_stf_file`, `list_tf_slices`, `get_tf_slice` |
-| Messages | `list_messages` |
-| Logs | `list_logs`, `get_log_entry` |
-
-**Endpoint:** `https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/`
