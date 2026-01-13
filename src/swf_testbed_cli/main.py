@@ -3,9 +3,10 @@ import shutil
 from pathlib import Path
 import subprocess
 import os
+import sys
 import psutil
 
-app = typer.Typer()
+app = typer.Typer(help="ePIC Streaming Workflow Testbed CLI")
 
 SUPERVISORD_CONF_TEMPLATE = Path(__file__).parent.parent.parent / "supervisord.conf"
 
@@ -87,6 +88,7 @@ def status():
     subprocess.run(["docker", "compose", "ps"])
     print("\n--- supervisord services status ---")
     subprocess.run(["supervisorctl", "-c", "supervisord.conf", "status"])
+    _print_workflow_status()
 
 def _check_supervisord_running() -> bool:
     """Checks if supervisord is running by trying to connect to it."""
@@ -141,6 +143,94 @@ def _check_activemq_connection():
         print("Please ensure ActiveMQ is running.")
         return False
 
+
+def _get_workflow_status():
+    """Query monitor API for running workflows and agent states."""
+    import requests
+
+    monitor_url = os.getenv("SWF_MONITOR_HTTP_URL", "http://localhost:8002")
+    api_token = os.getenv("SWF_API_TOKEN", "")
+
+    headers = {}
+    if api_token:
+        headers["Authorization"] = f"Token {api_token}"
+
+    results = {"executions": [], "agents": [], "error": None}
+
+    try:
+        # Get running executions
+        resp = requests.get(
+            f"{monitor_url}/api/workflow-executions/",
+            params={"status": "running"},
+            headers=headers,
+            timeout=5,
+            verify=False
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            # Handle both paginated (dict with "results") and direct list response
+            results["executions"] = data.get("results", data) if isinstance(data, dict) else data
+
+        # Get active agents (exclude EXITED)
+        resp = requests.get(
+            f"{monitor_url}/api/systemagents/",
+            headers=headers,
+            timeout=5,
+            verify=False
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            all_agents = data.get("results", data) if isinstance(data, dict) else data
+            # Filter to non-EXITED agents with recent heartbeat
+            from datetime import datetime, timedelta, timezone
+            cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+            results["agents"] = [
+                a for a in all_agents
+                if a.get("operational_state") != "EXITED"
+            ]
+
+    except requests.exceptions.RequestException as e:
+        results["error"] = str(e)
+
+    return results
+
+
+def _print_workflow_status():
+    """Print workflow and agent status from monitor."""
+    print("\n--- Workflow Status ---")
+
+    status = _get_workflow_status()
+
+    if status["error"]:
+        print(f"Could not query monitor API: {status['error']}")
+        return
+
+    # Running executions
+    executions = status["executions"]
+    if executions:
+        print(f"Running workflows: {len(executions)}")
+        for ex in executions:
+            exec_id = ex.get("execution_id", "unknown")
+            namespace = ex.get("namespace", "")
+            start_time = ex.get("start_time", "")[:19] if ex.get("start_time") else ""
+            print(f"  {exec_id} (namespace: {namespace}, started: {start_time})")
+    else:
+        print("Running workflows: 0")
+
+    # Active agents
+    agents = status["agents"]
+    if agents:
+        print(f"\nActive agents: {len(agents)}")
+        for a in agents[:10]:  # Limit output
+            name = a.get("instance_name", "unknown")
+            state = a.get("operational_state", "?")
+            agent_type = a.get("agent_type", "?")
+            print(f"  {name}: {state} ({agent_type})")
+        if len(agents) > 10:
+            print(f"  ... and {len(agents) - 10} more")
+    else:
+        print("\nActive agents: 0")
+
 @app.command("start-local")
 def start_local():
     """
@@ -184,7 +274,7 @@ def status_local():
     """
     # Set up environment (needed for supervisord)
     _setup_environment()
-    
+
     print("--- Local services status ---")
     _check_postgres_connection()
     _check_activemq_connection()
@@ -195,6 +285,59 @@ def status_local():
         subprocess.run(["supervisorctl", "-c", "supervisord.conf", "status"])
     else:
         print("supervisord is not running.")
+    _print_workflow_status()
+
+
+@app.command("agent-manager")
+def agent_manager():
+    """
+    Start the user agent manager daemon.
+
+    This lightweight daemon listens for MCP commands to control your testbed.
+    It manages agent processes via supervisord and sends heartbeats to the monitor.
+
+    Run this once and leave it running. MCP can then start/stop your testbed remotely.
+
+    Example:
+        testbed agent-manager          # Start in foreground
+        testbed agent-manager &        # Start in background
+        nohup testbed agent-manager &  # Start and persist after logout
+    """
+    _setup_environment()
+
+    from .user_agent_manager import UserAgentManager
+
+    manager = UserAgentManager()
+    manager.run()
+
+
+@app.command()
+def run(
+    config_name: str = typer.Argument(
+        None,
+        help="Config name (e.g., 'fast_processing' loads workflows/fast_processing.toml). "
+             "If not specified, uses workflows/testbed.toml"
+    )
+):
+    """
+    Start agents and run a workflow.
+
+    Examples:
+        testbed run                    # Run using workflows/testbed.toml
+        testbed run fast_processing    # Run using workflows/fast_processing.toml
+    """
+    _setup_environment()
+
+    # Add swf-testbed to Python path
+    testbed_root = Path(__file__).parent.parent.parent
+    sys.path.insert(0, str(testbed_root))
+
+    from workflows.orchestrator import run as orchestrator_run
+
+    success = orchestrator_run(config_name)
+    if not success:
+        raise typer.Exit(code=1)
+
 
 if __name__ == "__main__":
     app()

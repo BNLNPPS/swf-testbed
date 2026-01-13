@@ -61,7 +61,7 @@ class RemoteSSEReceiver(BaseAgent):
         os.environ['SWF_MONITOR_HTTP_URL'] = monitor_base
 
         # Initialize BaseAgent with descriptive type and name
-        super().__init__(agent_type='sse_receiver', subscription_queue='epictopic')
+        super().__init__(agent_type='sse_receiver', subscription_queue='/topic/epictopic')
         
         # Override agent name if user provided one
         user_agent_name = os.getenv('SWF_SSE_RECEIVER_NAME')

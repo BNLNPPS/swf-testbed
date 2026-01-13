@@ -1,7 +1,7 @@
 # Bootstrap Guide for Claude
 
-**Date:** 2026-01-08
-**Branch:** infra/baseline-v27 (all 3 repos)
+**Date:** 2026-01-13
+**Branch:** infra/baseline-v28 (all 3 repos)
 
 ## Project
 
@@ -21,134 +21,27 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 - **COMMIT BEFORE DEPLOY** - Deploy pulls from git repo, not local files. Always commit and push changes before running deploy script.
 - Activate venv before any python
-- All 3 repos on same branch (currently v27, shorthand for infra/baseline-v27)
-- Redeploy swf-monitor after Django changes: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v27`
+- All 3 repos on same branch (currently v28, shorthand for infra/baseline-v28)
+- Redeploy swf-monitor after Django changes: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v28`
 
 ## Commands
 
 See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
+## Current Status
 
-# SESSION STATUS 2026-01-08
+### MCP start_workflow() defaults
 
-## MCP - COMPLETE
+`start_workflow()` now reads defaults from `workflows/testbed.toml`:
+- `[testbed].namespace` - default namespace
+- `[workflow].name/config/realtime` - workflow defaults
+- `[parameters]` section - passes through ALL params without hardcoding
 
-MCP integration complete via django-mcp-server. Claude Code auto-connects via `.mcp.json`.
+Call `start_workflow()` with no args to use configured defaults.
 
-**Endpoint:** `https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/`
-**Documentation:** `swf-monitor/docs/MCP.md`, `swf-testbed/README.md`
-**Tools defined in:** `swf-monitor/src/monitor_app/mcp.py`
+### User Agent Manager
 
-### MCP Tools
-
-| Category | Tools |
-|----------|-------|
-| System | `get_system_state`, `list_agents`, `get_agent`, `list_namespaces`, `get_namespace` |
-| Workflows | `list_workflow_definitions`, `list_workflow_executions`, `get_workflow_execution`, `end_execution` |
-| Data | `list_runs`, `get_run`, `list_stf_files`, `get_stf_file`, `list_tf_slices`, `get_tf_slice` |
-| Messages | `list_messages` |
-| Logs | `list_logs`, `get_log_entry` |
-| Actions | `start_workflow` (stub), `stop_workflow` (stub) |
-
-### Monitor DB Logging
-
-- `DbLogHandler` class in `monitor_app/db_log_handler.py`
-- All `monitor_app.*` loggers write to AppLog DB table
-- MCP actions logged via standard Python logging
-
----
-
-## NEXT MAJOR TASK: WORKFLOW ORCHESTRATION
-
-### Problem
-- Each agent requires its own terminal/process
-- No way to define "this workflow needs these agents"
-- No single command to start/stop agent group
-- Multiple testbed.toml files (workflows/, example_agents/) - should be ONE
-
-### Architecture Decision
-Use **supervisord** for agent management (already in project), NOT subprocesses.
-
-**Agent behavior:**
-- Agents are **persistent** - they start, wait for work, process it, close out, go back to waiting
-- Agents should not exit after processing - they're long-running services
-- This is the production architecture we're building toward
-
-### Solution Design
-
-**1. Single testbed.toml in workflows/**
-
-All agents use `workflows/testbed.toml`. Delete `example_agents/testbed.toml`.
-
-```toml
-[testbed]
-namespace = "torre1"
-
-[workflow]
-name = "stf_datataking"
-config = "fast_processing_default"
-duration = 120
-realtime = true
-
-[agents]
-# Agents managed by supervisord
-
-[agents.processing]
-enabled = true
-script = "example_agents/example_processing_agent.py"
-
-[agents.data]
-enabled = false
-script = "example_agents/example_data_agent.py"
-
-[agents.fastmon]
-enabled = false
-script = "example_agents/example_fastmon_agent.py"
-
-# Override workflow config values using descriptive section names
-[fast_processing]
-stf_count = 5
-
-[daq_state_machine]
-stf_interval = 1.0
-```
-
-**2. Workflow Orchestrator**
-
-New CLI command: `swf-testbed run [testbed.toml]`
-
-Orchestrator behavior:
-1. Read testbed.toml
-2. For each enabled agent:
-   - If not running in supervisord → start it
-   - If running → health check (heartbeat recent?)
-3. When all agents verified running and healthy → start the workflow run
-4. Graceful shutdown on Ctrl+C (stop workflow, optionally stop agents)
-
-**3. supervisord Integration**
-
-- Generate/update supervisord.conf from testbed.toml agent definitions
-- Use supervisorctl to start/stop/status agents
-- Agents report health via heartbeat to monitor
-
-### Implementation Steps
-
-1. Extend testbed.toml schema with [agents] section
-2. Delete example_agents/testbed.toml, update agents to use workflows/testbed.toml
-3. Create orchestrator module in swf-testbed
-4. Update supervisord.conf generation to include agents from testbed.toml
-5. Implement health check via monitor API (check last_heartbeat)
-6. Single CLI command to run workflow with agent management
-
-### Files to Modify
-
-- `workflows/testbed.toml` - extend schema
-- `example_agents/testbed.toml` - DELETE
-- `example_agents/*.py` - update config_path to use workflows/testbed.toml
-- `src/swf_testbed_cli/main.py` - add `run` command
-- `supervisord.conf` template - agent definitions
-
-
-## PENDING: STFWorkflow DEPRECATION
-
-STFWorkflow model is unused - WorkflowMessage has all needed fields. UI still references it (dashboard stats, workflow list). Decision: deprecate entirely.
+Per-user daemon: `testbed agent-manager`
+- Listens on `/queue/agent_control.<username>`
+- Fixed: SSL support, API auth (like BaseAgent)
+- MCP tools: check_agent_manager, start_user_testbed, stop_user_testbed

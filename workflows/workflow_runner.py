@@ -1,5 +1,9 @@
+#!/usr/bin/env python3
 """
 Workflow Runner - Executes workflow definitions with SimPy
+
+Default mode: Persistent agent listening for workflow commands on 'workflow_control' queue.
+CLI mode (--run-once): Execute single workflow and exit.
 """
 
 import os
@@ -8,10 +12,63 @@ import subprocess
 import sys
 import json
 import tomllib
-import simpy
+import threading
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
+
+
+def setup_environment():
+    """Auto-activate venv and load environment variables."""
+    script_dir = Path(__file__).resolve().parent.parent  # Go up to swf-testbed root
+
+    # Auto-activate virtual environment if not already active
+    if "VIRTUAL_ENV" not in os.environ:
+        venv_path = script_dir / ".venv"
+        if venv_path.exists():
+            print("Auto-activating virtual environment...")
+            venv_python = venv_path / "bin" / "python"
+            if venv_python.exists():
+                os.environ["VIRTUAL_ENV"] = str(venv_path)
+                os.environ["PATH"] = f"{venv_path}/bin:{os.environ['PATH']}"
+                sys.executable = str(venv_python)
+        else:
+            print("Error: No Python virtual environment found")
+            return False
+
+    # Load ~/.env environment variables
+    env_file = Path.home() / ".env"
+    if env_file.exists():
+        print("Loading environment variables from ~/.env...")
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    if line.startswith('export '):
+                        line = line[7:]
+                    key, value = line.split('=', 1)
+                    value = value.strip('"\'')
+                    if '$' in value:
+                        continue
+                    os.environ[key] = value
+
+    # Unset proxy variables for localhost connections
+    for proxy_var in ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY']:
+        if proxy_var in os.environ:
+            del os.environ[proxy_var]
+
+    return True
+
+
+if __name__ == "__main__":
+    if not setup_environment():
+        sys.exit(1)
+
+# Project imports (after environment setup)
+import simpy
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "swf-common-lib" / "src"))
+from swf_common_lib.base_agent import BaseAgent
+from swf_common_lib.api_utils import ensure_namespace
 
 
 def get_github_source_info(file_path: Path) -> Optional[Dict[str, str]]:
@@ -108,14 +165,18 @@ def get_git_version(directory: Path) -> Optional[Dict[str, str]]:
     except Exception:
         return None
 
-# Add swf-common-lib to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "swf-common-lib" / "src"))
-from swf_common_lib.base_agent import BaseAgent
-from swf_common_lib.api_utils import ensure_namespace
-
 
 class WorkflowRunner(BaseAgent):
-    """Loads, registers, and executes workflow definitions"""
+    """
+    Loads, registers, and executes workflow definitions.
+
+    Operates in two modes:
+    - Persistent mode (default): Runs as agent listening for workflow commands
+    - CLI mode (--run-once): Executes single workflow and exits
+    """
+
+    # Message types this agent handles
+    COMMAND_MESSAGE_TYPES = {'run_workflow', 'stop_workflow', 'status_request'}
 
     def __init__(self, monitor_url: Optional[str] = None, debug: bool = False,
                  config_path: Optional[str] = None, workflow_name: Optional[str] = None):
@@ -126,19 +187,25 @@ class WorkflowRunner(BaseAgent):
             monitor_url: Optional override for SWF monitor URL (uses env if not provided)
             debug: Enable debug logging
             config_path: Path to testbed.toml config file
-            workflow_name: Name of workflow to run
+            workflow_name: Name of workflow to run (used for agent_type registration)
         """
         if workflow_name:
             agent_type = workflow_name.replace(' ', '_')
         else:
-            agent_type = 'Workflow_Runner'
+            agent_type = 'DAQ_Simulator'
 
         super().__init__(
             agent_type=agent_type,
-            subscription_queue='workflow_control',
+            subscription_queue='/queue/workflow_control',
             debug=debug,
             config_path=config_path
         )
+
+        # Track current workflow execution
+        self.current_execution_id = None
+        self.current_workflow_name = None
+        self.workflow_thread = None
+        self.stop_event = threading.Event()
 
         # Override monitor_url if provided
         if monitor_url:
@@ -148,7 +215,7 @@ class WorkflowRunner(BaseAgent):
         self.api_session = self.api
         self.workflows_dir = Path(__file__).parent  # workflows/ directory
 
-        # Load testbed config overrides (all sections except [testbed])
+        # Load testbed config overrides (all sections including [testbed] for namespace)
         self.testbed_overrides = {}
         if config_path:
             testbed_config_file = Path(config_path)
@@ -156,7 +223,7 @@ class WorkflowRunner(BaseAgent):
                 with open(testbed_config_file, 'rb') as f:
                     testbed_config = tomllib.load(f)
                     for section, values in testbed_config.items():
-                        if section != 'testbed' and isinstance(values, dict):
+                        if isinstance(values, dict):
                             self.testbed_overrides[section] = values
 
         # Connect to ActiveMQ (we only send, don't need to subscribe)
@@ -214,6 +281,9 @@ class WorkflowRunner(BaseAgent):
         # Generate execution ID
         executed_by = os.getenv('USER', 'unknown')
         execution_id = self._generate_execution_id(workflow_name, executed_by)
+
+        # Track for status reporting
+        self.current_execution_id = execution_id
 
         # Register/update workflow definition in database
         workflow_file = self.workflows_dir / f"{workflow_name}.py"
@@ -477,10 +547,33 @@ class WorkflowRunner(BaseAgent):
                 print(f"Raw response: {response.text}")
             raise Exception(f"Failed to create execution record: {response.status_code}")
 
+    def _on_simulation_step(self, env, execution_id: str) -> bool:
+        """
+        Called between simulation events.
+
+        Override or extend this method to add per-step behavior such as:
+        - Progress reporting to monitor
+        - Periodic heartbeats during long workflows
+        - Logging/metrics collection
+
+        Args:
+            env: SimPy environment
+            execution_id: Current execution ID
+
+        Returns:
+            True to continue simulation, False to stop
+        """
+        # Check stop flag
+        if self.stop_event.is_set():
+            self.logger.info("Stop requested - ending simulation")
+            return False
+
+        return True
+
     def _execute_workflow(self, execution_id: str, workflow_code: str,
                          config: Dict[str, Any], duration: float,
                          realtime: bool = False):
-        """Execute workflow using SimPy
+        """Execute workflow using SimPy with step callback support.
 
         Args:
             execution_id: Unique identifier for this execution
@@ -488,6 +581,9 @@ class WorkflowRunner(BaseAgent):
             config: Full workflow config with descriptive sections
             duration: Simulation duration in seconds
             realtime: If True, use RealtimeEnvironment (1 sim sec = 1 wall sec)
+
+        The simulation calls _on_simulation_step() between events to allow
+        graceful stopping and other per-step behaviors.
         """
         # Create SimPy environment
         if realtime:
@@ -522,11 +618,29 @@ class WorkflowRunner(BaseAgent):
             # Start workflow process
             workflow_process = env.process(executor.execute(env))
 
-            # Run until workflow completes (or duration timeout if specified)
-            if duration and duration > 0:
-                env.run(until=min(workflow_process, duration))
-            else:
-                env.run(until=workflow_process)
+            # Run simulation with step callbacks
+            end_time = duration if duration and duration > 0 else float('inf')
+
+            while True:
+                # Step callback - check stop flag and other per-step actions
+                if not self._on_simulation_step(env, execution_id):
+                    break
+
+                # Check if workflow process completed
+                if workflow_process.processed:
+                    break
+
+                # Check duration limit
+                if env.now >= end_time:
+                    self.logger.info(f"Duration limit reached: {duration}s")
+                    break
+
+                # Run next simulation event
+                try:
+                    env.step()
+                except simpy.core.EmptySchedule:
+                    # No more events - simulation complete
+                    break
         else:
             raise ValueError("WorkflowExecutor class not found in workflow code")
 
@@ -598,3 +712,243 @@ class WorkflowRunner(BaseAgent):
         except Exception:
             self.logger.error(f"Response: {response.text}")
         return False
+
+    # -------------------------------------------------------------------------
+    # Persistent Agent Mode - Message Handling
+    # -------------------------------------------------------------------------
+
+    def on_message(self, frame):
+        """
+        Handle incoming workflow control messages.
+
+        Supported commands:
+        - run_workflow: Start a workflow execution
+        - stop_workflow: Stop current workflow (future)
+        - status_request: Report current status
+        """
+        message_data, msg_type = self.log_received_message(
+            frame, known_types=self.COMMAND_MESSAGE_TYPES
+        )
+
+        # Namespace filtering - log_received_message returns (None, None) if filtered
+        if message_data is None:
+            return
+
+        if msg_type == 'run_workflow':
+            self._handle_run_workflow(message_data)
+        elif msg_type == 'stop_workflow':
+            self._handle_stop_workflow(message_data)
+        elif msg_type == 'status_request':
+            self._handle_status_request(message_data)
+        else:
+            self.logger.debug(f"Ignoring unhandled message type: {msg_type}")
+
+    def _handle_run_workflow(self, message_data: Dict[str, Any]):
+        """Handle run_workflow command - starts workflow in background thread."""
+        # Check if already running a workflow
+        if self.operational_state == 'PROCESSING':
+            self.logger.warning(
+                f"Cannot start workflow - already running: {self.current_workflow_name} "
+                f"(execution: {self.current_execution_id})"
+            )
+            return
+
+        # Extract workflow parameters from message
+        workflow_name = message_data.get('workflow_name')
+        if not workflow_name:
+            self.logger.error("run_workflow message missing 'workflow_name'")
+            return
+
+        config_name = message_data.get('config')
+        realtime = message_data.get('realtime', True)
+        duration = message_data.get('duration', 0)
+        params = message_data.get('params', {})
+
+        # Clear stop flag and set state
+        self.stop_event.clear()
+        self.set_processing()
+        self.current_workflow_name = workflow_name
+
+        self.logger.info(
+            f"Starting workflow: {workflow_name} (config: {config_name})",
+            extra={'workflow_name': workflow_name}
+        )
+
+        # Start workflow in background thread
+        self.workflow_thread = threading.Thread(
+            target=self._run_workflow_thread,
+            args=(workflow_name, config_name, duration, realtime, params),
+            name=f"workflow-{workflow_name}",
+            daemon=True
+        )
+        self.workflow_thread.start()
+
+    def _run_workflow_thread(self, workflow_name: str, config_name: Optional[str],
+                             duration: float, realtime: bool, params: Dict[str, Any]):
+        """Run workflow in background thread with proper cleanup."""
+        try:
+            execution_id = self.run_workflow(
+                workflow_name=workflow_name,
+                config_name=config_name,
+                duration=duration,
+                realtime=realtime,
+                **params
+            )
+
+            if self.stop_event.is_set():
+                self.logger.info(
+                    f"Workflow stopped: {workflow_name} (execution: {execution_id})",
+                    extra={'execution_id': execution_id, 'workflow_name': workflow_name}
+                )
+                # Mark as terminated in database
+                self._update_execution_status(execution_id, 'terminated')
+            else:
+                self.logger.info(
+                    f"Workflow completed: {workflow_name} (execution: {execution_id})",
+                    extra={'execution_id': execution_id, 'workflow_name': workflow_name}
+                )
+
+        except Exception as e:
+            exec_id = getattr(self, 'current_execution_id', None)
+            self.logger.error(
+                f"Workflow failed: {workflow_name} (execution: {exec_id or 'unknown'}): {e}",
+                extra={'execution_id': exec_id, 'workflow_name': workflow_name}
+            )
+            if exec_id:
+                self._update_execution_status(exec_id, 'failed')
+
+        finally:
+            self.current_execution_id = None
+            self.current_workflow_name = None
+            self.workflow_thread = None
+            self.set_ready()
+
+    def _handle_stop_workflow(self, message_data: Dict[str, Any]):
+        """Handle stop_workflow command - signals workflow to stop gracefully."""
+        if self.operational_state != 'PROCESSING':
+            self.logger.info("No workflow running to stop")
+            return
+
+        # Check execution_id if provided (for targeted stop)
+        requested_exec_id = message_data.get('execution_id')
+        if requested_exec_id and requested_exec_id != self.current_execution_id:
+            self.logger.info(
+                f"Stop request for {requested_exec_id} ignored - "
+                f"current execution is {self.current_execution_id}"
+            )
+            return
+
+        self.logger.info(
+            f"Stopping workflow: {self.current_workflow_name} (execution: {self.current_execution_id})",
+            extra={'execution_id': self.current_execution_id, 'workflow_name': self.current_workflow_name}
+        )
+        self.stop_event.set()
+
+    def _handle_status_request(self, message_data: Dict[str, Any]):
+        """Handle status_request command - logs current status."""
+        self.logger.info(
+            f"Status: state={self.operational_state}, "
+            f"workflow={self.current_workflow_name}, "
+            f"execution={self.current_execution_id}"
+        )
+
+
+# =============================================================================
+# CLI Entry Point
+# =============================================================================
+
+def main():
+    """
+    Main entry point for WorkflowRunner.
+
+    Default mode: Persistent agent listening for workflow commands.
+    --run-once mode: Execute single workflow and exit (backward compat).
+    """
+    import argparse
+
+    script_dir = Path(__file__).parent
+
+    parser = argparse.ArgumentParser(
+        description='Workflow Runner - DAQ Simulator Agent',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Persistent mode (default) - listens for commands
+  python workflow_runner.py
+
+  # Run single workflow and exit
+  python workflow_runner.py --run-once stf_datataking --stf-count 5
+
+  # Run with specific config
+  python workflow_runner.py --run-once stf_datataking --workflow-config fast_processing_default
+        """
+    )
+
+    parser.add_argument('--testbed-config', default=str(script_dir / 'testbed.toml'),
+                        help='Testbed config file (default: testbed.toml)')
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
+
+    # Mode selection
+    parser.add_argument('--run-once', metavar='WORKFLOW',
+                        help='Run single workflow and exit (CLI mode)')
+
+    # Workflow parameters (only used with --run-once)
+    parser.add_argument('--workflow-config', help='Workflow configuration file name')
+    parser.add_argument('--duration', type=float, default=0,
+                        help='Max duration in seconds (0 = run until complete)')
+    parser.add_argument('--stf-count', type=int, help='Override STF count')
+    parser.add_argument('--physics-period-count', type=int, help='Override physics period count')
+    parser.add_argument('--physics-period-duration', type=float, help='Override physics period duration')
+    parser.add_argument('--stf-interval', type=float, help='Override STF interval')
+    parser.add_argument('--realtime', action='store_true', default=True,
+                        help='Run in real-time mode (default: True)')
+    parser.add_argument('--no-realtime', action='store_false', dest='realtime',
+                        help='Run as fast as possible (discrete-event simulation)')
+
+    args = parser.parse_args()
+
+    # Build workflow parameters
+    workflow_params = {}
+    if args.stf_count is not None:
+        workflow_params['stf_count'] = args.stf_count
+    if args.physics_period_count is not None:
+        workflow_params['physics_period_count'] = args.physics_period_count
+    if args.physics_period_duration is not None:
+        workflow_params['physics_period_duration'] = args.physics_period_duration
+    if args.stf_interval is not None:
+        workflow_params['stf_interval'] = args.stf_interval
+
+    if args.run_once:
+        # CLI mode: run single workflow and exit
+        runner = WorkflowRunner(
+            config_path=args.testbed_config,
+            debug=args.debug,
+            workflow_name=args.run_once
+        )
+
+        runner.set_processing()
+        try:
+            execution_id = runner.run_workflow(
+                workflow_name=args.run_once,
+                config_name=args.workflow_config,
+                duration=args.duration,
+                realtime=args.realtime,
+                **workflow_params
+            )
+            runner.logger.info(f"Workflow completed: {execution_id}")
+        except Exception as e:
+            runner.logger.error(f"Workflow failed: {e}")
+            sys.exit(1)
+        finally:
+            runner.set_ready()
+    else:
+        # Persistent mode: run as agent listening for commands
+        runner = WorkflowRunner(
+            config_path=args.testbed_config,
+            debug=args.debug
+        )
+        runner.run()
+
+
+if __name__ == "__main__":
+    main()

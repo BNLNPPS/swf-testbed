@@ -30,15 +30,13 @@ class FastProcessingAgent(BaseAgent):
     def __init__(self, debug=False, config_path=None):
         super().__init__(
             agent_type='Fast_Processing',
-            subscription_queue='epictopic',
+            subscription_queue='/topic/epictopic',
             debug=debug,
             config_path=config_path
         )
 
         # Workflow parameters (populated on run_imminent)
         self.workflow_params = {}
-        self.current_run_id = None
-        self.current_execution_id = None
 
         # Sampling state
         self.stf_count = 0
@@ -77,7 +75,8 @@ class FastProcessingAgent(BaseAgent):
             else:
                 self.logger.debug(f"Ignoring message type: {msg_type}")
         except Exception as e:
-            self.logger.error(f"Error processing {msg_type}: {e}")
+            self.logger.error(f"Error processing {msg_type}: {e}",
+                            extra=self._log_extra(error=str(e)))
             import traceback
             self.logger.error(traceback.format_exc())
 
@@ -113,7 +112,8 @@ class FastProcessingAgent(BaseAgent):
     def handle_run_imminent(self, message_data):
         """Handle run_imminent message."""
         self.logger.info(
-            f"Run imminent: execution_id={self.current_execution_id}, run_id={self.current_run_id}"
+            f"Run imminent: execution_id={self.current_execution_id}, run_id={self.current_run_id}",
+            extra=self._log_extra()
         )
 
         self._log_system_event('run_imminent', {
@@ -125,7 +125,11 @@ class FastProcessingAgent(BaseAgent):
 
     def handle_start_run(self, message_data):
         """Handle start_run: Update RunState phase to 'physics'."""
-        self.logger.info(f"Run started: run_id={self.current_run_id}")
+        self.logger.info(f"Run started: run_id={self.current_run_id}",
+                        extra=self._log_extra())
+
+        # Agent is now actively processing this run
+        self.set_processing()
 
         self._update_run_state(phase='physics', state='running', substate='physics')
 
@@ -143,7 +147,8 @@ class FastProcessingAgent(BaseAgent):
         self.stats['stf_received'] += 1
         self.stf_count += 1
 
-        self.logger.info(f"STF generated: {stf_filename} (seq={sequence})")
+        self.logger.info(f"STF generated: {stf_filename} (seq={sequence})",
+                        extra=self._log_extra(stf_filename=stf_filename, sequence=sequence))
 
         # Get sampling rate from workflow params (via fast_processing section)
         fast_processing = self.workflow_params.get('fast_processing', {})
@@ -155,7 +160,8 @@ class FastProcessingAgent(BaseAgent):
             return
 
         self.stats['stf_sampled'] += 1
-        self.logger.info(f"STF {stf_filename} SAMPLED for fast processing")
+        self.logger.info(f"STF {stf_filename} SAMPLED for fast processing",
+                        extra=self._log_extra(stf_filename=stf_filename))
 
         # Create TF slices
         slices_per_sample = fast_processing.get('slices_per_sample', 15)
@@ -176,7 +182,8 @@ class FastProcessingAgent(BaseAgent):
 
     def handle_pause_run(self, message_data):
         """Handle pause_run: Update RunState to standby."""
-        self.logger.info(f"Run paused: run_id={self.current_run_id}")
+        self.logger.info(f"Run paused: run_id={self.current_run_id}",
+                        extra=self._log_extra())
 
         self._update_run_state(substate='standby')
 
@@ -186,7 +193,8 @@ class FastProcessingAgent(BaseAgent):
 
     def handle_resume_run(self, message_data):
         """Handle resume_run: Update RunState back to physics."""
-        self.logger.info(f"Run resumed: run_id={self.current_run_id}")
+        self.logger.info(f"Run resumed: run_id={self.current_run_id}",
+                        extra=self._log_extra())
 
         self._update_run_state(substate='physics')
 
@@ -201,7 +209,9 @@ class FastProcessingAgent(BaseAgent):
         self.logger.info(
             f"Run ended: run_id={self.current_run_id}, "
             f"total_stf={total_stf}, sampled={self.stats['stf_sampled']}, "
-            f"slices_created={self.stats['slices_created']}"
+            f"slices_created={self.stats['slices_created']}",
+            extra=self._log_extra(total_stf=total_stf, sampled=self.stats['stf_sampled'],
+                                 slices_created=self.stats['slices_created'])
         )
 
         self._update_run_state(phase='completed', state='ended', substate=None)
@@ -219,6 +229,9 @@ class FastProcessingAgent(BaseAgent):
         self.current_execution_id = None
         self.workflow_params = {}
 
+        # Agent is now idle, waiting for next run
+        self.set_ready()
+
     # -------------------------------------------------------------------------
     # Helper methods
     # -------------------------------------------------------------------------
@@ -234,7 +247,8 @@ class FastProcessingAgent(BaseAgent):
                 return result.get('parameter_values', {})
             return {}
         except Exception as e:
-            self.logger.error(f"Failed to fetch workflow parameters: {e}")
+            self.logger.error(f"Failed to fetch workflow parameters: {e}",
+                            extra=self._log_extra(error=str(e)))
             return {}
 
     def _update_run_state(self, phase=None, state=None, substate=None):
@@ -256,9 +270,10 @@ class FastProcessingAgent(BaseAgent):
                 update_data
             )
             if result:
-                self.logger.debug(f"RunState updated: {update_data}")
+                self.logger.debug(f"RunState updated: {update_data}", extra=self._log_extra())
         except Exception as e:
-            self.logger.error(f"Error updating RunState: {e}")
+            self.logger.error(f"Error updating RunState: {e}",
+                            extra=self._log_extra(error=str(e)))
 
     def _update_run_state_slices(self, new_slices_count):
         """Update RunState with new slice counts."""
@@ -278,7 +293,8 @@ class FastProcessingAgent(BaseAgent):
                     update_data
                 )
         except Exception as e:
-            self.logger.error(f"Error updating RunState slices: {e}")
+            self.logger.error(f"Error updating RunState slices: {e}",
+                            extra=self._log_extra(error=str(e)))
 
     def _create_tf_slices(self, stf_filename, num_slices):
         """
@@ -325,11 +341,14 @@ class FastProcessingAgent(BaseAgent):
                     # Add database ID to slice data for queue message
                     slice_data['db_id'] = result.get('id')
                     slices.append(slice_data)
-                    self.logger.debug(f"TFSlice created: {tf_filename}")
+                    self.logger.debug(f"TFSlice created: {tf_filename}",
+                                    extra=self._log_extra(tf_filename=tf_filename))
                 else:
-                    self.logger.warning(f"Failed to create TFSlice: {tf_filename}")
+                    self.logger.warning(f"Failed to create TFSlice: {tf_filename}",
+                                       extra=self._log_extra(tf_filename=tf_filename))
             except Exception as e:
-                self.logger.error(f"Error creating TFSlice {tf_filename}: {e}")
+                self.logger.error(f"Error creating TFSlice {tf_filename}: {e}",
+                                extra=self._log_extra(tf_filename=tf_filename, error=str(e)))
 
         return slices
 
@@ -378,10 +397,12 @@ class FastProcessingAgent(BaseAgent):
 
             self.stats['slices_sent'] += 1
             self.logger.info(
-                f"Slice sent to queue: {slice_data['tf_filename']} -> {self.TRANSFORMER_QUEUE}"
+                f"Slice sent to queue: {slice_data['tf_filename']} -> {self.TRANSFORMER_QUEUE}",
+                extra=self._log_extra(tf_filename=slice_data['tf_filename'], destination=self.TRANSFORMER_QUEUE)
             )
         except Exception as e:
-            self.logger.error(f"Failed to send slice to queue: {e}")
+            self.logger.error(f"Failed to send slice to queue: {e}",
+                            extra=self._log_extra(error=str(e)))
 
     def _log_system_event(self, event_type, event_data):
         """Log event to SystemStateEvent table."""
@@ -397,7 +418,8 @@ class FastProcessingAgent(BaseAgent):
         try:
             self.call_monitor_api('POST', '/system-state-events/', event)
         except Exception as e:
-            self.logger.debug(f"Failed to log system event: {e}")
+            self.logger.debug(f"Failed to log system event: {e}",
+                            extra=self._log_extra(event_type=event_type, error=str(e)))
 
 
 if __name__ == "__main__":

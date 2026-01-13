@@ -22,3 +22,40 @@ namespace = "torre1"
 # Example: Override daq_state_machine timing for this testbed
 # [daq_state_machine]
 # stf_interval = 1.0              # Faster STF generation
+
+# =============================================================================
+# Agent Configuration
+# =============================================================================
+# Agents managed by supervisord. Enable the ones needed for your workflow.
+# Scripts are relative to swf-testbed root.
+
+[agents.data]
+enabled = false
+script = "example_agents/example_data_agent.py"
+
+[agents.processing]
+enabled = true
+script = "example_agents/example_processing_agent.py"
+
+[agents.fastmon]
+enabled = false
+script = "example_agents/example_fastmon_agent.py"
+
+[agents.fast_processing]
+enabled = false
+script = "example_agents/fast_processing_agent.py"
+
+# =============================================================================
+# Workflow Configuration (for testbed run command)
+# =============================================================================
+
+[workflow]
+# Default workflow to run with 'testbed run'
+name = "stf_datataking"
+config = "fast_processing_default"
+realtime = true
+
+# Optional parameter overrides
+# [parameters]
+# stf_count = 5
+# physics_period_count = 2

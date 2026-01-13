@@ -14,7 +14,7 @@ class DataAgent(BaseAgent):
     """
 
     def __init__(self, debug=False, config_path=None):
-        super().__init__(agent_type='DATA', subscription_queue='epictopic', debug=debug,
+        super().__init__(agent_type='DATA', subscription_queue='/topic/epictopic', debug=debug,
                          config_path=config_path)
         self.active_runs = {}  # Track active runs and their monitor IDs
         self.active_files = {}  # Track STF files being processed
@@ -28,6 +28,12 @@ class DataAgent(BaseAgent):
         if message_data is None:
             return
 
+        # Extract workflow context from message
+        if 'execution_id' in message_data:
+            self.current_execution_id = message_data['execution_id']
+        if 'run_id' in message_data:
+            self.current_run_id = message_data['run_id']
+
         try:
             if msg_type == 'stf_gen':
                 self.handle_stf_gen(message_data)
@@ -38,7 +44,10 @@ class DataAgent(BaseAgent):
             elif msg_type == 'end_run':
                 self.handle_end_run(message_data)
         except Exception as e:
-            self.logger.error(f"CRITICAL: Message processing failed - {str(e)}", extra={"error": str(e)})
+            self.logger.error(
+                f"CRITICAL: Message processing failed - {str(e)}",
+                extra=self._log_extra(error=str(e))
+            )
             import traceback
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             raise RuntimeError(f"Critical message processing failure: {e}") from e
@@ -193,8 +202,8 @@ class DataAgent(BaseAgent):
         """Handle run_imminent message - create dataset in Rucio"""
         run_id = message_data.get('run_id')
         run_conditions = message_data.get('run_conditions', {})
-        self.logger.info("Processing run_imminent message", 
-                        extra={"run_id": run_id, "simulation_tick": message_data.get('simulation_tick')})
+        self.logger.info("Processing run_imminent message",
+                        extra=self._log_extra(simulation_tick=message_data.get('simulation_tick')))
         
         # Create run record in monitor
         monitor_run_id = self.create_run_record(run_id, run_conditions)
@@ -203,27 +212,27 @@ class DataAgent(BaseAgent):
         
         # Simulate dataset creation
         if monitor_run_id:
-            self.logger.info("Created dataset for run", extra={"run_id": run_id, "monitor_run_id": monitor_run_id})
+            self.logger.info("Created dataset for run", extra=self._log_extra(monitor_run_id=monitor_run_id))
         else:
-            self.logger.warning("Dataset created but monitor registration failed", extra={"run_id": run_id})
+            self.logger.warning("Dataset created but monitor registration failed", extra=self._log_extra())
 
     def handle_start_run(self, message_data):
         """Handle start_run message - run is starting physics"""
         run_id = message_data.get('run_id')
-        self.logger.info("Processing start_run message", 
-                        extra={"run_id": run_id, "simulation_tick": message_data.get('simulation_tick')})
+        self.logger.info("Processing start_run message",
+                        extra=self._log_extra(simulation_tick=message_data.get('simulation_tick')))
         
         # Send enhanced heartbeat with run context
         self.send_data_agent_heartbeat()
-        
-        self.logger.info("Run started", extra={"run_id": run_id})
+
+        self.logger.info("Run started", extra=self._log_extra())
 
     def handle_end_run(self, message_data):
         """Handle end_run message - run has ended"""
         run_id = message_data.get('run_id')
         total_files = message_data.get('total_files', 0)
-        self.logger.info("Processing end_run message", 
-                        extra={"run_id": run_id, "total_files": total_files, "simulation_tick": message_data.get('simulation_tick')})
+        self.logger.info("Processing end_run message",
+                        extra=self._log_extra(total_files=total_files, simulation_tick=message_data.get('simulation_tick')))
         
         # Update run status in monitor API
         if run_id in self.active_runs:
@@ -236,8 +245,8 @@ class DataAgent(BaseAgent):
         self.send_data_agent_heartbeat()
         if run_id in self.active_runs:
             del self.active_runs[run_id]
-        
-        self.logger.info("Run ended", extra={"run_id": run_id, "total_files": total_files})
+
+        self.logger.info("Run ended", extra=self._log_extra(total_files=total_files))
 
     def handle_stf_gen(self, message_data):
         """Handle stf_gen message - new STF file available"""
@@ -254,8 +263,8 @@ class DataAgent(BaseAgent):
         sequence = message_data.get('sequence')
 
         self.logger.info("Processing STF file",
-                        extra={"stf_filename": filename, "run_id": run_id, "size_bytes": size_bytes,
-                              "simulation_tick": message_data.get('simulation_tick')})
+                        extra=self._log_extra(stf_filename=filename, size_bytes=size_bytes,
+                                             simulation_tick=message_data.get('simulation_tick')))
 
         # Register STF file and workflow with monitor
         self.register_stf_file(run_id, filename, size_bytes, start, end, state, substate, sequence)
@@ -286,13 +295,13 @@ class DataAgent(BaseAgent):
             "processed_by": self.agent_name
         }
         
-        self.send_message('processing_agent', stf_ready_message)
+        self.send_message('/queue/processing_agent', stf_ready_message)
 
         # Update STF file status to processed
         self.update_stf_file_status(filename, 'processed')
 
         self.logger.info("Sent stf_ready message",
-                        extra={"stf_filename": filename, "run_id": run_id, "destination": "processing_agent"})
+                        extra=self._log_extra(stf_filename=filename, destination="processing_agent"))
 
 
     

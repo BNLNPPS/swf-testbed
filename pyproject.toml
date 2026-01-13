@@ -16,6 +16,8 @@ dependencies = [
     "typer",
     "supervisor",
     "psutil",
+    # Workflow simulation
+    "simpy",
 ]
 
 [project.optional-dependencies]
@@ -24,7 +26,8 @@ test = [
 ]
 
 [project.scripts]
-# This creates the `swf-testbed` command in the user's PATH
+# CLI entry points - both names work
+testbed = "swf_testbed_cli.main:app"
 swf-testbed = "swf_testbed_cli.main:app"
 
 [build-system]

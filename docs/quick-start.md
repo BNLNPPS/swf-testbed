@@ -24,6 +24,19 @@ cd ../swf-monitor/src && python manage.py createsuperuser && cd ../../swf-testbe
 swf-testbed start
 ```
 
+## Running Persistent Agents (New in Jan 2026)
+
+Persistent agents are controlled by messages via CLI commands or MCP.
+
+```bash
+cd swf-testbed && source .venv/bin/activate && source ~/.env
+
+testbed run                     # Uses workflows/testbed.toml
+testbed run fast_processing     # Uses workflows/fast_processing_default.toml
+```
+
+This starts agents via supervisord with proper process management.
+
 ## Configure Namespace
 
 Before running workflows, set your namespace in `workflows/testbed.toml`:
@@ -43,9 +56,9 @@ This isolates your workflows from others in the system.
 
 **Run a processing agent test (two terminals):**
 ```bash
-# Terminal 1: Workflow simulator
+# Terminal 1: Workflow runner (one-time mode)
 cd swf-testbed && source .venv/bin/activate && source ~/.env
-python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
+python workflows/workflow_runner.py --run-once stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
 
 # Terminal 2: Processing agent
 cd swf-testbed && source .venv/bin/activate && source ~/.env
@@ -59,9 +72,9 @@ python example_agents/example_processing_agent.py
 
 **Run a fast processing test (two terminals):**
 ```bash
-# Terminal 1: Workflow simulator
+# Terminal 1: Workflow runner (one-time mode)
 cd swf-testbed && source .venv/bin/activate && source ~/.env
-python workflows/workflow_simulator.py stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
+python workflows/workflow_runner.py --run-once stf_datataking --workflow-config fast_processing_default --stf-count 5 --realtime
 
 # Terminal 2: Fast processing agent
 cd swf-testbed && source .venv/bin/activate && source ~/.env

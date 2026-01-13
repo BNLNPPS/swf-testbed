@@ -19,7 +19,7 @@ from swf_common_lib.base_agent import BaseAgent
 
 class ProcessingAgent(BaseAgent):
     def __init__(self, config_path=None):
-        super().__init__(agent_type='PROCESSING', subscription_queue='processing_agent',
+        super().__init__(agent_type='PROCESSING', subscription_queue='/queue/processing_agent',
                          config_path=config_path)
 
         self.scope = os.getenv('RUCIO_SCOPE', 'user.your_username')

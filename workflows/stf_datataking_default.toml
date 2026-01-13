@@ -1,0 +1,15 @@
+[workflow]
+name = "stf_datataking"
+version = "1.0"
+description = "Default STF datataking workflow configuration"
+includes = ["daq_state_machine.toml"]
+
+[simulation]
+# STF generation parameters
+stf_count = 5                   # Number of STF files to generate
+physics_period_count = 1        # Number of physics periods
+physics_period_duration = 60    # Duration of each physics period (seconds)
+stf_interval = 2.2              # Interval between STF generation (seconds)
+
+# Timing parameters
+realtime = true                 # Run in real-time (1 sim second = 1 wall second)

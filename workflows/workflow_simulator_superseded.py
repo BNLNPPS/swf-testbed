@@ -67,7 +67,7 @@ class WorkflowSimulatorAgent(BaseAgent):
     """Agent that executes workflows using WorkflowRunner"""
 
     def __init__(self, workflow_name, config_name=None, duration=3600, config_path=None, **workflow_params):
-        super().__init__(agent_type='WORKFLOW_SIMULATOR', subscription_queue='workflow_simulator',
+        super().__init__(agent_type='WORKFLOW_SIMULATOR', subscription_queue='/queue/workflow_simulator',
                          config_path=config_path)
 
         self.workflow_name = workflow_name
