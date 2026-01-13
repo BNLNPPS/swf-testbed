@@ -176,7 +176,7 @@ class WorkflowExecutor:
             "state": "run",
             "substate": "physics"
         }
-        self.runner.send_message('epictopic', message)
+        self.runner.send_message('/topic/epictopic', message)
         yield env.timeout(0.1)
 ```
 

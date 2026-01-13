@@ -118,7 +118,7 @@ When developing new agents, follow the established identity management pattern:
 # Agent name automatically assigned via get_next_agent_id()
 class MyAgent(BaseAgent):
     def __init__(self, debug=False):
-        super().__init__(agent_type='MYTYPE', subscription_queue='epictopic', debug=debug)
+        super().__init__(agent_type='MYTYPE', subscription_queue='/topic/epictopic', debug=debug)
 ```
 
 **For standalone agents (like DAQ simulator):**
