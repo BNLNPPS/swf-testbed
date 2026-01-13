@@ -31,35 +31,30 @@ See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
 # SESSION 2026-01-13
 
-## Tested - Message-Driven Workflow WORKS
+## User Agent Manager - JUST IMPLEMENTED
 
-- MCP `start_workflow` → WorkflowRunner receives on `/queue/workflow_control` → executes → broadcasts to `/topic/epictopic`
-- Execution: `stf_datataking-wenauseic-0044`, run 101988, 3 STF files
-
-## Critical Fix: ActiveMQ Destination Naming
-
-BaseAgent now validates destinations must have `/queue/` or `/topic/` prefix. Bare names rejected.
-
-## Uncommitted Changes
+Per-user daemon for MCP-controlled testbed management.
 
 **swf-testbed:**
-- `CLAUDE.md` - STOP/NEVER sections for AI guidance, updated MCP diagnostic examples
-- `workflows/README.md` - New, repeated guidance
-- `workflows/stf_datataking.py` - Fixed `/topic/epictopic`
-- `workflows/stf_datataking_default.toml` - New default config
-- `workflows/workflow_runner.py` - Removed _send_response(), logging with extra={execution_id}, fixed status='failed'
+- `src/swf_testbed_cli/user_agent_manager.py` - UserAgentManager class
+  - Listens on `/queue/agent_control.<username>` for MCP commands
+  - Commands: start_testbed, stop_testbed, status, ping
+  - Sends heartbeats to monitor API
+- `src/swf_testbed_cli/main.py` - Added `testbed agent-manager` CLI command
 
-**swf-monitor:**
-- `mcp.py` - Updated docstrings, start_workflow monitoring, list_logs(execution_id) filter
-- `settings.py` - MCP instructions: added "AFTER start_workflow" section
+**swf-monitor MCP tools:**
+- `check_agent_manager(username)` - Check if user's agent manager is alive
+- `start_user_testbed(username, config)` - Start testbed via agent manager
+- `stop_user_testbed(username)` - Stop testbed via agent manager
 
-**swf-common-lib:**
-- `base_agent.py` - Destination prefix validation (pushed)
-- `rest_logging.py` - Capture execution_id/workflow_name/run_id in extra_data
+**Also committed:**
+- Agent detail page: added logs link
+- BaseAgent: `_log_extra()` helper with username/execution_id/run_id
+- rest_logging.py: captures username field
 
 ## TODO
 
-1. Commit uncommitted changes above
-2. Test stop functionality
-3. Redeploy monitor after commits
+1. Redeploy monitor: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v28`
+2. Test agent manager: `testbed agent-manager` then use MCP tools
+3. Test full flow: agent manager → start_user_testbed → start_workflow
 
