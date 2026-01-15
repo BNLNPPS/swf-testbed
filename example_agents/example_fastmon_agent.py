@@ -165,8 +165,8 @@ def main():
 
     parser = argparse.ArgumentParser(description='Fast Monitor Agent')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging for heartbeat messages')
-    parser.add_argument('--testbed-config', default=str(script_dir / 'testbed.toml'),
-                        help='Testbed config file (default: testbed.toml)')
+    parser.add_argument('--testbed-config', default=None,
+                        help='Testbed config file (default: SWF_TESTBED_CONFIG env var or workflows/testbed.toml)')
     args = parser.parse_args()
 
     # Configuration for message-driven agent

@@ -422,8 +422,8 @@ if __name__ == "__main__":
         description="Fast Processing Agent - samples STFs and creates TF slices"
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument("--testbed-config", default=str(script_dir / "testbed.toml"),
-                        help="Testbed config file (default: testbed.toml)")
+    parser.add_argument("--testbed-config", default=None,
+                        help="Testbed config file (default: SWF_TESTBED_CONFIG env var or workflows/testbed.toml)")
     args = parser.parse_args()
 
     agent = FastProcessingAgent(debug=args.debug, config_path=args.testbed_config)

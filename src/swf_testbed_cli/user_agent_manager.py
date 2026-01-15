@@ -80,6 +80,11 @@ class UserAgentManager(stomp.ConnectionListener):
         self.namespace = None  # Set when config is loaded
         self.config = None  # Current testbed config
 
+        # Auto-load config from SWF_TESTBED_CONFIG env var on startup
+        env_config = os.getenv('SWF_TESTBED_CONFIG')
+        if env_config:
+            self.load_config(env_config)
+
         # Set up REST logging
         self.instance_name = f'agent-manager-{self.username}'
         base_url = os.getenv('SWF_MONITOR_HTTP_URL', 'http://localhost:8002')
