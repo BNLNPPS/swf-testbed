@@ -1,11 +1,4 @@
-# Bootstrap Guide for Claude
-
-**Date:** 2026-01-13
-**Branch:** infra/baseline-v28 (all 3 repos)
-
-## Project
-
-ePIC Streaming Workflow Testbed. Agent-based system with ActiveMQ messaging.
+# Bootstrap Guide for LLMs
 
 **Attention AIs:** This is not a chronicle of completed work. This is quick essential background to current status and next steps.
 Be concise and to the point. When something is done and isn't essential background for next steps, remove it.
@@ -16,17 +9,6 @@ Be concise and to the point. When something is done and isn't essential backgrou
 - **swf-common-lib** - BaseAgent class
 
 **Host:** pandaserver02.sdcc.bnl.gov
-
-## Critical Rules
-
-- **COMMIT BEFORE DEPLOY** - Deploy pulls from git repo, not local files. Always commit and push changes before running deploy script.
-- Activate venv before any python
-- All 3 repos on same branch (currently v28, shorthand for infra/baseline-v28)
-- Redeploy swf-monitor after Django changes: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v28`
-
-## Commands
-
-See [docs/quick-start.md](docs/quick-start.md) for run commands.
 
 ## Current Status
 

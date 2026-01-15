@@ -28,7 +28,7 @@ list_messages(execution_id='...')               # Workflow messages
 
 ---
 
-# Introduction - Bootstrap summary
+# Introduction
 
 We are working on a streaming workflow testbed project for which stf-testbed is the top umbrella repository, stf-common-lib is common software and infrastructure, stf-monitor is the system-wide monitor/REST service and MCP (Model Context Protocol) service, and the other stf-* repositories are agents performing parts of the workflows. We work mainly on the core repos testbed, common-lib and monitor. The testbed repo includes examples in agent_examples/ of the DAQ simulator that drives workflows, and the data and processing agents. They are what we presently use to run the system. The system is running on the computer we are working on, a headless server and we are using system-level ActiveMQ and PostgreSQL. Study the AI guidance, adhere to the MANDATORY critical thinking requirements, and review README.md and references therein to familiarize yourself. When writing code, never create from scratch what can be accomplished using the common code in common-lib and the existing code base throughout the core repos. Hence you must be familiar with this full code base. You must be highly professional in your work, applying the highest level of analysis and critical thinking to your tasks in this complex project. You must always do what is asked of you, first. If you wish you may then propose further actions. NEVER undertake actions that have not been asked for and approved. This complex multi-repository project employing many tools and services in performing complex, closely monitored workflows demands of you the highest level of professionalism and deep critical thinking. Our dialogue should be concise and professional, free of hype and ingratiating comments, free of guesses presented as facts. Declarations should be verifiable and verified facts. Do not undertake time consuming actions or sequences of actions without regularly checking in.
 
@@ -56,6 +56,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cd /data/wenauseic/github/swf-testbed && source ~/.env
 ```
 **This includes:** python, pip, pytest, any example_agents scripts, or swf-testbed commands
+
+### Branch Synchronization Rule
+**All 3 repos must be on the same branch.** Currently: `infra/baseline-v28` (shorthand: v28)
+
+### Monitor Deployment Rule
+**COMMIT BEFORE DEPLOY:** The deploy script pulls from git, not local files.
+```bash
+# After Django changes in swf-monitor:
+git add . && git commit -m "description" && git push
+sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v28
+```
+
+### No Silent Failures Rule
+**NEVER let code fail silently.** Check return codes. Log errors. Raise exceptions. If it fails, it must be visible.
 
 ## Critical Thinking Requirements
 
@@ -294,59 +308,3 @@ cd /data/wenauseic/github/swf-testbed && source .venv/bin/activate && source ~/.
 2. First push: `git push -u origin branch-name` (sets up tracking)
 3. Subsequent pushes: `git push` (tracking already established)
 4. Always verify tracking is set up correctly before proceeding
-
-## 📝 Example Agent Environment Auto-Loading Pattern
-
-**ALL example agent scripts should include environment auto-loading like the test scripts:**
-
-```python
-#!/usr/bin/env python3
-import os
-import sys
-from pathlib import Path
-
-def setup_environment():
-    """Auto-activate venv and load environment variables."""
-    script_dir = Path(__file__).resolve().parent.parent  # Go up to swf-testbed root
-    
-    # Auto-activate virtual environment if not already active
-    if "VIRTUAL_ENV" not in os.environ:
-        venv_path = script_dir / ".venv"
-        if venv_path.exists():
-            print("🔧 Auto-activating virtual environment...")
-            venv_python = venv_path / "bin" / "python"
-            if venv_python.exists():
-                os.environ["VIRTUAL_ENV"] = str(venv_path)
-                os.environ["PATH"] = f"{venv_path}/bin:{os.environ['PATH']}"
-                sys.executable = str(venv_python)
-        else:
-            print("❌ Error: No Python virtual environment found")
-            return False
-    
-    # Load ~/.env environment variables (they're already exported)
-    env_file = Path.home() / ".env"
-    if env_file.exists():
-        print("🔧 Loading environment variables from ~/.env...")
-        with open(env_file) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    if line.startswith('export '):
-                        line = line[7:]  # Remove 'export '
-                    key, value = line.split('=', 1)
-                    os.environ[key] = value.strip('"\'')
-    
-    return True
-
-if __name__ == "__main__":
-    if not setup_environment():
-        sys.exit(1)
-    
-    # Your agent code here...
-```
-
-**This pattern ensures:**
-- Virtual environment is automatically activated
-- All ~/.env variables are loaded (NO_PROXY, SWF_MONITOR_HTTP_URL, etc.)
-- Scripts work regardless of how they're invoked
-- No more "command not found" or proxy failures

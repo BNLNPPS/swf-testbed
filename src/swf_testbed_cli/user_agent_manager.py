@@ -173,13 +173,18 @@ class UserAgentManager(stomp.ConnectionListener):
     def handle_stop_testbed(self):
         """Stop all testbed agents."""
         print("Stopping testbed...")
+        supervisorctl = self._get_venv_bin('supervisorctl')
 
         result = subprocess.run(
-            ['supervisorctl', '-c', str(self.testbed_dir / AGENTS_CONF), 'stop', 'all'],
+            [supervisorctl, '-c', str(self.testbed_dir / AGENTS_CONF), 'stop', 'all'],
             capture_output=True,
             text=True,
             cwd=self.testbed_dir
         )
+
+        if result.returncode not in [0, 4]:  # 4 = can't connect (already stopped)
+            print(f"Error stopping testbed: {result.stderr}")
+            return False
 
         self.agents_running = False
         print("Testbed stopped")
@@ -187,8 +192,9 @@ class UserAgentManager(stomp.ConnectionListener):
 
     def handle_status(self, reply_to: str = None):
         """Get status of testbed agents."""
+        supervisorctl = self._get_venv_bin('supervisorctl')
         result = subprocess.run(
-            ['supervisorctl', '-c', str(self.testbed_dir / AGENTS_CONF), 'status'],
+            [supervisorctl, '-c', str(self.testbed_dir / AGENTS_CONF), 'status'],
             capture_output=True,
             text=True,
             cwd=self.testbed_dir
@@ -219,9 +225,19 @@ class UserAgentManager(stomp.ConnectionListener):
 
         return response
 
+    def _get_venv_bin(self, cmd: str) -> str:
+        """Get full path to command in venv bin directory."""
+        venv_bin = self.testbed_dir / '.venv' / 'bin' / cmd
+        if venv_bin.exists():
+            return str(venv_bin)
+        # Fallback to bare command (may work if venv is activated)
+        return cmd
+
     def _ensure_supervisord(self) -> bool:
         """Start supervisord if not running."""
         conf_path = self.testbed_dir / AGENTS_CONF
+        supervisorctl = self._get_venv_bin('supervisorctl')
+        supervisord = self._get_venv_bin('supervisord')
 
         if not conf_path.exists():
             print(f"Error: {AGENTS_CONF} not found in {self.testbed_dir}")
@@ -229,7 +245,7 @@ class UserAgentManager(stomp.ConnectionListener):
 
         # Check if already running
         result = subprocess.run(
-            ['supervisorctl', '-c', str(conf_path), 'status'],
+            [supervisorctl, '-c', str(conf_path), 'status'],
             capture_output=True,
             text=True,
             cwd=self.testbed_dir
@@ -237,18 +253,24 @@ class UserAgentManager(stomp.ConnectionListener):
 
         if result.returncode == 4:  # Can't connect - not running
             print("Starting supervisord...")
-            subprocess.run(
-                ['supervisord', '-c', str(conf_path)],
+            start_result = subprocess.run(
+                [supervisord, '-c', str(conf_path)],
+                capture_output=True,
+                text=True,
                 cwd=self.testbed_dir
             )
+            if start_result.returncode != 0:
+                print(f"Error starting supervisord: {start_result.stderr}")
+                return False
             time.sleep(1)
 
         return True
 
     def _start_program(self, program_name: str) -> bool:
         """Start a supervisord program."""
+        supervisorctl = self._get_venv_bin('supervisorctl')
         result = subprocess.run(
-            ['supervisorctl', '-c', str(self.testbed_dir / AGENTS_CONF), 'start', program_name],
+            [supervisorctl, '-c', str(self.testbed_dir / AGENTS_CONF), 'start', program_name],
             capture_output=True,
             text=True,
             cwd=self.testbed_dir
