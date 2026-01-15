@@ -214,7 +214,12 @@ class UserAgentManager(stomp.ConnectionListener):
         )
 
         self.logger.info("New agent manager spawned, exiting")
+        # Clean disconnect before exit
         self.running = False
+        try:
+            self.disconnect()
+        except Exception:
+            pass
         os._exit(0)
 
     def handle_status(self, reply_to: str = None):
@@ -342,7 +347,9 @@ class UserAgentManager(stomp.ConnectionListener):
         """Main run loop."""
         self.connect()
 
-        last_heartbeat_time = 0
+        # Send immediate heartbeat so MCP can detect us quickly
+        self.send_heartbeat()
+        last_heartbeat_time = time.time()
 
         self.logger.info(f"Listening for commands on {self.control_queue}")
         self.logger.info("Press Ctrl+C to stop")
