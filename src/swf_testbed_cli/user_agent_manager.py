@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 import stomp
+from swf_common_lib.rest_logging import setup_rest_logging
 
 # Heartbeat interval in seconds
 HEARTBEAT_INTERVAL = 30
@@ -65,6 +66,11 @@ class UserAgentManager(stomp.ConnectionListener):
         self.last_heartbeat = None
         self.agents_running = False
 
+        # Set up REST logging
+        self.instance_name = f'agent-manager-{self.username}'
+        base_url = os.getenv('SWF_MONITOR_HTTP_URL', 'http://localhost:8002')
+        self.logger = setup_rest_logging('agent_manager', self.instance_name, base_url)
+
         # Set up connection (matching BaseAgent configuration)
         self.conn = stomp.Connection(
             host_and_ports=[(self.mq_host, self.mq_port)],
@@ -91,18 +97,18 @@ class UserAgentManager(stomp.ConnectionListener):
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
-        print(f"\nReceived signal {signum}, shutting down...")
+        self.logger.info(f"\nReceived signal {signum}, shutting down...")
         self.running = False
 
     def connect(self):
         """Connect to ActiveMQ and subscribe to control queue."""
-        print(f"Connecting to ActiveMQ at {self.mq_host}:{self.mq_port}...")
+        self.logger.info(f"Connecting to ActiveMQ at {self.mq_host}:{self.mq_port}...")
         self.conn.connect(self.mq_user, self.mq_password, wait=True)
 
-        print(f"Subscribing to {self.control_queue}...")
+        self.logger.info(f"Subscribing to {self.control_queue}...")
         self.conn.subscribe(destination=self.control_queue, id='control', ack='auto')
 
-        print(f"User Agent Manager ready for {self.username}")
+        self.logger.info(f"User Agent Manager ready for {self.username}")
 
     def disconnect(self):
         """Disconnect from ActiveMQ."""
@@ -115,49 +121,51 @@ class UserAgentManager(stomp.ConnectionListener):
             message = json.loads(frame.body)
             command = message.get('command')
 
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Received command: {command}")
+            self.logger.info(f"[{datetime.now().strftime('%H:%M:%S')}] Received command: {command}")
 
             if command == 'start_testbed':
                 config_name = message.get('config_name')
                 self.handle_start_testbed(config_name)
             elif command == 'stop_testbed':
                 self.handle_stop_testbed()
+            elif command == 'restart':
+                self.handle_restart()
             elif command == 'status':
                 self.handle_status(message.get('reply_to'))
             elif command == 'ping':
                 self.handle_ping(message.get('reply_to'))
             else:
-                print(f"Unknown command: {command}")
+                self.logger.info(f"Unknown command: {command}")
 
         except Exception as e:
-            print(f"Error processing message: {e}")
+            self.logger.error(f"Error processing message: {e}")
 
     def on_error(self, frame):
         """Handle connection errors."""
-        print(f"STOMP error: {frame.body}")
+        self.logger.error(f"STOMP error: {frame.body}")
 
     def on_disconnected(self):
         """Handle disconnection."""
         if self.running:
-            print("Disconnected from ActiveMQ, attempting reconnect...")
+            self.logger.info("Disconnected from ActiveMQ, attempting reconnect...")
             time.sleep(5)
             try:
                 self.connect()
             except Exception as e:
-                print(f"Reconnect failed: {e}")
+                self.logger.error(f"Reconnect failed: {e}")
 
     def handle_start_testbed(self, config_name: str = None):
         """Start the testbed agents and workflow runner."""
-        print(f"Starting testbed (config: {config_name or 'default'})...")
+        self.logger.info(f"Starting testbed (config: {config_name or 'default'})...")
 
         # Ensure supervisord is running
         if not self._ensure_supervisord():
-            print("Failed to start supervisord")
+            self.logger.error("Failed to start supervisord")
             return False
 
         # Start workflow runner
         if not self._start_program('workflow-runner'):
-            print("Failed to start workflow-runner")
+            self.logger.error("Failed to start workflow-runner")
             return False
 
         # Start agents based on config
@@ -167,12 +175,12 @@ class UserAgentManager(stomp.ConnectionListener):
             self._start_program(agent)
 
         self.agents_running = True
-        print("Testbed started")
+        self.logger.info("Testbed started")
         return True
 
     def handle_stop_testbed(self):
         """Stop all testbed agents."""
-        print("Stopping testbed...")
+        self.logger.info("Stopping testbed...")
         supervisorctl = self._get_venv_bin('supervisorctl')
 
         result = subprocess.run(
@@ -183,12 +191,31 @@ class UserAgentManager(stomp.ConnectionListener):
         )
 
         if result.returncode not in [0, 4]:  # 4 = can't connect (already stopped)
-            print(f"Error stopping testbed: {result.stderr}")
+            self.logger.error(f"Error stopping testbed: {result.stderr}")
             return False
 
         self.agents_running = False
-        print("Testbed stopped")
+        self.logger.info("Testbed stopped")
         return True
+
+    def handle_restart(self):
+        """Restart the agent manager with fresh code."""
+        self.logger.info("Restarting agent manager...")
+        self.handle_stop_testbed()
+
+        # Spawn new agent manager process
+        testbed = self._get_venv_bin('testbed')
+        subprocess.Popen(
+            ['nohup', testbed, 'agent-manager'],
+            stdout=open('/tmp/agent-manager.log', 'a'),
+            stderr=subprocess.STDOUT,
+            cwd=self.testbed_dir,
+            start_new_session=True
+        )
+
+        self.logger.info("New agent manager spawned, exiting")
+        self.running = False
+        os._exit(0)
 
     def handle_status(self, reply_to: str = None):
         """Get status of testbed agents."""
@@ -240,7 +267,7 @@ class UserAgentManager(stomp.ConnectionListener):
         supervisord = self._get_venv_bin('supervisord')
 
         if not conf_path.exists():
-            print(f"Error: {AGENTS_CONF} not found in {self.testbed_dir}")
+            self.logger.error(f"{AGENTS_CONF} not found in {self.testbed_dir}")
             return False
 
         # Check if already running
@@ -252,7 +279,7 @@ class UserAgentManager(stomp.ConnectionListener):
         )
 
         if result.returncode == 4:  # Can't connect - not running
-            print("Starting supervisord...")
+            self.logger.info("Starting supervisord...")
             start_result = subprocess.run(
                 [supervisord, '-c', str(conf_path)],
                 capture_output=True,
@@ -260,7 +287,7 @@ class UserAgentManager(stomp.ConnectionListener):
                 cwd=self.testbed_dir
             )
             if start_result.returncode != 0:
-                print(f"Error starting supervisord: {start_result.stderr}")
+                self.logger.error(f"Error starting supervisord: {start_result.stderr}")
                 return False
             time.sleep(1)
 
@@ -277,10 +304,10 @@ class UserAgentManager(stomp.ConnectionListener):
         )
 
         if result.returncode == 0 or 'already started' in result.stdout.lower():
-            print(f"  {program_name}: started")
+            self.logger.info(f"  {program_name}: started")
             return True
         else:
-            print(f"  {program_name}: failed - {result.stderr.strip()}")
+            self.logger.error(f"{program_name}: failed - {result.stderr.strip()}")
             return False
 
     def send_heartbeat(self):
@@ -317,8 +344,8 @@ class UserAgentManager(stomp.ConnectionListener):
 
         last_heartbeat_time = 0
 
-        print(f"Listening for commands on {self.control_queue}")
-        print("Press Ctrl+C to stop")
+        self.logger.info(f"Listening for commands on {self.control_queue}")
+        self.logger.info("Press Ctrl+C to stop")
 
         while self.running:
             try:
@@ -333,7 +360,7 @@ class UserAgentManager(stomp.ConnectionListener):
             except KeyboardInterrupt:
                 break
 
-        print("Shutting down...")
+        self.logger.info("Shutting down...")
         self.disconnect()
 
 
