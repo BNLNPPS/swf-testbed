@@ -3,12 +3,25 @@
 # ⛔ STOP - COMMANDS YOU MUST USE ⛔
 
 ```bash
-# Start agents and run workflow
+# Start agents and run workflow (CLI)
 testbed run                     # Uses workflows/testbed.toml
 testbed run fast_processing     # Uses workflows/fast_processing_default.toml
 
-# Check status
+# Check status (CLI)
 testbed status-local            # System services + agents
+```
+
+```python
+# MCP testbed management (PREFERRED)
+get_testbed_status(username)                    # Comprehensive status: agent manager, namespace, agents
+start_user_testbed(username, config_name)       # Start testbed (default config: testbed.toml)
+stop_user_testbed(username)                     # Stop all workflow agents
+check_agent_manager(username)                   # Check agent manager daemon status
+
+# MCP workflow operations
+start_workflow()                                # Start workflow using testbed.toml defaults
+stop_workflow(execution_id)                     # Stop running workflow
+get_workflow_monitor(execution_id)              # Workflow status and events
 
 # MCP diagnostics (USE THESE, NOT log files)
 list_logs(instance_name='agent-name')           # Agent logs
