@@ -17,6 +17,7 @@ import signal
 import subprocess
 import sys
 import time
+import tomllib
 from datetime import datetime
 from pathlib import Path
 
@@ -28,6 +29,17 @@ HEARTBEAT_INTERVAL = 30
 
 # Supervisord config for agents
 AGENTS_CONF = 'agents.supervisord.conf'
+
+# Default config file
+DEFAULT_CONFIG = 'workflows/testbed.toml'
+
+# Map testbed.toml agent names to supervisord program names
+AGENT_PROGRAM_MAP = {
+    'data': 'example-data-agent',
+    'processing': 'example-processing-agent',
+    'fastmon': 'example-fastmon-agent',
+    'fast_processing': 'fast-processing-agent',
+}
 
 
 class UserAgentManager(stomp.ConnectionListener):
@@ -65,6 +77,8 @@ class UserAgentManager(stomp.ConnectionListener):
         self.running = True
         self.last_heartbeat = None
         self.agents_running = False
+        self.namespace = None  # Set when config is loaded
+        self.config = None  # Current testbed config
 
         # Set up REST logging
         self.instance_name = f'agent-manager-{self.username}'
@@ -154,9 +168,64 @@ class UserAgentManager(stomp.ConnectionListener):
             except Exception as e:
                 self.logger.error(f"Reconnect failed: {e}")
 
+    def load_config(self, config_name: str = None) -> dict:
+        """Load testbed config and update namespace.
+
+        Args:
+            config_name: Config file name (default: testbed.toml)
+                         Can be just name (looked up in workflows/) or full path
+
+        Returns:
+            Parsed config dict
+        """
+        if config_name is None:
+            config_path = self.testbed_dir / DEFAULT_CONFIG
+        elif '/' in config_name or config_name.endswith('.toml'):
+            config_path = self.testbed_dir / config_name
+        else:
+            config_path = self.testbed_dir / 'workflows' / f'{config_name}.toml'
+
+        if not config_path.exists():
+            self.logger.error(f"Config not found: {config_path}")
+            return {}
+
+        self.logger.info(f"Loading config: {config_path}")
+        with open(config_path, 'rb') as f:
+            self.config = tomllib.load(f)
+
+        # Update namespace from config
+        self.namespace = self.config.get('testbed', {}).get('namespace')
+        if self.namespace:
+            self.logger.info(f"Namespace: {self.namespace}")
+        else:
+            self.logger.warning("No namespace in config")
+
+        return self.config
+
+    def get_enabled_agents(self) -> list:
+        """Get list of supervisord program names for enabled agents."""
+        if not self.config:
+            return []
+
+        agents_config = self.config.get('agents', {})
+        enabled = []
+
+        for agent_name, agent_conf in agents_config.items():
+            if agent_conf.get('enabled', False):
+                program_name = AGENT_PROGRAM_MAP.get(agent_name)
+                if program_name:
+                    enabled.append(program_name)
+                else:
+                    self.logger.warning(f"Unknown agent '{agent_name}' - no program mapping")
+
+        return enabled
+
     def handle_start_testbed(self, config_name: str = None):
         """Start the testbed agents and workflow runner."""
         self.logger.info(f"Starting testbed (config: {config_name or 'default'})...")
+
+        # Load config to get namespace and enabled agents
+        self.load_config(config_name)
 
         # Ensure supervisord is running
         if not self._ensure_supervisord():
@@ -168,10 +237,12 @@ class UserAgentManager(stomp.ConnectionListener):
             self.logger.error("Failed to start workflow-runner")
             return False
 
-        # Start agents based on config
-        # For now, start all defined agents
-        agents = ['example-data-agent', 'example-processing-agent']
-        for agent in agents:
+        # Start enabled agents from config
+        enabled_agents = self.get_enabled_agents()
+        if not enabled_agents:
+            self.logger.warning("No agents enabled in config")
+
+        for agent in enabled_agents:
             self._start_program(agent)
 
         self.agents_running = True
@@ -318,16 +389,21 @@ class UserAgentManager(stomp.ConnectionListener):
     def send_heartbeat(self):
         """Send heartbeat to monitor API (using authenticated session like BaseAgent)."""
         try:
+            # Build description with current state
+            desc_parts = [f'Agent manager for {self.username}']
+            if self.namespace:
+                desc_parts.append(f'namespace: {self.namespace}')
+            desc_parts.append('MQ: connected')
+
             data = {
                 'instance_name': f'agent-manager-{self.username}',
                 'agent_type': 'agent_manager',
                 'status': 'OK',
                 'operational_state': 'READY',
-                'namespace': self.username,
+                'namespace': self.namespace,  # From config, or None if not yet loaded
                 'pid': os.getpid(),
                 'hostname': os.uname().nodename,
-                'description': f'Agent manager for {self.username}. MQ: connected',
-                'mq_connected': True,
+                'description': '. '.join(desc_parts),
             }
 
             response = self.api.post(
