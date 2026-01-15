@@ -180,10 +180,14 @@ class UserAgentManager(stomp.ConnectionListener):
         """
         if config_name is None:
             config_path = self.testbed_dir / DEFAULT_CONFIG
-        elif '/' in config_name or config_name.endswith('.toml'):
+        elif '/' in config_name:
+            # Full relative path provided
             config_path = self.testbed_dir / config_name
         else:
-            config_path = self.testbed_dir / 'workflows' / f'{config_name}.toml'
+            # Just a name, look in workflows/
+            if not config_name.endswith('.toml'):
+                config_name = f'{config_name}.toml'
+            config_path = self.testbed_dir / 'workflows' / config_name
 
         if not config_path.exists():
             self.logger.error(f"Config not found: {config_path}")
