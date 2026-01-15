@@ -41,6 +41,7 @@ class FastMonitorAgent(BaseAgent):
         super().__init__(agent_type='fastmon', subscription_queue='/topic/epictopic', debug=debug,
                          config_path=config_path)
         self.running = True
+        self.destination = '/topic/epictopic'
 
         self.logger.info("Fast Monitor Agent initialized successfully")
 
@@ -138,6 +139,8 @@ class FastMonitorAgent(BaseAgent):
             tf_file = fastmon_utils.record_tf_file(tf_metadata, self.config, self, self.logger)
             if tf_file:
                 tf_files_created += 1
+                # Broadcast tf_file_registered to downstream consumers
+                self.send_tf_file_notification(tf_file, message_data)
             tf_files_registered.append(tf_file)
 
         # Update TF creation stats

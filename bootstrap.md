@@ -14,3 +14,4 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 We are working on debugging and hardening the MCP based testbed and workflow management.
 start/stop testbed, start/stop workflows, robust agent manager.
+Let's (re)start the testbed and run the default workflow.

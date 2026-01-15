@@ -295,13 +295,13 @@ class DataAgent(BaseAgent):
             "processed_by": self.agent_name
         }
         
-        self.send_message('/queue/processing_agent', stf_ready_message)
+        self.send_message('/topic/epictopic', stf_ready_message)
 
         # Update STF file status to processed
         self.update_stf_file_status(filename, 'processed')
 
         self.logger.info("Sent stf_ready message",
-                        extra=self._log_extra(stf_filename=filename, destination="processing_agent"))
+                        extra=self._log_extra(stf_filename=filename, destination="epictopic"))
 
 
     

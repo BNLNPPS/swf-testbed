@@ -30,8 +30,8 @@ HEARTBEAT_INTERVAL = 30
 # Supervisord config for agents
 AGENTS_CONF = 'agents.supervisord.conf'
 
-# Default config file
-DEFAULT_CONFIG = 'workflows/testbed.toml'
+# Default config file (can be overridden via SWF_TESTBED_CONFIG env var)
+DEFAULT_CONFIG = os.getenv('SWF_TESTBED_CONFIG', 'workflows/testbed.toml')
 
 # Map testbed.toml agent names to supervisord program names
 AGENT_PROGRAM_MAP = {
