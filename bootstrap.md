@@ -12,26 +12,32 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 ## Current Status
 
-**Per-user config override implemented via SWF_TESTBED_CONFIG env var:**
-- User's ~/.env sets: `export SWF_TESTBED_CONFIG=fast_processing_default.toml`
-- BaseAgent (swf-common-lib) resolves config: env var > default `workflows/testbed.toml`
-- Agent argparse defaults to None, BaseAgent handles resolution
-- agents.supervisord.conf no longer passes --testbed-config
-- Agent manager auto-loads config from env var on startup
+**Preparing slides for talk.** Four main topics:
+1. Fast processing workflow
+2. Agent management
+3. MCP integration
+4. Multi-user support
 
-**Signal handling added to BaseAgent:**
-- SIGTERM/SIGQUIT handlers raise KeyboardInterrupt for graceful shutdown
-- Agents now properly report EXITED status when stopped
-
-**Current issue - testbed partially started:**
-- Agent manager: OK, namespace=torre2 (correct)
-- Workflow runner (daq_simulator-agent-460): OK, namespace=torre2 (correct)
-- BUT: data agent, fastmon agent, fast_processing agent did NOT start
-- No errors in logs
+**SVG Diagrams created in docs/images/:**
+- `agent-management-overview-v*.svg` - Agent management with CLI/MCP/Claude relationships
+- `multi-user-isolation-v*.svg` - Multi-user testbed with namespaces (wenauseic with torre1/torre2, zyang2)
+- `architecture-panda-idds-v*.svg` - Overall architecture with PanDA/iDDS integration
 
 ## Next Steps
 
-1. **Debug why other agents didn't start** - check supervisord status, agent manager logs (file logs, not REST)
-2. **Once agents running**, test the fast processing pipeline:
-   - DAQ Simulator [stf_gen] -> Data Agent [stf_ready] -> FastMon Agent [tf_file_registered] -> Fast Processing Agent [slice]
-3. Verify namespace=torre2 throughout the pipeline
+2. **Create second detailed iDDS/PanDA diagram** 
+
+Human instruction for latest diagram updates:
+
+We need to flesh out how the PanDA workload manager and the iDDS higher level workflow manager fit into the fast processing pipeline. 
+- add an iDDS green box at 8 o'clock relative to DAQ Simulator
+- it receives run imminent, run stop (ok the diagran doesn't cite the messages generally, but put them in here, this is a control channel complementing the data flow channel)
+- two branches below iDDS:
+one to Harvester which launches Pilots
+one to PanDA which creates worker jobs
+- the workers in the present diagram are the union of the two: jobs running inside pilots, so if you have the pilot and job boxes immediately to the left of the panda workers, you can have an arrow from mthem to panda workers
+- this may be too complex for this present diagram, better have it in a second.
+- in this diagram, just have iDDS flow to a PanDA box and that flows to point to the workers box.
+Have a go at this update to the present diagram, and a second diagram that has more detail, the distinction between pilots launched by harvester and jobs created by panda, both under the direction of iDDS. Always use Harvester and PanDA in the diagrams.
+
+The update of existing fast processing pipeline diagram is done. Create the second diagram.

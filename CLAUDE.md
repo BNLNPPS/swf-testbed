@@ -29,6 +29,26 @@ list_logs(level='ERROR')                        # Find failures
 list_messages(execution_id='...')               # Workflow messages
 ```
 
+## MCP Query Best Practices
+
+**CRITICAL: Limit queries by record count, not time ranges.** Activity grows over time; "last 24 hours" returns unpredictable volumes.
+
+```python
+# GOOD: Specific filters, reasonable scope
+list_agents(namespace='wenauseic')              # Filter by namespace
+list_agents(status='OK')                        # Filter by status (excludes EXITED by default)
+list_workflow_executions(namespace='torre2')    # Filter by namespace
+list_logs(level='ERROR')                        # Only errors
+list_logs(execution_id='stf_datataking-wenauseic-0049')  # Specific execution
+
+# BAD: Unbounded queries that can exceed context limits
+list_agents(status='all')                       # Returns ALL agents including historical
+list_workflow_executions()                      # No filters = potentially huge result
+list_logs()                                     # No filters = too much data
+```
+
+**When results exceed token limits:** Use more specific filters (namespace, status, execution_id, level) rather than broad time-based queries.
+
 # ⛔ NEVER DO THESE ⛔
 
 | NEVER | ALWAYS |

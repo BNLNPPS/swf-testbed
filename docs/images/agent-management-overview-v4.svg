@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 620" font-family="Arial, sans-serif" font-size="14">
+  <!-- Background -->
+  <rect width="700" height="620" fill="white"/>
+
+  <!-- Styles -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7b1fa2"/>
+    </marker>
+  </defs>
+
+  <!-- CONFIGURATION (top center) -->
+  <rect x="200" y="20" width="250" height="50" rx="5" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <text x="325" y="40" text-anchor="middle" font-weight="bold">fast_processing_default.toml</text>
+  <text x="325" y="57" text-anchor="middle" font-size="11" fill="#666">namespace, agents, workflow params</text>
+
+  <!-- Lines from config to two control mechanisms -->
+  <line x1="275" y1="70" x2="150" y2="120" stroke="#f57c00" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="375" y1="70" x2="500" y2="120" stroke="#f57c00" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- CONTROL LAYER - Two peer alternatives -->
+
+  <!-- CLI (left) -->
+  <rect x="50" y="125" width="200" height="55" rx="5" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="150" y="148" text-anchor="middle" font-weight="bold">CLI</text>
+  <text x="150" y="168" text-anchor="middle" font-size="11" fill="#666">testbed run / stop-agents</text>
+
+  <!-- MCP Server (right) -->
+  <rect x="400" y="125" width="200" height="55" rx="5" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="500" y="148" text-anchor="middle" font-weight="bold">MCP Server</text>
+  <text x="500" y="168" text-anchor="middle" font-size="11" fill="#666">start/stop_user_testbed</text>
+
+  <!-- Claude as client below MCP Server -->
+  <rect x="540" y="200" width="80" height="40" rx="5" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+  <text x="580" y="225" text-anchor="middle" font-weight="bold" font-size="12">Claude</text>
+  <line x1="540" y1="220" x2="510" y2="180" stroke="#7b1fa2" stroke-width="1.5" marker-end="url(#arrowhead-purple)"/>
+  <text x="620" y="255" text-anchor="middle" font-size="9" fill="#7b1fa2">MCP client</text>
+
+  <!-- Control flow arrows converging -->
+  <line x1="150" y1="180" x2="150" y2="220" stroke="#333" stroke-width="1.5"/>
+  <line x1="150" y1="220" x2="325" y2="250" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <line x1="500" y1="180" x2="500" y2="220" stroke="#333" stroke-width="1.5"/>
+  <line x1="500" y1="220" x2="325" y2="250" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- Agent Manager (infrastructure utility) -->
+  <rect x="225" y="255" width="200" height="50" rx="5" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="325" y="278" text-anchor="middle" font-weight="bold">Agent Manager</text>
+  <text x="325" y="295" text-anchor="middle" font-size="11" fill="#666">per-user infrastructure daemon</text>
+
+  <!-- Agent Manager to supervisord -->
+  <line x1="325" y1="305" x2="325" y2="340" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="345" y="328" font-size="10" fill="#666">supervisorctl</text>
+
+  <!-- SUPERVISORD -->
+  <rect x="60" y="345" width="415" height="40" rx="5" fill="#e0e0e0" stroke="#616161" stroke-width="2"/>
+  <text x="267" y="370" text-anchor="middle" font-weight="bold">supervisord</text>
+
+  <!-- Supervisord to agents - straight down -->
+  <line x1="95" y1="385" x2="95" y2="430" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="215" y1="385" x2="215" y2="430" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="310" y1="385" x2="310" y2="430" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="412" y1="385" x2="412" y2="430" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- AGENTS -->
+
+  <!-- Workflow Runner (special - shows structure) -->
+  <rect x="30" y="435" width="130" height="90" rx="5" fill="#ede7f6" stroke="#512da8" stroke-width="2"/>
+  <text x="95" y="455" text-anchor="middle" font-weight="bold" font-size="12">Workflow Runner</text>
+
+  <!-- Inner structure -->
+  <rect x="40" y="465" width="110" height="22" rx="3" fill="#d1c4e9" stroke="#512da8"/>
+  <text x="95" y="481" text-anchor="middle" font-size="10">Workflow description</text>
+
+  <line x1="95" y1="487" x2="95" y2="500" stroke="#512da8" stroke-width="1" marker-end="url(#arrowhead)"/>
+
+  <rect x="40" y="503" width="110" height="18" rx="3" fill="#fff" stroke="#512da8"/>
+  <text x="95" y="516" text-anchor="middle" font-size="10">DAQ Simulator</text>
+
+  <!-- Data Agent -->
+  <rect x="175" y="435" width="80" height="50" rx="5" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="215" y="455" text-anchor="middle" font-weight="bold" font-size="11">Data</text>
+  <text x="215" y="470" text-anchor="middle" font-size="11">Agent</text>
+
+  <!-- FastMon Agent -->
+  <rect x="270" y="435" width="80" height="50" rx="5" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="310" y="455" text-anchor="middle" font-weight="bold" font-size="11">FastMon</text>
+  <text x="310" y="470" text-anchor="middle" font-size="11">Agent</text>
+
+  <!-- Fast Processing Agent -->
+  <rect x="365" y="435" width="95" height="50" rx="5" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="412" y="455" text-anchor="middle" font-weight="bold" font-size="11">Fast Proc</text>
+  <text x="412" y="470" text-anchor="middle" font-size="11">Agent</text>
+
+  <!-- ActiveMQ (separate, on right) -->
+  <rect x="520" y="420" width="150" height="80" rx="5" fill="#ffebee" stroke="#c62828" stroke-width="2"/>
+  <text x="595" y="445" text-anchor="middle" font-weight="bold">ActiveMQ</text>
+  <text x="595" y="465" text-anchor="middle" font-size="11" fill="#666">Mediates all</text>
+  <text x="595" y="480" text-anchor="middle" font-size="11" fill="#666">agent communication</text>
+
+  <!-- Simple connection line from agents area to ActiveMQ -->
+  <line x1="460" y1="460" x2="520" y2="460" stroke="#c62828" stroke-width="2" stroke-dasharray="5,3"/>
+
+  <!-- Legend -->
+  <rect x="520" y="530" width="160" height="75" rx="5" fill="#fafafa" stroke="#ccc" stroke-width="1"/>
+  <text x="600" y="550" text-anchor="middle" font-weight="bold" font-size="12">Legend</text>
+
+  <rect x="535" y="560" width="12" height="12" fill="#e3f2fd" stroke="#1976d2"/>
+  <text x="555" y="570" font-size="10">Control paths (peer)</text>
+
+  <rect x="535" y="578" width="12" height="12" fill="#e8f5e9" stroke="#388e3c"/>
+  <text x="555" y="588" font-size="10">Infrastructure / Agents</text>
+
+</svg>

@@ -230,15 +230,29 @@ class UserAgentManager(stomp.ConnectionListener):
         return enabled
 
     def handle_start_testbed(self, config_name: str = None):
-        """Start the testbed agents and workflow runner."""
+        """Start the testbed agents and workflow runner.
+
+        Refuses to start if agents are already running. User must call
+        stop_testbed first to ensure clean slate.
+        """
         self.logger.info(f"Starting testbed (config: {config_name or 'default'})...")
 
         # Load config to get namespace and enabled agents
         self.load_config(config_name)
 
-        # Ensure supervisord is running
-        if not self._ensure_supervisord():
-            self.logger.error("Failed to start supervisord")
+        # Check if any agents are already running - refuse if so
+        # Do this BEFORE restarting supervisord
+        running_agents = self._get_running_agents()
+        if running_agents:
+            self.logger.error(
+                f"Cannot start: agents already running: {running_agents}. "
+                "Run stop_testbed first to ensure clean slate."
+            )
+            return False
+
+        # Restart supervisord to pick up current env vars and config
+        if not self._restart_supervisord():
+            self.logger.error("Failed to restart supervisord")
             return False
 
         # Start workflow runner
@@ -378,6 +392,53 @@ class UserAgentManager(stomp.ConnectionListener):
 
         return True
 
+    def _restart_supervisord(self) -> bool:
+        """Restart supervisord to pick up current environment and config.
+
+        Always restarts to ensure fresh env vars (like SWF_TESTBED_CONFIG) are available.
+        Called after verifying no agents are running.
+        """
+        conf_path = self.testbed_dir / AGENTS_CONF
+        supervisorctl = self._get_venv_bin('supervisorctl')
+        supervisord = self._get_venv_bin('supervisord')
+
+        if not conf_path.exists():
+            self.logger.error(f"{AGENTS_CONF} not found in {self.testbed_dir}")
+            return False
+
+        # Check if supervisord is running
+        result = subprocess.run(
+            [supervisorctl, '-c', str(conf_path), 'status'],
+            capture_output=True,
+            text=True,
+            cwd=self.testbed_dir
+        )
+
+        if result.returncode != 4:  # Connected - shutdown first
+            self.logger.info("Restarting supervisord to pick up current environment...")
+            subprocess.run(
+                [supervisorctl, '-c', str(conf_path), 'shutdown'],
+                capture_output=True,
+                cwd=self.testbed_dir
+            )
+            time.sleep(1)
+
+        # Start fresh
+        self.logger.info("Starting supervisord...")
+        start_result = subprocess.run(
+            [supervisord, '-c', str(conf_path)],
+            capture_output=True,
+            text=True,
+            cwd=self.testbed_dir
+        )
+
+        if start_result.returncode != 0:
+            self.logger.error(f"Error starting supervisord: {start_result.stderr}")
+            return False
+
+        time.sleep(1)
+        return True
+
     def _start_program(self, program_name: str) -> bool:
         """Start a supervisord program."""
         supervisorctl = self._get_venv_bin('supervisorctl')
@@ -393,6 +454,46 @@ class UserAgentManager(stomp.ConnectionListener):
             return True
         else:
             self.logger.error(f"{program_name}: failed - {result.stderr.strip()}")
+            return False
+
+    def _get_running_agents(self) -> list:
+        """Get list of currently running agent program names."""
+        supervisorctl = self._get_venv_bin('supervisorctl')
+        result = subprocess.run(
+            [supervisorctl, '-c', str(self.testbed_dir / AGENTS_CONF), 'status'],
+            capture_output=True,
+            text=True,
+            cwd=self.testbed_dir
+        )
+
+        if result.returncode == 4:  # Can't connect - supervisord not running
+            return []
+
+        running = []
+        for line in result.stdout.strip().split('\n'):
+            if 'RUNNING' in line:
+                # Line format: "program-name   RUNNING   pid 12345, uptime 0:00:05"
+                program_name = line.split()[0]
+                running.append(program_name)
+
+        return running
+
+    def _reread_supervisord_config(self) -> bool:
+        """Reread supervisord config to pick up changes."""
+        supervisorctl = self._get_venv_bin('supervisorctl')
+        result = subprocess.run(
+            [supervisorctl, '-c', str(self.testbed_dir / AGENTS_CONF), 'reread'],
+            capture_output=True,
+            text=True,
+            cwd=self.testbed_dir
+        )
+
+        if result.returncode == 0:
+            if result.stdout.strip():
+                self.logger.info(f"Config changes detected: {result.stdout.strip()}")
+            return True
+        else:
+            self.logger.warning(f"Config reread failed: {result.stderr.strip()}")
             return False
 
     def send_heartbeat(self):
