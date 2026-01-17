@@ -25,7 +25,13 @@ class FastProcessingAgent(BaseAgent):
     """
 
     # Queue for transformer workers (from Wen's iDDS design)
-    TRANSFORMER_QUEUE = '/queue/panda.transformer.slices'
+    TRANSFORMER_QUEUE = '/topic/panda.slices'
+
+    # Queue for worker broadcasts
+    WORKER_BROADCAST_TOPIC = '/topic/panda.workers'
+
+    # Queue for transformer results
+    TRANSFORMER_RESULTS_QUEUE = '/queue/panda.results.fastprocessing'
 
     def __init__(self, debug=False, config_path=None):
         super().__init__(
@@ -122,6 +128,50 @@ class FastProcessingAgent(BaseAgent):
             'stf_sampling_rate': self.workflow_params.get('stf_sampling_rate', 0),
             'slices_per_sample': self.workflow_params.get('slices_per_sample', 0)
         })
+
+        # Build and broadcast a run_imminent message to workers
+        try:
+            import json
+            from datetime import datetime as _dt
+
+            # Compose message similar to _send_slice_to_queue format.
+            # Put the incoming message_data inside 'content' and add execution_id
+            # and target_worker_count so workers know how many to spin up.
+            content = dict(message_data or {})
+            content.update({
+                'execution_id': self.current_execution_id,
+                'target_worker_count': self.workflow_params.get('target_worker_count', 0)
+            })
+
+            message = {
+                'msg_type': 'run_imminent',
+                'run_id': self.current_run_id,
+                'created_at': _dt.utcnow().isoformat(),
+                'content': content
+            }
+
+            headers = {
+                'persistent': 'false',
+                'vo': 'eic',
+                'msg_type': 'run_imminent',
+                'namespace': message_data.get('namespace', 'default'),
+                'run_id': str(self.current_run_id)
+            }
+
+            # Topic for worker broadcasts
+            worker_topic = self.WORKER_BROADCAST_TOPIC
+
+            self.conn.send(
+                destination=worker_topic,
+                body=json.dumps(message),
+                headers=headers
+            )
+
+            self.logger.info(f"Broadcasted run_imminent to workers: {worker_topic}",
+                             extra=self._log_extra(destination=worker_topic))
+        except Exception as e:
+            self.logger.error(f"Failed to broadcast run_imminent to workers: {e}",
+                              extra=self._log_extra(error=str(e)))
 
     def handle_start_run(self, message_data):
         """Handle start_run: Update RunState phase to 'physics'."""
@@ -223,6 +273,49 @@ class FastProcessingAgent(BaseAgent):
             'total_slices_created': self.stats['slices_created'],
             'total_slices_sent': self.stats['slices_sent']
         })
+
+        # Broadcast end_run to workers so they can perform any teardown/cleanup
+        try:
+            import json
+            from datetime import datetime as _dt
+
+            # Compose message similar to _send_slice_to_queue format.
+            # Put the incoming message_data inside 'content' and add execution_id
+            # and target_worker_count so workers can finalize appropriately.
+            content = dict(message_data or {})
+            content.update({
+                'execution_id': self.current_execution_id,
+                'target_worker_count': self.workflow_params.get('target_worker_count', 0)
+            })
+
+            message = {
+                'msg_type': 'end_run',
+                'run_id': self.current_run_id,
+                'created_at': _dt.utcnow().isoformat(),
+                'content': content
+            }
+
+            headers = {
+                'persistent': 'false',
+                'vo': 'eic',
+                'msg_type': 'end_run',
+                'namespace': message_data.get('namespace', 'default'),
+                'run_id': str(self.current_run_id)
+            }
+
+            worker_topic = self.WORKER_BROADCAST_TOPIC
+
+            self.conn.send(
+                destination=worker_topic,
+                body=json.dumps(message),
+                headers=headers
+            )
+
+            self.logger.info(f"Broadcasted end_run to workers: {worker_topic}",
+                             extra=self._log_extra(destination=worker_topic))
+        except Exception as e:
+            self.logger.error(f"Failed to broadcast end_run to workers: {e}",
+                              extra=self._log_extra(error=str(e)))
 
         # Clear current run state
         self.current_run_id = None
