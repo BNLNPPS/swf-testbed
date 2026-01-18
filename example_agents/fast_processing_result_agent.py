@@ -59,6 +59,8 @@ class FastProcessingResultAgent(BaseAgent):
         content = message_data.get('content', {})
         result = content.get('result') if isinstance(content, dict) else None
 
+        self.logger.debug(f"Processing slice_result: {message_data}")
+        
         # Log an event to system-state-events for observability
         try:
             event = {
