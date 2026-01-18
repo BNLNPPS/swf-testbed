@@ -114,7 +114,7 @@ class FastProcessingAgent(BaseAgent):
             if not self.workflow_params:
                 self.workflow_params = self._fetch_workflow_parameters(execution_id)
                 if self.workflow_params:
-                    self.logger.info(f"Workflow parameters loaded (mid-run): {self.workflow_params}")
+                    self.logger.info(f"Workflow parameters loaded (mid-run): {json.dumps(self.workflow_params, indent=2, sort_keys=True)}")
 
     def handle_run_imminent(self, message_data):
         """Handle run_imminent message."""
@@ -125,9 +125,9 @@ class FastProcessingAgent(BaseAgent):
 
         self._log_system_event('run_imminent', {
             'execution_id': self.current_execution_id,
-            'target_worker_count': self.workflow_params.get('target_worker_count', 0),
-            'stf_sampling_rate': self.workflow_params.get('stf_sampling_rate', 0),
-            'slices_per_sample': self.workflow_params.get('slices_per_sample', 0)
+            'target_worker_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 0),
+            'stf_sampling_rate': self.workflow_params.get("fast_processing", {}).get('stf_sampling_rate', 0),
+            'slices_per_sample': self.workflow_params.get("fast_processing", {}).get('slices_per_sample', 0)
         })
 
         # Build and broadcast a run_imminent message to workers
@@ -141,7 +141,7 @@ class FastProcessingAgent(BaseAgent):
             content = dict(message_data or {})
             content.update({
                 'execution_id': self.current_execution_id,
-                'target_worker_count': self.workflow_params.get('target_worker_count', 0)
+                'target_worker_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 0)
             })
 
             message = {
