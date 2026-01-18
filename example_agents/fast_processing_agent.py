@@ -13,6 +13,7 @@ Message format specification: https://github.com/wguanicedew/iDDS/blob/dev/main/
 import random
 import uuid
 from datetime import datetime
+import threading
 from swf_common_lib.base_agent import BaseAgent
 
 
@@ -284,8 +285,7 @@ class FastProcessingAgent(BaseAgent):
             # and target_worker_count so workers can finalize appropriately.
             content = dict(message_data or {})
             content.update({
-                'execution_id': self.current_execution_id,
-                'target_worker_count': self.workflow_params.get('target_worker_count', 0)
+                'execution_id': self.current_execution_id
             })
 
             message = {
@@ -515,6 +515,83 @@ class FastProcessingAgent(BaseAgent):
                             extra=self._log_extra(event_type=event_type, error=str(e)))
 
 
+class FastProcessingResultAgent(BaseAgent):
+    """
+    Listens for transformer results on TRANSFORMER_RESULTS_QUEUE and logs/results handling.
+    """
+
+    TRANSFORMER_RESULTS_QUEUE = '/queue/panda.results.fastprocessing'
+
+    def __init__(self, debug=False, config_path=None):
+        super().__init__(
+            agent_type='Fast_Processing_Result',
+            subscription_queue=self.TRANSFORMER_RESULTS_QUEUE,
+            debug=debug,
+            config_path=config_path
+        )
+
+        self.stats = {
+            'results_received': 0,
+            'results_done': 0,
+            'results_failed': 0
+        }
+
+    def on_message(self, frame):
+        message_data, msg_type = self.log_received_message(frame)
+        if message_data is None:
+            return
+
+        try:
+            if msg_type == 'slice_result':
+                self.handle_slice_result(message_data)
+            else:
+                self.logger.debug(f"Result agent ignoring message type: {msg_type}")
+        except Exception as e:
+            self.logger.error(f"Error processing result message: {e}",
+                              extra=self._log_extra(error=str(e)))
+
+    def handle_slice_result(self, message_data):
+        """Process slice_result messages from transformer workers."""
+        self.stats['results_received'] += 1
+
+        content = message_data.get('content', {})
+        result = content.get('result') if isinstance(content, dict) else None
+
+        # Log an event to system-state-events for observability
+        try:
+            event = {
+                'timestamp': datetime.now().isoformat(),
+                'run_number': message_data.get('run_id'),
+                'event_type': 'slice_result',
+                'state': None,
+                'substate': None,
+                'event_data': {
+                    'message': message_data,
+                }
+            }
+            self.call_monitor_api('POST', '/system-state-events/', event)
+        except Exception:
+            # Non-fatal if monitor API unavailable
+            self.logger.debug('Failed to log slice_result to monitor API', extra=self._log_extra())
+
+        # Track done/failed counts if result payload present
+        try:
+            inner_result = None
+            if result and isinstance(result, dict):
+                inner_result = result.get('result') if isinstance(result.get('result'), dict) else None
+
+            state = content.get('state') or (inner_result.get('state') if inner_result else None)
+            if state == 'done' or (inner_result and inner_result.get('processed')):
+                self.stats['results_done'] += 1
+            else:
+                self.stats['results_failed'] += 1
+        except Exception:
+            pass
+
+        self.logger.info(f"Handled slice_result: run={message_data.get('run_id')}, msg={message_data.get('msg_type')}",
+                         extra=self._log_extra(run_id=message_data.get('run_id')))
+
+
 if __name__ == "__main__":
     import argparse
     from pathlib import Path
@@ -529,5 +606,24 @@ if __name__ == "__main__":
                         help="Testbed config file (default: testbed.toml)")
     args = parser.parse_args()
 
-    agent = FastProcessingAgent(debug=args.debug, config_path=args.testbed_config)
-    agent.run()
+    # Start both the fast processing agent and a result listener agent
+    fast_agent = FastProcessingAgent(debug=args.debug, config_path=args.testbed_config)
+
+ 
+    result_agent = FastProcessingResultAgent(debug=args.debug, config_path=args.testbed_config)
+
+    # Run both agents in separate threads so they operate concurrently
+    threads = []
+    t1 = threading.Thread(target=fast_agent.run, name='FastProcessingAgent', daemon=True)
+    t2 = threading.Thread(target=result_agent.run, name='FastProcessingResultAgent', daemon=True)
+    threads.extend([t1, t2])
+
+    for t in threads:
+        t.start()
+
+    try:
+        # Keep main thread alive while agent threads run
+        for t in threads:
+            t.join()
+    except KeyboardInterrupt:
+        print('\nInterrupted, exiting')
