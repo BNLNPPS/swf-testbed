@@ -10,7 +10,9 @@ This agent:
 Message format specification: https://github.com/wguanicedew/iDDS/blob/dev/main/prompt.md
 """
 
-
+import logging
+import stomp
+import time
 from datetime import datetime
 from swf_common_lib.base_agent import BaseAgent
 
@@ -90,6 +92,87 @@ class FastProcessingResultAgent(BaseAgent):
 
         self.logger.info(f"Handled slice_result: run={message_data.get('run_id')}, msg={message_data.get('msg_type')}",
                          extra=self._log_extra(run_id=message_data.get('run_id')))
+
+    def run(self):
+        """
+        Connects to the message broker and runs the agent's main loop.
+        """
+        logging.info(f"Starting {self.agent_name}...")
+
+        # Connect if not already connected (some subclasses connect in __init__)
+        if not getattr(self, 'mq_connected', False):
+            max_retries = 3
+            retry_delay = 5
+            for attempt in range(1, max_retries + 1):
+                logging.info(f"Connecting to ActiveMQ at {self.mq_host}:{self.mq_port} (attempt {attempt}/{max_retries})")
+                try:
+                    self.conn.connect(
+                        self.mq_user,
+                        self.mq_password,
+                        wait=True,
+                        version='1.1',
+                        headers={
+                            'client-id': self.agent_name,
+                            'heart-beat': '30000,30000'
+                        }
+                    )
+                    self.mq_connected = True
+                    break
+                except Exception as e:
+                    logging.warning(f"Connection attempt {attempt} failed: {e}")
+                    if attempt < max_retries:
+                        logging.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        logging.error(f"Failed to connect after {max_retries} attempts")
+                        raise
+
+        try:
+            self.conn.subscribe(destination=self.subscription_queue, id=1, ack='auto')
+            logging.info(f"Subscribed to queue: '{self.subscription_queue}'")
+
+            # Register as subscriber in monitor
+            self.register_subscriber()
+
+            # Agent is now ready and waiting for work
+            self.set_ready()
+
+            # Initial registration/heartbeat
+            # self.send_heartbeat()
+
+            logging.info(f"{self.agent_name} is running. Press Ctrl+C to stop.")
+            while True:
+                time.sleep(60) # Keep the main thread alive, heartbeats can be added here
+                
+                # Check connection status and attempt reconnection if needed
+                if not self.mq_connected:
+                    self._attempt_reconnect()
+                    
+                #self.send_heartbeat()
+
+        except KeyboardInterrupt:
+            logging.info(f"Stopping {self.agent_name}...")
+        except stomp.exception.ConnectFailedException as e:
+            self.mq_connected = False
+            logging.error(f"Failed to connect to ActiveMQ: {e}")
+            logging.error("Please check the connection details and ensure ActiveMQ is running.")
+        except Exception as e:
+            self.mq_connected = False
+            logging.error(f"An unexpected error occurred: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # Report exit status before disconnecting
+            try:
+                self.operational_state = 'EXITED'
+                self.report_agent_status("EXITED", "Agent shutdown")
+            except Exception as e:
+                logging.warning(f"Failed to report exit status: {e}")
+
+            if self.conn and self.conn.is_connected():
+                self.conn.disconnect()
+                self.mq_connected = False
+                logging.info("Disconnected from ActiveMQ.")
 
 
 if __name__ == "__main__":
