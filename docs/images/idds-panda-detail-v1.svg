@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 650" font-family="Arial, sans-serif" font-size="12">
+  <!-- Background -->
+  <rect width="700" height="650" fill="white"/>
+
+  <!-- Styles -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2e7d32"/>
+    </marker>
+    <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1565c0"/>
+    </marker>
+    <marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6a1b9a"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="350" y="30" text-anchor="middle" font-weight="bold" font-size="16">iDDS/PanDA/Harvester Detail</text>
+  <text x="350" y="50" text-anchor="middle" font-size="11" fill="#666">Fast Processing Workflow Management</text>
+
+  <!-- === TOP: Fast Processing Agent sending control messages === -->
+  <rect x="250" y="70" width="200" height="45" rx="5" fill="#c8e6c9" stroke="#388e3c" stroke-width="2"/>
+  <text x="350" y="93" text-anchor="middle" font-weight="bold">Fast Processing Agent</text>
+  <text x="350" y="107" text-anchor="middle" font-size="10" fill="#666">Enriches run messages</text>
+
+  <!-- Control messages arrow to iDDS -->
+  <line x1="350" y1="115" x2="350" y2="155" stroke="#2e7d32" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+  <text x="430" y="132" font-size="10" fill="#2e7d32">/topic/panda.workers</text>
+  <text x="430" y="145" font-size="9" fill="#2e7d32">run_imminent + target_worker_count</text>
+
+  <!-- === iDDS: Central Workflow Manager === -->
+  <rect x="250" y="160" width="200" height="55" rx="5" fill="#c8e6c9" stroke="#2e7d32" stroke-width="2"/>
+  <text x="350" y="185" text-anchor="middle" font-weight="bold" font-size="14">iDDS</text>
+  <text x="350" y="202" text-anchor="middle" font-size="10" fill="#666">Intelligent Data Delivery Service</text>
+
+  <!-- Two branches from iDDS -->
+  <!-- Left branch to Harvester -->
+  <path d="M 290 215 L 180 270" stroke="#1565c0" stroke-width="2" fill="none" marker-end="url(#arrowhead-blue)"/>
+
+  <!-- Right branch to PanDA -->
+  <path d="M 410 215 L 520 270" stroke="#6a1b9a" stroke-width="2" fill="none" marker-end="url(#arrowhead-purple)"/>
+
+  <!-- === LEFT BRANCH: Harvester === -->
+  <rect x="80" y="275" width="200" height="55" rx="5" fill="#bbdefb" stroke="#1565c0" stroke-width="2"/>
+  <text x="180" y="300" text-anchor="middle" font-weight="bold" font-size="14">Harvester</text>
+  <text x="180" y="317" text-anchor="middle" font-size="10" fill="#666">Resource Provisioning</text>
+
+  <!-- Arrow from Harvester to Pilots -->
+  <line x1="180" y1="330" x2="180" y2="380" stroke="#1565c0" stroke-width="2" marker-end="url(#arrowhead-blue)"/>
+  <text x="215" y="360" font-size="10" fill="#1565c0">launches pilots</text>
+
+  <!-- === RIGHT BRANCH: PanDA === -->
+  <rect x="420" y="275" width="200" height="55" rx="5" fill="#e1bee7" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="520" y="300" text-anchor="middle" font-weight="bold" font-size="14">PanDA</text>
+  <text x="520" y="317" text-anchor="middle" font-size="10" fill="#666">Workload Management</text>
+
+  <!-- Arrow from PanDA to Jobs -->
+  <line x1="520" y1="330" x2="520" y2="380" stroke="#6a1b9a" stroke-width="2" marker-end="url(#arrowhead-purple)"/>
+  <text x="420" y="352" font-size="9" fill="#6a1b9a">instructs workers</text>
+  <text x="420" y="364" font-size="9" fill="#6a1b9a">to exit on run end</text>
+  <text x="535" y="352" font-size="9" fill="#6a1b9a">creates (semi)</text>
+  <text x="535" y="364" font-size="9" fill="#6a1b9a">persistent worker jobs</text>
+
+  <!-- === PILOTS (container boxes) === -->
+  <rect x="50" y="385" width="260" height="120" rx="5" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>
+  <text x="180" y="408" text-anchor="middle" font-weight="bold">Pilots</text>
+  <text x="180" y="422" text-anchor="middle" font-size="9" fill="#666">Execution environments on compute nodes</text>
+
+  <!-- Individual pilot boxes -->
+  <rect x="65" y="435" width="70" height="55" rx="3" fill="#fff" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="100" y="455" text-anchor="middle" font-size="10" font-weight="bold">Pilot 1</text>
+  <text x="100" y="480" text-anchor="middle" font-size="9" fill="#666">Node A</text>
+
+  <rect x="145" y="435" width="70" height="55" rx="3" fill="#fff" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="180" y="455" text-anchor="middle" font-size="10" font-weight="bold">Pilot 2</text>
+  <text x="180" y="480" text-anchor="middle" font-size="9" fill="#666">Node B</text>
+
+  <rect x="225" y="435" width="70" height="55" rx="3" fill="#fff" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="260" y="455" text-anchor="middle" font-size="10" font-weight="bold">Pilot N</text>
+  <text x="260" y="480" text-anchor="middle" font-size="9" fill="#666">Node N</text>
+
+  <!-- === JOBS (work units) === -->
+  <rect x="390" y="385" width="260" height="120" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="520" y="408" text-anchor="middle" font-weight="bold">Worker Jobs</text>
+  <text x="520" y="422" text-anchor="middle" font-size="9" fill="#666">TF slice processing tasks</text>
+
+  <!-- Individual job boxes -->
+  <rect x="405" y="435" width="70" height="55" rx="3" fill="#fff" stroke="#6a1b9a" stroke-width="1.5"/>
+  <text x="440" y="455" text-anchor="middle" font-size="10" font-weight="bold">Job 1</text>
+  <text x="440" y="470" text-anchor="middle" font-size="8" fill="#666">slice 1-5</text>
+  <text x="440" y="482" text-anchor="middle" font-size="8" fill="#666">EICrecon</text>
+
+  <rect x="485" y="435" width="70" height="55" rx="3" fill="#fff" stroke="#6a1b9a" stroke-width="1.5"/>
+  <text x="520" y="455" text-anchor="middle" font-size="10" font-weight="bold">Job 2</text>
+  <text x="520" y="470" text-anchor="middle" font-size="8" fill="#666">slice 6-10</text>
+  <text x="520" y="482" text-anchor="middle" font-size="8" fill="#666">EICrecon</text>
+
+  <rect x="565" y="435" width="70" height="55" rx="3" fill="#fff" stroke="#6a1b9a" stroke-width="1.5"/>
+  <text x="600" y="455" text-anchor="middle" font-size="10" font-weight="bold">Job M</text>
+  <text x="600" y="470" text-anchor="middle" font-size="8" fill="#666">slice ...</text>
+  <text x="600" y="482" text-anchor="middle" font-size="8" fill="#666">EICrecon</text>
+
+  <!-- Annotation for job-pilot relationship -->
+  <text x="350" y="530" text-anchor="middle" font-size="11" fill="#333" font-style="italic">Jobs execute inside Pilots</text>
+
+  <!-- === BOTTOM: PanDA Workers (combined result) === -->
+  <rect x="175" y="555" width="350" height="70" rx="5" fill="#ede7f6" stroke="#512da8" stroke-width="2"/>
+  <text x="350" y="580" text-anchor="middle" font-weight="bold" font-size="14">PanDA Workers</text>
+  <text x="350" y="598" text-anchor="middle" font-size="10" fill="#666">Jobs running inside Pilots = Active Workers</text>
+  <text x="350" y="612" text-anchor="middle" font-size="9" fill="#888">Processing TF slices with EICrecon</text>
+
+  <!-- Arrows from Pilots and Jobs to Workers -->
+  <line x1="180" y1="505" x2="260" y2="555" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="520" y1="505" x2="440" y2="555" stroke="#333" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- === WORKER LIFECYCLE: Feedback loop to iDDS === -->
+  <!-- Clean arrow on left side from Workers back up to iDDS -->
+  <path d="M 175 590 L 30 590 L 30 190 L 250 190" stroke="#2e7d32" stroke-width="2" fill="none" marker-end="url(#arrowhead-green)"/>
+  <text x="18" y="400" font-size="10" fill="#2e7d32" transform="rotate(-90, 18, 400)">replenish spent workers</text>
+
+  <!-- Legend -->
+  <rect x="530" y="70" width="150" height="110" rx="5" fill="#fafafa" stroke="#ccc" stroke-width="1"/>
+  <text x="605" y="90" text-anchor="middle" font-weight="bold" font-size="11">Legend</text>
+
+  <line x1="545" y1="108" x2="575" y2="108" stroke="#2e7d32" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+  <text x="585" y="112" font-size="9">Control flow</text>
+
+  <line x1="545" y1="128" x2="575" y2="128" stroke="#1565c0" stroke-width="2" marker-end="url(#arrowhead-blue)"/>
+  <text x="585" y="132" font-size="9">Harvester</text>
+
+  <line x1="545" y1="148" x2="575" y2="148" stroke="#6a1b9a" stroke-width="2" marker-end="url(#arrowhead-purple)"/>
+  <text x="585" y="152" font-size="9">PanDA</text>
+
+  <rect x="545" y="162" width="12" height="10" fill="#ede7f6" stroke="#512da8"/>
+  <text x="565" y="171" font-size="9">Workers</text>
+
+</svg>
