@@ -1,11 +1,9 @@
 """
-Fast Processing Agent: Handles STF sampling and TF slice creation for fast monitoring.
+Fast Processing Result Agent: Handles TF slice results for fast monitoring.
 
 This agent:
-1. Receives workflow messages from the broadcast topic (epictopic)
-2. On stf_gen: samples STFs, creates TF slices, pushes to worker queue
-3. Maintains RunState and TFSlice records in the monitor database
-4. Workers (PanDA transformers) consume slices from /queue/panda.transformer.slices
+1. Receives slice_result messages from /queue/panda.results.fastprocessing from PanDA workers
+2. bookkeeping the results
 
 Message format specification: https://github.com/wguanicedew/iDDS/blob/dev/main/prompt.md
 """
@@ -60,7 +58,7 @@ class FastProcessingResultAgent(BaseAgent):
         result = content.get('result') if isinstance(content, dict) else None
 
         self.logger.debug(f"Processing slice_result: {message_data}")
-        
+
         # Log an event to system-state-events for observability
         try:
             event = {
