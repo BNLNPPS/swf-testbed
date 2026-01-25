@@ -43,6 +43,7 @@ This replaces the need to call multiple tools to understand testbed readiness.
 ### MCP Improvements
 
 - **SWF_TESTBED_CONFIG support**: MCP tools respect the per-user config override
+- **start_user_testbed safety check**: Refuses to start if workflow agents are already running - user must call stop_user_testbed first to ensure clean state
 - **Log filtering fixes**: Multiple fixes to username extraction in log list views - now correctly filters by the username segment in agent instance names
 - **Heartbeat API fix**: The heartbeat endpoint now properly updates operational_state, pid, and hostname fields
 - **monitor_urls in responses**: MCP tool responses include links to relevant monitor UI pages

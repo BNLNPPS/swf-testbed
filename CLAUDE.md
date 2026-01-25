@@ -91,14 +91,14 @@ cd /data/wenauseic/github/swf-testbed && source ~/.env
 **This includes:** python, pip, pytest, any example_agents scripts, or swf-testbed commands
 
 ### Branch Synchronization Rule
-**All 3 repos must be on the same branch.** Currently: `infra/baseline-v29` (shorthand: v29)
+**All 3 repos must be on the same branch.** Currently: `infra/baseline-v30` (shorthand: v30)
 
 ### Monitor Deployment Rule
 **COMMIT BEFORE DEPLOY:** The deploy script pulls from git, not local files.
 ```bash
 # After Django changes in swf-monitor:
 git add . && git commit -m "description" && git push
-sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v29
+sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v30
 ```
 
 ### No Silent Failures Rule
