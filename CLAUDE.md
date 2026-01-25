@@ -36,6 +36,7 @@ sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/
 ```
 
 **Git conventions:**
+- Push immediately after commit
 - Always `git push -u origin branch-name` on first push (sets up tracking)
 - Never delete branches after PR merge
 - Never push directly to main
@@ -54,6 +55,14 @@ sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/
 **MCP query limits:** Always filter queries. Unbounded `list_agents(status='all')` or `list_logs()` can exceed context limits.
 
 **No deletions without explicit request:** Never rm, DROP TABLE, or delete files/data unless user explicitly asks.
+
+**Minimal scope:** Do only what is asked. No unrequested refactoring, no "improvements," no scope expansion.
+
+**Code style:** No comments noting removed code. No pointless comments.
+
+**MCP tool changes:** Update docs/MCP.md and tool docstrings/instructions when modifying MCP tools.
+
+**Conserve context:** Use subagents (Task tool) for codebase exploration, multi-file searches, research. Keep main thread for user interaction, decisions, edits, commits.
 
 ## Multi-Repository Structure
 
