@@ -1,11 +1,4 @@
-# Bootstrap Guide for Claude
-
-**Date:** 2026-01-13
-**Branch:** infra/baseline-v28 (all 3 repos)
-
-## Project
-
-ePIC Streaming Workflow Testbed. Agent-based system with ActiveMQ messaging.
+# Bootstrap Guide for LLMs
 
 **Attention AIs:** This is not a chronicle of completed work. This is quick essential background to current status and next steps.
 Be concise and to the point. When something is done and isn't essential background for next steps, remove it.
@@ -17,31 +10,34 @@ Be concise and to the point. When something is done and isn't essential backgrou
 
 **Host:** pandaserver02.sdcc.bnl.gov
 
-## Critical Rules
-
-- **COMMIT BEFORE DEPLOY** - Deploy pulls from git repo, not local files. Always commit and push changes before running deploy script.
-- Activate venv before any python
-- All 3 repos on same branch (currently v28, shorthand for infra/baseline-v28)
-- Redeploy swf-monitor after Django changes: `sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v28`
-
-## Commands
-
-See [docs/quick-start.md](docs/quick-start.md) for run commands.
-
 ## Current Status
 
-### MCP start_workflow() defaults
+**Preparing slides for talk.** Four main topics:
+1. Fast processing workflow
+2. Agent management
+3. MCP integration
+4. Multi-user support
 
-`start_workflow()` now reads defaults from `workflows/testbed.toml`:
-- `[testbed].namespace` - default namespace
-- `[workflow].name/config/realtime` - workflow defaults
-- `[parameters]` section - passes through ALL params without hardcoding
+**SVG Diagrams created in docs/images/:**
+- `agent-management-overview-v*.svg` - Agent management with CLI/MCP/Claude relationships
+- `multi-user-isolation-v*.svg` - Multi-user testbed with namespaces (wenauseic with torre1/torre2, zyang2)
+- `architecture-panda-idds-v*.svg` - Overall architecture with PanDA/iDDS integration
 
-Call `start_workflow()` with no args to use configured defaults.
+## Next Steps
 
-### User Agent Manager
+2. **Create second detailed iDDS/PanDA diagram** 
 
-Per-user daemon: `testbed agent-manager`
-- Listens on `/queue/agent_control.<username>`
-- Fixed: SSL support, API auth (like BaseAgent)
-- MCP tools: check_agent_manager, start_user_testbed, stop_user_testbed
+Human instruction for latest diagram updates:
+
+We need to flesh out how the PanDA workload manager and the iDDS higher level workflow manager fit into the fast processing pipeline. 
+- add an iDDS green box at 8 o'clock relative to DAQ Simulator
+- it receives run imminent, run stop (ok the diagran doesn't cite the messages generally, but put them in here, this is a control channel complementing the data flow channel)
+- two branches below iDDS:
+one to Harvester which launches Pilots
+one to PanDA which creates worker jobs
+- the workers in the present diagram are the union of the two: jobs running inside pilots, so if you have the pilot and job boxes immediately to the left of the panda workers, you can have an arrow from mthem to panda workers
+- this may be too complex for this present diagram, better have it in a second.
+- in this diagram, just have iDDS flow to a PanDA box and that flows to point to the workers box.
+Have a go at this update to the present diagram, and a second diagram that has more detail, the distinction between pilots launched by harvester and jobs created by panda, both under the direction of iDDS. Always use Harvester and PanDA in the diagrams.
+
+The update of existing fast processing pipeline diagram is done. Create the second diagram.

@@ -1,5 +1,67 @@
 # Release Notes
 
+## v29 (2026-01-25)
+
+### Per-User Configuration Override (SWF_TESTBED_CONFIG)
+
+A new environment variable `SWF_TESTBED_CONFIG` enables per-user configuration overrides across all core repositories. This allows multiple users to run their own testbed instances with different configurations on the same system.
+
+**Usage:**
+```bash
+export SWF_TESTBED_CONFIG=/path/to/my-testbed.toml
+testbed run  # Uses your custom config instead of workflows/testbed.toml
+```
+
+This is supported in swf-testbed, swf-monitor (MCP tools), and swf-common-lib (BaseAgent).
+
+### Agent Manager Enhancements
+
+The user agent manager daemon introduced in v28 has been significantly improved:
+
+- **Config-driven namespace and agent selection**: The agent manager now reads namespace and agent configuration from testbed.toml, enabling different users to run different agent sets
+- **REST logging**: Agent manager logs are now sent to swf-monitor for centralized viewing via `list_logs()`
+- **Restart command**: New `restart` command for reloading configuration without full stop/start cycle
+- **Immediate heartbeat**: Agent manager sends heartbeat immediately on startup, not after the first interval
+- **Clean disconnect**: Proper cleanup on restart prevents stale connection state
+- **Venv path handling**: Improved virtual environment path resolution
+
+### New MCP Tool: get_testbed_status
+
+A comprehensive status tool that combines agent manager, namespace, and workflow agent information in a single call.
+
+```python
+get_testbed_status(username='wenauseic')
+```
+
+Returns:
+- Agent manager status (alive, namespace, control queue)
+- Summary of running/stopped agents
+- List of all workflow agents with current state
+
+This replaces the need to call multiple tools to understand testbed readiness.
+
+### MCP Improvements
+
+- **SWF_TESTBED_CONFIG support**: MCP tools respect the per-user config override
+- **Log filtering fixes**: Multiple fixes to username extraction in log list views - now correctly filters by the username segment in agent instance names
+- **Heartbeat API fix**: The heartbeat endpoint now properly updates operational_state, pid, and hostname fields
+- **monitor_urls in responses**: MCP tool responses include links to relevant monitor UI pages
+
+### Documentation
+
+New architectural documentation with SVG diagrams:
+- **docs/agent-management.md**: Agent lifecycle, supervisord integration, agent manager architecture
+- **docs/fast-processing-workflow.md**: Fast processing pipeline, TF slice workflow, worker coordination
+- **5 SVG diagrams**: Visual architecture diagrams for agent management and fast processing
+
+Updated MCP documentation with Claude Code settings examples and query best practices.
+
+### Signal Handlers (swf-common-lib)
+
+BaseAgent now includes signal handlers for SIGTERM and SIGINT, enabling cleaner shutdown behavior when agents are terminated by supervisord or manually.
+
+---
+
 ## v28 (2026-01-13)
 
 ### ActiveMQ Destination Prefix Requirement (Breaking Change)

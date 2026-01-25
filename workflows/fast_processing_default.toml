@@ -1,8 +1,46 @@
+# Fast Processing Workflow Configuration
+#
+# Pipeline (messages and data products):
+#   DAQ Simulator [stf_gen] -> Data Agent [stf_ready] -> STFs
+#   -> FastMon Agent [tf_file_registered] -> STF samples
+#   -> Fast Processing Agent [slice] -> TF slices -> PanDA Workers
+#
+# Usage: testbed run fast_processing_default
+
+[testbed]
+namespace = "torre2"
+
 [workflow]
-name = "stf_datataking"
+name = "fast_processing"
 version = "1.0"
-description = "STF datataking workflow for fast processing"
+description = "Fast processing of TF slices by PanDA/iDDS"
 includes = ["daq_state_machine.toml"]
+
+# =============================================================================
+# Agent Configuration
+# =============================================================================
+# Fast processing requires: data agent, fastmon agent, fast_processing agent
+# DAQ simulator runs as the workflow runner (always present)
+
+[agents.data]
+enabled = true
+script = "example_agents/example_data_agent.py"
+
+[agents.processing]
+enabled = false
+script = "example_agents/example_processing_agent.py"
+
+[agents.fastmon]
+enabled = true
+script = "example_agents/example_fastmon_agent.py"
+
+[agents.fast_processing]
+enabled = true
+script = "example_agents/fast_processing_agent.py"
+
+# =============================================================================
+# Fast Processing Parameters
+# =============================================================================
 
 [fast_processing]
 # Count-based STF generation

@@ -62,27 +62,46 @@ def load_config(config_name: str = None) -> dict:
     return config
 
 
-def ensure_supervisord_running() -> bool:
-    """Start agents supervisord if not already running."""
+def restart_supervisord() -> bool:
+    """Restart supervisord to pick up current environment and config.
+
+    Always restarts to ensure fresh env vars (like SWF_TESTBED_CONFIG) are available.
+    Called after verifying no agents are running.
+    """
     testbed_dir = Path(__file__).parent.parent
+    conf_path = str(testbed_dir / AGENTS_CONF)
 
     # Check if supervisord is running
     result = subprocess.run(
-        ['supervisorctl', '-c', str(testbed_dir / AGENTS_CONF), 'status'],
+        ['supervisorctl', '-c', conf_path, 'status'],
         capture_output=True,
         text=True,
         cwd=testbed_dir
     )
 
-    if result.returncode == 4:  # Can't connect
-        print(f"Starting agents supervisord...")
+    if result.returncode != 4:  # Connected - shutdown first
+        print("Restarting supervisord to pick up current environment...")
         subprocess.run(
-            ['supervisord', '-c', str(testbed_dir / AGENTS_CONF)],
+            ['supervisorctl', '-c', conf_path, 'shutdown'],
+            capture_output=True,
             cwd=testbed_dir
         )
         time.sleep(1)
-        return True
 
+    # Start fresh
+    print("Starting supervisord...")
+    start_result = subprocess.run(
+        ['supervisord', '-c', conf_path],
+        capture_output=True,
+        text=True,
+        cwd=testbed_dir
+    )
+
+    if start_result.returncode != 0:
+        print(f"Error starting supervisord: {start_result.stderr}")
+        return False
+
+    time.sleep(1)
     return True
 
 
@@ -145,6 +164,50 @@ def verify_agent_pid(agent_name: str) -> bool:
     return 'RUNNING' in result.stdout
 
 
+def get_running_agents() -> list:
+    """Get list of currently running agent program names."""
+    testbed_dir = Path(__file__).parent.parent
+
+    result = subprocess.run(
+        ['supervisorctl', '-c', str(testbed_dir / AGENTS_CONF), 'status'],
+        capture_output=True,
+        text=True,
+        cwd=testbed_dir
+    )
+
+    if result.returncode == 4:  # Can't connect - supervisord not running
+        return []
+
+    running = []
+    for line in result.stdout.strip().split('\n'):
+        if 'RUNNING' in line:
+            # Line format: "program-name   RUNNING   pid 12345, uptime 0:00:05"
+            program_name = line.split()[0]
+            running.append(program_name)
+
+    return running
+
+
+def reread_supervisord_config() -> bool:
+    """Reread supervisord config to pick up changes."""
+    testbed_dir = Path(__file__).parent.parent
+
+    result = subprocess.run(
+        ['supervisorctl', '-c', str(testbed_dir / AGENTS_CONF), 'reread'],
+        capture_output=True,
+        text=True,
+        cwd=testbed_dir
+    )
+
+    if result.returncode == 0:
+        if result.stdout.strip():
+            print(f"Config changes detected: {result.stdout.strip()}")
+        return True
+    else:
+        print(f"Warning: Config reread failed: {result.stderr.strip()}")
+        return False
+
+
 def start_workflow_runner() -> bool:
     """Start the workflow runner agent."""
     testbed_dir = Path(__file__).parent.parent
@@ -185,7 +248,11 @@ def send_run_workflow(config: dict) -> bool:
     # Get parameter overrides
     params = config.get('parameters', {})
 
-    sender = CommandSender(config_path=str(Path(__file__).parent / 'testbed.toml'))
+    # Get namespace from the loaded config (not from hardcoded testbed.toml)
+    namespace = config.get('testbed', {}).get('namespace')
+
+    sender = CommandSender()
+    sender.namespace = namespace  # Override with correct namespace
     sender.connect()
 
     try:
@@ -203,6 +270,9 @@ def send_run_workflow(config: dict) -> bool:
 def run(config_name: str = None) -> bool:
     """
     Start agents and trigger workflow.
+
+    Refuses to start if agents are already running. User must run
+    'testbed stop-local' first to ensure clean slate.
 
     Args:
         config_name: Name of config file, or None for testbed.toml
@@ -224,8 +294,18 @@ def run(config_name: str = None) -> bool:
 
     print(f"Namespace: {namespace}")
 
-    # Ensure supervisord is running
-    ensure_supervisord_running()
+    # Check if any agents are already running - refuse if so
+    # Do this BEFORE restarting supervisord
+    running_agents = get_running_agents()
+    if running_agents:
+        print(f"Error: Cannot start - agents already running: {running_agents}")
+        print("Run 'testbed stop-agents' first to stop existing agents.")
+        return False
+
+    # Restart supervisord to pick up current env vars and config
+    if not restart_supervisord():
+        print("Error: Failed to start supervisord")
+        return False
 
     # Start workflow runner first
     print("Starting workflow runner...")

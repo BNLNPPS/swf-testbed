@@ -1,16 +1,17 @@
 """
-Fast Processing Agent: Handles STF sampling and TF slice creation for fast monitoring.
+Fast Processing Agent: Creates TF slices from STF samples for PanDA workers.
 
 This agent:
-1. Receives workflow messages from the broadcast topic (epictopic)
-2. On stf_gen: samples STFs, creates TF slices, pushes to worker queue
-3. Maintains RunState and TFSlice records in the monitor database
-4. Workers (PanDA transformers) consume slices from /queue/panda.transformer.slices
+1. Receives tf_file_registered messages from FastMon Agent (via epictopic)
+2. Creates TF slices from STF samples
+3. Pushes TF slices to PanDA transformer queue (/queue/panda.transformer.slices)
+4. Maintains RunState and TFSlice records in the monitor database
+
+Pipeline: FastMon Agent [tf_file_registered] -> Fast Processing Agent [TF slices] -> PanDA Workers
 
 Message format specification: https://github.com/wguanicedew/iDDS/blob/dev/main/prompt.md
 """
 
-import random
 import uuid
 from datetime import datetime
 from swf_common_lib.base_agent import BaseAgent
@@ -20,8 +21,8 @@ class FastProcessingAgent(BaseAgent):
     """
     Fast Processing Agent for TF slice creation and distribution.
 
-    Subscribes to epictopic broadcast, samples STF files per workflow config,
-    creates TF slices, and pushes them to the transformer queue.
+    Subscribes to epictopic, receives tf_file_registered from FastMon,
+    creates TF slices, and pushes them to the PanDA transformer queue.
     """
 
     # Queue for transformer workers (from Wen's iDDS design)
@@ -38,14 +39,13 @@ class FastProcessingAgent(BaseAgent):
         # Workflow parameters (populated on run_imminent)
         self.workflow_params = {}
 
-        # Sampling state
-        self.stf_count = 0
+        # Processing state
+        self.tf_files_received = 0
         self.slices_created = 0
 
         # Statistics
         self.stats = {
-            'stf_received': 0,
-            'stf_sampled': 0,
+            'tf_files_received': 0,
             'slices_created': 0,
             'slices_sent': 0
         }
@@ -64,8 +64,8 @@ class FastProcessingAgent(BaseAgent):
                 self.handle_run_imminent(message_data)
             elif msg_type == 'start_run':
                 self.handle_start_run(message_data)
-            elif msg_type == 'stf_gen':
-                self.handle_stf_gen(message_data)
+            elif msg_type == 'tf_file_registered':
+                self.handle_tf_file_registered(message_data)
             elif msg_type == 'pause_run':
                 self.handle_pause_run(message_data)
             elif msg_type == 'resume_run':
@@ -92,11 +92,10 @@ class FastProcessingAgent(BaseAgent):
         if run_id and run_id != self.current_run_id:
             self.current_run_id = run_id
             # Reset stats for new run
-            self.stf_count = 0
+            self.tf_files_received = 0
             self.slices_created = 0
             self.stats = {
-                'stf_received': 0,
-                'stf_sampled': 0,
+                'tf_files_received': 0,
                 'slices_created': 0,
                 'slices_sent': 0
             }
@@ -137,34 +136,24 @@ class FastProcessingAgent(BaseAgent):
             'execution_id': self.current_execution_id
         })
 
-    def handle_stf_gen(self, message_data):
+    def handle_tf_file_registered(self, message_data):
         """
-        Handle stf_gen: Sample STF, create TF slices, push to worker queue.
+        Handle tf_file_registered from FastMon: Create TF slices, push to worker queue.
         """
-        stf_filename = message_data.get('filename')
-        sequence = message_data.get('sequence', 0)
+        tf_filename = message_data.get('tf_filename')
+        stf_filename = message_data.get('stf_filename')
 
-        self.stats['stf_received'] += 1
-        self.stf_count += 1
+        self.stats['tf_files_received'] += 1
+        self.tf_files_received += 1
 
-        self.logger.info(f"STF generated: {stf_filename} (seq={sequence})",
-                        extra=self._log_extra(stf_filename=stf_filename, sequence=sequence))
+        self.logger.info(f"TF file registered: {tf_filename} (from STF: {stf_filename})",
+                        extra=self._log_extra(tf_filename=tf_filename, stf_filename=stf_filename))
 
-        # Get sampling rate from workflow params (via fast_processing section)
+        # Get slices_per_sample from workflow params
         fast_processing = self.workflow_params.get('fast_processing', {})
-        sampling_rate = fast_processing.get('stf_sampling_rate', 1.0)
-
-        # Sampling decision
-        if random.random() > sampling_rate:
-            self.logger.debug(f"STF {stf_filename} not sampled (rate={sampling_rate})")
-            return
-
-        self.stats['stf_sampled'] += 1
-        self.logger.info(f"STF {stf_filename} SAMPLED for fast processing",
-                        extra=self._log_extra(stf_filename=stf_filename))
-
-        # Create TF slices
         slices_per_sample = fast_processing.get('slices_per_sample', 15)
+
+        # Create TF slices from this STF sample
         slices = self._create_tf_slices(stf_filename, slices_per_sample)
 
         # Push each slice to transformer queue
@@ -175,7 +164,8 @@ class FastProcessingAgent(BaseAgent):
         self._update_run_state_slices(len(slices))
 
         # Log event
-        self._log_system_event('stf_sampled', {
+        self._log_system_event('tf_file_processed', {
+            'tf_filename': tf_filename,
             'stf_filename': stf_filename,
             'slices_created': len(slices)
         })
@@ -208,9 +198,10 @@ class FastProcessingAgent(BaseAgent):
 
         self.logger.info(
             f"Run ended: run_id={self.current_run_id}, "
-            f"total_stf={total_stf}, sampled={self.stats['stf_sampled']}, "
+            f"tf_files_received={self.stats['tf_files_received']}, "
             f"slices_created={self.stats['slices_created']}",
-            extra=self._log_extra(total_stf=total_stf, sampled=self.stats['stf_sampled'],
+            extra=self._log_extra(total_stf=total_stf,
+                                 tf_files_received=self.stats['tf_files_received'],
                                  slices_created=self.stats['slices_created'])
         )
 
@@ -218,8 +209,7 @@ class FastProcessingAgent(BaseAgent):
 
         self._log_system_event('end_run', {
             'execution_id': self.current_execution_id,
-            'total_stf_received': self.stats['stf_received'],
-            'total_stf_sampled': self.stats['stf_sampled'],
+            'total_tf_files_received': self.stats['tf_files_received'],
             'total_slices_created': self.stats['slices_created'],
             'total_slices_sent': self.stats['slices_sent']
         })
@@ -432,8 +422,8 @@ if __name__ == "__main__":
         description="Fast Processing Agent - samples STFs and creates TF slices"
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument("--testbed-config", default=str(script_dir / "testbed.toml"),
-                        help="Testbed config file (default: testbed.toml)")
+    parser.add_argument("--testbed-config", default=None,
+                        help="Testbed config file (default: SWF_TESTBED_CONFIG env var or workflows/testbed.toml)")
     args = parser.parse_args()
 
     agent = FastProcessingAgent(debug=args.debug, config_path=args.testbed_config)
