@@ -311,6 +311,45 @@ def agent_manager():
     manager.run()
 
 
+AGENTS_CONF = 'agents.supervisord.conf'
+
+
+@app.command("stop-agents")
+def stop_agents():
+    """
+    Stop all workflow agents.
+
+    Stops agents started by 'testbed run'. Use this before restarting
+    with a different configuration.
+    """
+    _setup_environment()
+
+    testbed_root = Path(__file__).parent.parent.parent
+    conf_path = testbed_root / AGENTS_CONF
+
+    if not conf_path.exists():
+        print(f"Error: {AGENTS_CONF} not found. Run 'testbed init' first.")
+        raise typer.Exit(code=1)
+
+    # Stop all agents
+    print("Stopping workflow agents...")
+    result = subprocess.run(
+        ["supervisorctl", "-c", str(conf_path), "stop", "all"],
+        capture_output=True,
+        text=True,
+        cwd=testbed_root
+    )
+
+    if result.returncode == 4:
+        print("No agents running (supervisord not active)")
+    elif result.returncode != 0:
+        print(f"Error stopping agents: {result.stderr}")
+        raise typer.Exit(code=1)
+    else:
+        print(result.stdout)
+        print("Agents stopped.")
+
+
 @app.command()
 def run(
     config_name: str = typer.Argument(

@@ -172,22 +172,19 @@ def create_tf_message(tf_file: Dict[str, Any], stf_file: Dict[str, Any], agent_n
     """
     from datetime import datetime
     
-    # Extract run number from message data
-    run_number = stf_file.get('run_id')
-
     # namespace is also auto-injected by BaseAgent.send_message()
     message = {
         "msg_type": "tf_file_registered",
         "namespace": stf_file.get('namespace'),
+        "run_id": stf_file.get('run_id'),
+        "execution_id": stf_file.get('execution_id'),
         "processed_by": agent_name,
         "tf_file_id": tf_file.get('tf_file_id'),
         "tf_filename": tf_file.get('tf_filename'),
         "file_size_bytes": tf_file.get('file_size_bytes'),
-        "stf_filename": stf_file.get('stf_filename'),
-        "run_number": run_number,
+        "stf_filename": stf_file.get('stf_filename') or stf_file.get('filename'),
         "status": tf_file.get('status'),
         "timestamp": datetime.now().isoformat(),
-        "message": f"TF file {tf_file.get('tf_filename')} registered for fast monitoring"
     }
     
     return message

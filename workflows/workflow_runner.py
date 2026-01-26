@@ -217,8 +217,8 @@ class WorkflowRunner(BaseAgent):
 
         # Load testbed config overrides (all sections including [testbed] for namespace)
         self.testbed_overrides = {}
-        if config_path:
-            testbed_config_file = Path(config_path)
+        if self.config_path:
+            testbed_config_file = Path(self.config_path)
             if testbed_config_file.exists():
                 with open(testbed_config_file, 'rb') as f:
                     testbed_config = tomllib.load(f)
@@ -884,8 +884,8 @@ Examples:
         """
     )
 
-    parser.add_argument('--testbed-config', default=str(script_dir / 'testbed.toml'),
-                        help='Testbed config file (default: testbed.toml)')
+    parser.add_argument('--testbed-config', default=None,
+                        help='Testbed config file (default: SWF_TESTBED_CONFIG env var or workflows/testbed.toml)')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
 
     # Mode selection
