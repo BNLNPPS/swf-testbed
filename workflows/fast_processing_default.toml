@@ -8,7 +8,7 @@
 # Usage: testbed run fast_processing_default
 
 [testbed]
-namespace = "torre2"
+namespace = "wguan2"
 
 [workflow]
 name = "fast_processing"
