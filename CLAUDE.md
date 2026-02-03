@@ -60,7 +60,7 @@ sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/
 
 **Code style:** No comments noting removed code. No pointless comments.
 
-**MCP tool changes:** Update docs/MCP.md and tool docstrings/instructions when modifying MCP tools.
+**MCP tool changes:** When adding/modifying MCP tools, update: (1) `list_available_tools()` hardcoded list in mcp.py, (2) server instructions in settings.py, (3) docs/MCP.md.
 
 **Conserve context:** Use subagents (Task tool) for codebase exploration, multi-file searches, research. Keep main thread for user interaction, decisions, edits, commits.
 
