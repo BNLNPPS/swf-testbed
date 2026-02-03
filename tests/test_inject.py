@@ -57,7 +57,7 @@ class DatasetTestInjector:
         messages = [
             {"msg_type": "run_imminent", "run_id": run_id, "simulation_tick": 0},
             {"msg_type": "start_run", "run_id": run_id, "simulation_tick": 1},
-            {"msg_type": "data_ready", "run_id": run_id, "filename": f"{run_id}.stf",
+            {"msg_type": "stf_ready", "run_id": run_id, "filename": f"{run_id}.stf",
              "file_url": f"file:///tmp/{run_id}.stf", "checksum": "deadbeef",
              "size_bytes": 1024, "processed_by": "daqsim", "simulation_tick": 2},
             {"msg_type": "end_run", "run_id": run_id, "total_files": 1, "simulation_tick": 3}
@@ -84,7 +84,7 @@ class DatasetTestInjector:
         # Multiple data files with valid checksums
         for i in range(file_count):
             msg = {
-                "msg_type": "data_ready",
+                "msg_type": "stf_ready",
                 "run_id": run_id,
                 "filename": f"{run_id}-{i:03d}.stf",
                 "file_url": f"file:///tmp/{run_id}-{i:03d}.stf",
@@ -122,7 +122,7 @@ class DatasetTestInjector:
         print("Sending rapid-fire messages...")
         for i in range(file_count):
             msg = {
-                "msg_type": "data_ready",
+                "msg_type": "stf_ready",
                 "run_id": run_id,
                 "filename": f"{run_id}-rapid-{i:03d}.stf",
                 "file_url": f"file:///tmp/{run_id}-rapid-{i:03d}.stf",
@@ -158,17 +158,17 @@ class DatasetTestInjector:
         # Test cases with problematic data
         error_cases = [
             # Missing checksum
-            {"msg_type": "data_ready", "run_id": run_id, "filename": f"{run_id}-no-checksum.stf",
+            {"msg_type": "stf_ready", "run_id": run_id, "filename": f"{run_id}-no-checksum.stf",
              "file_url": f"file:///tmp/{run_id}-no-checksum.stf", "checksum": "",
              "size_bytes": 1024, "processed_by": "daqsim", "simulation_tick": 2},
              
             # Null size with valid checksum
-            {"msg_type": "data_ready", "run_id": run_id, "filename": f"{run_id}-null-size.stf",
+            {"msg_type": "stf_ready", "run_id": run_id, "filename": f"{run_id}-null-size.stf",
              "file_url": f"file:///tmp/{run_id}-null-size.stf", "checksum": "12345678",
              "size_bytes": None, "processed_by": "daqsim", "simulation_tick": 3},
              
             # Very large file with valid checksum
-            {"msg_type": "data_ready", "run_id": run_id, "filename": f"{run_id}-large.stf",
+            {"msg_type": "stf_ready", "run_id": run_id, "filename": f"{run_id}-large.stf",
              "file_url": f"file:///tmp/{run_id}-large.stf", "checksum": "abcdef12",
              "size_bytes": 1024*1024*1024, "processed_by": "daqsim", "simulation_tick": 4},
         ]

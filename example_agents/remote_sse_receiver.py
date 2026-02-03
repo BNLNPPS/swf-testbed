@@ -8,7 +8,7 @@ endpoint and logs received messages.
 
 Command-line filtering examples (based on remote_sse_sender.py messages):
   python remote_sse_receiver.py --message sse_test
-  python remote_sse_receiver.py --message data_ready,processing_complete  
+  python remote_sse_receiver.py --message stf_ready,processing_complete  
   python remote_sse_receiver.py --agent sse_sender-agent
   python remote_sse_receiver.py --message sse_test --agent sse_sender-agent
 """
@@ -251,7 +251,7 @@ Examples:
   python remote_sse_receiver.py                           # Receive all messages
   python remote_sse_receiver.py --message stf_gen         # Only STF generation messages
   python remote_sse_receiver.py --agent daq-simulator     # Only messages from daq-simulator
-  python remote_sse_receiver.py --message stf_gen,data_ready --agent daq-simulator
+  python remote_sse_receiver.py --message stf_gen,stf_ready --agent daq-simulator
 
 Environment variables:
   SWF_SSE_RECEIVER_NAME - Required: descriptive agent name
@@ -260,7 +260,7 @@ Environment variables:
         """)
     
     parser.add_argument('--message', '--msg-type', dest='msg_types',
-                        help='Filter by message type(s), comma-separated (e.g., stf_gen,data_ready)')
+                        help='Filter by message type(s), comma-separated (e.g., stf_gen,stf_ready)')
     parser.add_argument('--agent', dest='agents', 
                         help='Filter by agent name(s), comma-separated (e.g., daq-simulator,data-agent)')
     
