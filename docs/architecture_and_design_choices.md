@@ -38,3 +38,55 @@ contributors and for future architectural reviews.
   - **Manual Scripts:** Running agents in separate terminals is feasible for
       development but is not a robust or scalable solution for a deployed
       testbed.
+
+## ActiveMQ Connection and Messaging Patterns
+
+*Notes from Wen Guan (ActiveMQ/Artemis expert), January 2026.*
+
+### Separate vs Shared Connections
+
+- **The Choice:** Agents use separate connections for publishing and subscribing
+  rather than sharing a single connection for both.
+
+- **Rationale:** Shared connections add complexity and introduce failure coupling.
+  When a publisher sends messages with errors, the broker may send REMOTE_DISCONNECT
+  to terminate the connection, which would also kill the subscriber if they share
+  the same connection. Since we have no connection count limitations, separate
+  connections provide better isolation with minimal overhead.
+
+- **Current Implementation:** `BaseAgent` currently uses a single connection that
+  handles both send and receive. This works because stomp.py handles concurrent
+  operations, but if issues arise, splitting into separate connections is the
+  recommended fix.
+
+### Messaging Semantics: Topic vs Queue vs Durable Subscription
+
+| Pattern | Persistence | Consumers | Use Case |
+|---------|-------------|-----------|----------|
+| **Topic** | None - messages lost if subscriber offline | Broadcast to all subscribers | Real-time events, heartbeats |
+| **Queue** | Messages kept until consumed | One consumer per message | Work distribution, guaranteed delivery |
+| **Durable Subscription on Topic** | Creates per-subscriber queue from topic | One subscriber per durable subscription | Persistent broadcast (with caveats) |
+
+### Durable Subscription Warnings
+
+Durable subscriptions create an output queue from an input topic. Important caveats:
+
+1. **Exclusive access:** The output queue can only be used by one subscriber at a time.
+   Multiple subscribers will raise an "in use" error.
+
+2. **Must unsubscribe when done:** Unconsumed messages accumulate on disk. A topic
+   with high message volume can fill disk space quickly if durable subscriptions
+   are not properly cleaned up.
+
+3. **Why some systems disable this:** Managing durable subscriptions requires
+   responsible ownership and monitoring. Production systems often disable this
+   feature or require explicit approval with designated owners who can be
+   contacted when queues grow too large.
+
+### Destination Naming
+
+ActiveMQ Artemis requires explicit destination type prefixes:
+- Topics: `/topic/name` (e.g., `/topic/epictopic`)
+- Queues: `/queue/name` (e.g., `/queue/stf_processing`)
+
+Never use bare destination names like `epictopic` - always include the prefix.
