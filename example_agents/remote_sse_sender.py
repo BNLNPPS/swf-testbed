@@ -37,7 +37,7 @@ class RemoteSSESender(BaseAgent):
                 'data': 'This is a test message for SSE demonstration'
             },
             {
-                'msg_type': 'data_ready',
+                'msg_type': 'stf_ready',
                 'processed_by': self.agent_name, 
                 'run_id': 'test-run-001',
                 'filename': 'test_file_001.dat',
