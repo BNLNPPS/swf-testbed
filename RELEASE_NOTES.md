@@ -75,7 +75,7 @@ Use cases:
 
 ### Message Type Standardization
 
-Standardized on `stf_ready` message type across all agents. Previously some agents used `data_ready` inconsistently. Updated `WORKFLOW_MESSAGE_TYPES` in swf-common-lib and all example agents.
+Standardized on `stf_ready` message type across all agents. Previously some agents used `data_ready` inconsistently. Updated `WORKFLOW_MESSAGE_TYPES` in swf-common-lib and all example agents. Also added `tf_file_registered` to the canonical message types.
 
 ### Bug Fixes
 
@@ -88,6 +88,8 @@ Standardized on `stf_ready` message type across all agents. Previously some agen
 - Added pagination metadata documentation
 - Documented ActiveMQ connection patterns and messaging semantics
 - Noted that `.env` files are not deployed from git (must be configured on server)
+- **CLAUDE.md overhaul**: Streamlined per Anthropic best practices, added operational guidelines
+- **MCP tool change guidance**: When adding/modifying MCP tools, must update `swf_list_available_tools()` hardcoded list in mcp.py
 
 ---
 
