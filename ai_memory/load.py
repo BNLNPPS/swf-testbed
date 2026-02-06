@@ -21,6 +21,7 @@ import os
 import sys
 import getpass
 from pathlib import Path
+from typing import Optional
 
 
 def get_turns_setting() -> int:
@@ -31,7 +32,7 @@ def get_turns_setting() -> int:
         return 0
 
 
-def load_sysprompt(cwd: str) -> str | None:
+def load_sysprompt(cwd: str) -> Optional[str]:
     """Load SYSPROMPT.md from project root if it exists."""
     sysprompt_path = Path(cwd) / 'SYSPROMPT.md'
     if sysprompt_path.exists():

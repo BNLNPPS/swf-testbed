@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import getpass
+from typing import Optional
 
 
 def get_turns_setting() -> int:
@@ -67,7 +68,7 @@ def record_via_api(username: str, session_id: str, role: str, content: str,
         return False
 
 
-def extract_assistant_response(transcript_path: str) -> str | None:
+def extract_assistant_response(transcript_path: str) -> Optional[str]:
     """Extract the last assistant response from a Claude Code transcript."""
     if not transcript_path or not os.path.exists(transcript_path):
         return None
