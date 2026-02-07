@@ -35,8 +35,8 @@ scripts in this directory:
 
 ## Requirements
 
-- swf-monitor must be running (provides the MCP API)
-- `SWF_MONITOR_HTTP_URL` environment variable (default: http://localhost:8000/swf-monitor)
+- swf-monitor must be running (provides the REST API)
+- `SWF_MONITOR_HTTP_URL` environment variable (default: http://pandaserver02.sdcc.bnl.gov/swf-monitor)
 
 ## Privacy Notes
 
