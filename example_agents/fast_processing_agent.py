@@ -37,7 +37,7 @@ class FastProcessingAgent(BaseAgent):
     def __init__(self, debug=False, config_path=None):
         super().__init__(
             agent_type='Fast_Processing',
-            subscription_queue='/topic/epictopic',
+            subscription_queues=['/topic/epictopic', self.TRANSFORMER_RESULTS_QUEUE],
             debug=debug,
             config_path=config_path
         )
@@ -53,7 +53,10 @@ class FastProcessingAgent(BaseAgent):
         self.stats = {
             'tf_files_received': 0,
             'slices_created': 0,
-            'slices_sent': 0
+            'slices_sent': 0,
+            'results_received': 0,
+            'results_done': 0,
+            'results_failed': 0
         }
 
     def on_message(self, frame):
@@ -78,6 +81,8 @@ class FastProcessingAgent(BaseAgent):
                 self.handle_resume_run(message_data)
             elif msg_type == 'end_run':
                 self.handle_end_run(message_data)
+            elif msg_type == 'slice_result':
+                self.handle_slice_result(message_data)
             else:
                 self.logger.debug(f"Ignoring message type: {msg_type}")
         except Exception as e:
@@ -318,6 +323,48 @@ class FastProcessingAgent(BaseAgent):
         # Agent is now idle, waiting for next run
         self.set_ready()
 
+    def handle_slice_result(self, message_data):
+        """Process slice_result messages from transformer workers."""
+        self.stats['results_received'] += 1
+
+        content = message_data.get('content', {})
+        result = content.get('result') if isinstance(content, dict) else None
+
+        self.logger.info(
+            f"Slice result received: run={message_data.get('run_id')}, "
+            f"state={content.get('state') if isinstance(content, dict) else 'unknown'}",
+            extra=self._log_extra(run_id=message_data.get('run_id'))
+        )
+
+        # Track done/failed counts if result payload present
+        try:
+            inner_result = None
+            if result and isinstance(result, dict):
+                inner_result = result.get('result') if isinstance(result.get('result'), dict) else None
+
+            state = content.get('state') or (inner_result.get('state') if inner_result else None)
+            if state == 'done' or (inner_result and inner_result.get('processed')):
+                self.stats['results_done'] += 1
+            else:
+                self.stats['results_failed'] += 1
+        except Exception:
+            pass
+
+        # Update TFSlice record in database
+        self._update_tfslice_from_result(message_data, content, result)
+
+        # Log system event for observability
+        self._log_system_event('slice_result', {
+            'message': message_data,
+            'state': content.get('state') if isinstance(content, dict) else None,
+            'results_received': self.stats['results_received'],
+            'results_done': self.stats['results_done'],
+            'results_failed': self.stats['results_failed']
+        })
+
+        self.logger.info(f"Handled slice_result: run={message_data.get('run_id')}, msg={message_data.get('msg_type')}",
+                         extra=self._log_extra(run_id=message_data.get('run_id')))
+
     # -------------------------------------------------------------------------
     # Helper methods
     # -------------------------------------------------------------------------
@@ -506,6 +553,95 @@ class FastProcessingAgent(BaseAgent):
         except Exception as e:
             self.logger.debug(f"Failed to log system event: {e}",
                               extra=self._log_extra(event_type=event_type, error=str(e)))
+
+    def _update_tfslice_from_result(self, message_data, content, result):
+        """Update TFSlice record in database based on slice_result message."""
+        try:
+            # Extract slice information from the result
+            # The result structure is: content -> result -> result (nested)
+            inner_result = None
+            if result and isinstance(result, dict):
+                inner_result = result.get('result') if isinstance(result.get('result'), dict) else None
+
+            # Get slice_id directly from the result data
+            slice_id = None
+            tf_filename = None
+            if inner_result and isinstance(inner_result, dict):
+                slice_id = inner_result.get('slice_id')
+                tf_filename = inner_result.get('tf_filename')
+
+            if slice_id is None:
+                self.logger.debug("No slice_id in result, cannot update TFSlice record")
+                return
+
+            # Determine the final state
+            state = content.get('state') if isinstance(content, dict) else None
+            processed = inner_result.get('processed') if inner_result else None
+
+            # Map worker state to slice status
+            if state == 'done' or processed:
+                slice_status = 'completed'
+            else:
+                slice_status = 'failed'
+
+            # Build update payload
+            update_data = {
+                'status': slice_status,
+                'processed_at': content.get('processed_at') or datetime.now().isoformat(),
+                'metadata': {
+                    'worker_hostname': content.get('hostname'),
+                    'panda_task_id': content.get('panda_task_id'),
+                    'panda_id': content.get('panda_id'),
+                    'harvester_id': content.get('harvester_id'),
+                    'processing_start_at': content.get('processing_start_at'),
+                    'result': result
+                }
+            }
+
+            # Update the slice directly using slice_id from the message
+            run_id = message_data.get('run_id')
+            try:
+                # Query for the slice by run_id and slice_id to get the database ID
+                slices = self.call_monitor_api(
+                    'GET',
+                    f'/tf-slices/?run_number={run_id}&slice_id={slice_id}'
+                )
+
+                if slices and isinstance(slices, list) and len(slices) > 0:
+                    db_id = slices[0].get('id')
+                    if db_id:
+                        # Update the slice using database ID
+                        api_result = self.call_monitor_api(
+                            'PATCH',
+                            f'/tf-slices/{db_id}/',
+                            update_data
+                        )
+                        if api_result:
+                            self.logger.info(
+                                f"TFSlice updated: slice_id={slice_id}, tf_filename={tf_filename} -> {slice_status}",
+                                extra=self._log_extra(slice_id=slice_id, tf_filename=tf_filename, status=slice_status)
+                            )
+                        else:
+                            self.logger.warning(
+                                f"Failed to update TFSlice: slice_id={slice_id}",
+                                extra=self._log_extra(slice_id=slice_id)
+                            )
+                else:
+                    self.logger.debug(
+                        f"TFSlice not found for slice_id: {slice_id}, run: {run_id}",
+                        extra=self._log_extra(slice_id=slice_id, run_id=run_id)
+                    )
+            except Exception as e:
+                self.logger.error(
+                    f"Error querying/updating TFSlice slice_id={slice_id}: {e}",
+                    extra=self._log_extra(slice_id=slice_id, error=str(e))
+                )
+
+        except Exception as e:
+            self.logger.error(
+                f"Error updating TFSlice from result: {e}",
+                extra=self._log_extra(error=str(e))
+            )
 
 
 if __name__ == "__main__":
