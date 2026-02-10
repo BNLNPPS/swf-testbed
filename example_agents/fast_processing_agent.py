@@ -136,9 +136,6 @@ class FastProcessingAgent(BaseAgent):
 
         # Build and broadcast a run_imminent message to workers
         try:
-            import json
-            from datetime import datetime as _dt
-
             # Compose message similar to _send_slice_to_queue format.
             # Put the incoming message_data inside 'content' and add execution_id
             # and target_worker_count so workers know how many to spin up.
@@ -154,26 +151,15 @@ class FastProcessingAgent(BaseAgent):
             message = {
                 'msg_type': 'run_imminent',
                 'run_id': self.current_run_id,
-                'created_at': _dt.utcnow().isoformat(),
+                'created_at': datetime.utcnow().isoformat(),
                 'content': content
-            }
-
-            headers = {
-                'persistent': 'false',
-                'vo': 'eic',
-                'msg_type': 'run_imminent',
-                'namespace': message_data.get('namespace', 'default'),
-                'run_id': str(self.current_run_id)
             }
 
             # Topic for worker broadcasts
             worker_topic = self.WORKER_BROADCAST_TOPIC
 
-            self.conn.send(
-                destination=worker_topic,
-                body=json.dumps(message),
-                headers=headers
-            )
+            headers = {'persistent': 'false'}
+            self.send_message(worker_topic, message, headers=headers)
 
             self.logger.info(f"Broadcasted run_imminent to workers: {worker_topic}",
                              extra=self._log_extra(destination=worker_topic))
@@ -275,9 +261,6 @@ class FastProcessingAgent(BaseAgent):
 
         # Broadcast end_run to workers so they can perform any teardown/cleanup
         try:
-            import json
-            from datetime import datetime as _dt
-
             # Compose message similar to _send_slice_to_queue format.
             # Put the incoming message_data inside 'content' and add execution_id
             # and target_worker_count so workers can finalize appropriately.
@@ -289,25 +272,14 @@ class FastProcessingAgent(BaseAgent):
             message = {
                 'msg_type': 'end_run',
                 'run_id': self.current_run_id,
-                'created_at': _dt.utcnow().isoformat(),
+                'created_at': datetime.utcnow().isoformat(),
                 'content': content
-            }
-
-            headers = {
-                'persistent': 'false',
-                'vo': 'eic',
-                'msg_type': 'end_run',
-                'namespace': message_data.get('namespace', 'default'),
-                'run_id': str(self.current_run_id)
             }
 
             worker_topic = self.WORKER_BROADCAST_TOPIC
 
-            self.conn.send(
-                destination=worker_topic,
-                body=json.dumps(message),
-                headers=headers
-            )
+            headers = {'persistent': 'false'}
+            self.send_message(worker_topic, message, headers=headers)
 
             self.logger.info(f"Broadcasted end_run to workers: {worker_topic}",
                              extra=self._log_extra(destination=worker_topic))
@@ -513,20 +485,12 @@ class FastProcessingAgent(BaseAgent):
 
         # Send to transformer queue with required headers
         try:
-            import json
+            # Use send_message with persistent=True and ttl for slice messages
             headers = {
                 'persistent': 'true',
-                'ttl': str(12 * 3600 * 1000),  # 12 hours in ms
-                'vo': 'eic',
-                'msg_type': 'slice',
-                'run_id': str(self.current_run_id)
+                'ttl': str(12 * 3600 * 1000)  # 12 hours in ms
             }
-
-            self.conn.send(
-                destination=self.TRANSFORMER_QUEUE,
-                body=json.dumps(message),
-                headers=headers
-            )
+            self.send_message(self.TRANSFORMER_QUEUE, message, headers=headers)
 
             self.stats['slices_sent'] += 1
             self.logger.info(
