@@ -52,8 +52,8 @@ class ProcessingAgent(BaseAgent):
                 self.handle_run_imminent(message_data)
             elif msg_type == 'start_run':
                 self.handle_start_run(message_data)
-            elif msg_type == 'data_ready':
-                self.handle_data_ready(message_data)
+            elif msg_type == 'stf_ready':
+                self.handle_stf_ready(message_data)
             elif msg_type == 'end_run':
                 self.handle_end_run(message_data)
             else:
@@ -267,10 +267,10 @@ class ProcessingAgent(BaseAgent):
         self.send_processing_agent_heartbeat()
         self.logger.info("start_run handled", extra={"run_id": run_id})
 
-    def handle_data_ready(self, msg):
+    def handle_stf_ready(self, msg):
         run_id = msg.get('run_id')
         stf_filename = msg.get('filename')
-        self.logger.info("data_ready received", extra={"run_id": run_id, "stf_filename": stf_filename})
+        self.logger.info("stf_ready received", extra={"run_id": run_id, "stf_filename": stf_filename})
         
         task_id = self.register_processing_task(stf_filename, msg)
         
@@ -287,7 +287,7 @@ class ProcessingAgent(BaseAgent):
             
             self.complete_processing_task(stf_filename, success=True)
             
-            self.logger.info("data_ready handled successfully",
+            self.logger.info("stf_ready handled successfully",
                            extra={"run_id": run_id, "stf_filename": stf_filename})
             
         except Exception as e:

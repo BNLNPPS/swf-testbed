@@ -10,7 +10,7 @@ from datetime import datetime
 class DataAgent(BaseAgent):
     """
     An example agent that simulates the role of the Data Agent.
-    It listens for 'stf_gen' messages and sends 'data_ready' messages.
+    It listens for 'stf_gen' messages and sends 'stf_ready' messages.
     """
 
     def __init__(self, debug=False, config_path=None):

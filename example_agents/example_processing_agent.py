@@ -10,18 +10,18 @@ from datetime import datetime
 class ProcessingAgent(BaseAgent):
     """
     An example agent that simulates the role of the Processing Agent.
-    It listens for 'data_ready' messages.
+    It listens for 'stf_ready' messages.
     """
 
     def __init__(self, debug=False, config_path=None):
-        super().__init__(agent_type='STF_Processing', subscription_queue='/topic/epictopic', debug=debug,
+        super().__init__(agent_type='STF_Processing', subscription_queue='/queue/processing_agent', debug=debug,
                          config_path=config_path)
         self.active_processing = {}  # Track files being processed
         self.processing_stats = {'total_processed': 0, 'failed_count': 0}
 
     def on_message(self, frame):
         """
-        Handles incoming workflow messages (data_ready, run_imminent, start_run, end_run).
+        Handles incoming workflow messages (stf_ready, run_imminent, start_run, end_run).
         """
         # Use base class helper for consistent logging
         message_data, msg_type = self.log_received_message(frame)
@@ -37,8 +37,8 @@ class ProcessingAgent(BaseAgent):
         # Update heartbeat on message activity
         self.send_processing_agent_heartbeat()
         try:
-            if msg_type == 'data_ready':
-                self.handle_data_ready(message_data)
+            if msg_type == 'stf_ready':
+                self.handle_stf_ready(message_data)
             elif msg_type == 'run_imminent':
                 self.handle_run_imminent(message_data)
             elif msg_type == 'start_run':
@@ -186,7 +186,7 @@ class ProcessingAgent(BaseAgent):
         # Send enhanced heartbeat with run context
         self.send_processing_agent_heartbeat()
 
-        # TODO: Start monitoring for data_ready messages
+        # TODO: Start monitoring for stf_ready messages
         self.logger.info("Ready to process data for run", extra=self._log_extra())
 
     def handle_end_run(self, message_data):
@@ -218,8 +218,8 @@ class ProcessingAgent(BaseAgent):
         self.current_run_id = None
         self.logger.info("Waiting for next run...")
 
-    def handle_data_ready(self, message_data):
-        """Handle data_ready message - process STF file"""
+    def handle_stf_ready(self, message_data):
+        """Handle stf_ready message - process STF file"""
         filename = message_data.get('filename')
         file_url = message_data.get('file_url')
         checksum = message_data.get('checksum')
