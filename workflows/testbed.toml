@@ -13,7 +13,7 @@
 #
 # Multiple users can collaborate in one namespace.
 # Users are responsible for namespace uniqueness.
-namespace = "wguan2"
+namespace = "torre2"
 
 # Example: Override fast_processing settings for this testbed
 # [fast_processing]
