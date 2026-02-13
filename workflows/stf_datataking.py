@@ -9,12 +9,18 @@ class WorkflowExecutor:
         # Get namespace from testbed config for message routing
         self.namespace = config.get('testbed', {}).get('namespace')
 
-        # Build merged params: daq_state_machine base, with workflow-specific overrides
-        self.daq = config.get('daq_state_machine', {})
-        # Check for workflow-specific sections that override daq_state_machine values
-        for section in ['fast_processing', 'stf_processing']:
-            if section in config:
-                self.daq = {**self.daq, **config[section]}
+        # Build merged params: daq_state_machine base, with all parameter sections merged
+        self.daq = config.get('daq_state_machine', {}).copy()
+
+        # Auto-discover and merge ALL non-system parameter sections
+        # This allows overrides to work regardless of which section they're in
+        SYSTEM_SECTIONS = {'workflow', 'testbed', 'agents', 'source', 'git_version'}
+        for section_name, section_values in config.items():
+            if (section_name not in SYSTEM_SECTIONS
+                and section_name != 'daq_state_machine'  # already loaded as base
+                and isinstance(section_values, dict)):
+                # Merge this parameter section (later sections override earlier ones)
+                self.daq = {**self.daq, **section_values}
 
     def execute(self, env):
         # Generate run ID for this execution
