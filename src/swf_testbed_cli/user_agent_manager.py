@@ -144,9 +144,11 @@ class UserAgentManager(stomp.ConnectionListener):
 
             if command == 'start_testbed':
                 config_name = message.get('config_name')
-                self.handle_start_testbed(config_name)
+                if not self.handle_start_testbed(config_name):
+                    self.logger.error(f"start_testbed FAILED (config: {config_name or 'default'})")
             elif command == 'stop_testbed':
-                self.handle_stop_testbed()
+                if not self.handle_stop_testbed():
+                    self.logger.error("stop_testbed FAILED")
             elif command == 'restart':
                 self.handle_restart()
             elif command == 'status':
@@ -265,8 +267,14 @@ class UserAgentManager(stomp.ConnectionListener):
         if not enabled_agents:
             self.logger.warning("No agents enabled in config")
 
+        failed = []
         for agent in enabled_agents:
-            self._start_program(agent)
+            if not self._start_program(agent):
+                failed.append(agent)
+
+        if failed:
+            self.logger.error(f"Failed to start agents: {failed}")
+            return False
 
         self.agents_running = True
         self.logger.info("Testbed started")
@@ -437,6 +445,21 @@ class UserAgentManager(stomp.ConnectionListener):
             return False
 
         time.sleep(1)
+
+        # Verify supervisord is actually responding
+        verify = subprocess.run(
+            [supervisorctl, '-c', str(conf_path), 'status'],
+            capture_output=True,
+            text=True,
+            cwd=self.testbed_dir
+        )
+        if verify.returncode == 4:
+            self.logger.error(
+                f"Supervisord started (exit 0) but not responding. "
+                f"stderr: {start_result.stderr.strip()}"
+            )
+            return False
+
         return True
 
     def _start_program(self, program_name: str) -> bool:
