@@ -603,7 +603,30 @@ class UserAgentManager(stomp.ConnectionListener):
                 break
 
         self.logger.info("Shutting down...")
+        self._send_exit_heartbeat()
         self.disconnect()
+
+    def _send_exit_heartbeat(self):
+        """Send final heartbeat marking this agent as EXITED."""
+        try:
+            data = {
+                'instance_name': f'agent-manager-{self.username}',
+                'agent_type': 'agent_manager',
+                'status': 'EXITED',
+                'operational_state': 'EXITED',
+                'namespace': self.namespace,
+                'pid': os.getpid(),
+                'hostname': os.uname().nodename,
+                'description': f'Agent manager for {self.username}. Shut down.',
+            }
+            self.api.post(
+                f"{self.monitor_url}/api/systemagents/heartbeat/",
+                json=data,
+                timeout=5,
+            )
+            self.logger.info("Exit heartbeat sent")
+        except Exception as e:
+            self.logger.error(f"Failed to send exit heartbeat: {e}")
 
 
 def main():
