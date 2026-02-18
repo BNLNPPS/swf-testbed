@@ -519,24 +519,51 @@ class UserAgentManager(stomp.ConnectionListener):
             self.logger.warning(f"Config reread failed: {result.stderr.strip()}")
             return False
 
+    def _check_supervisord_health(self) -> dict:
+        """Check if supervisord is reachable."""
+        supervisorctl = self._get_venv_bin('supervisorctl')
+        result = subprocess.run(
+            [supervisorctl, '-c', str(self.testbed_dir / AGENTS_CONF), 'status'],
+            capture_output=True,
+            text=True,
+            cwd=self.testbed_dir
+        )
+        if result.returncode == 4:
+            return {'healthy': False, 'error': 'supervisord not responding (socket missing or process dead)'}
+        running = [
+            line.split()[0] for line in result.stdout.strip().split('\n')
+            if 'RUNNING' in line
+        ]
+        return {'healthy': True, 'running_agents': running}
+
     def send_heartbeat(self):
         """Send heartbeat to monitor API (using authenticated session like BaseAgent)."""
         try:
-            # Build description with current state
+            sv_health = self._check_supervisord_health()
+
             desc_parts = [f'Agent manager for {self.username}']
             if self.namespace:
                 desc_parts.append(f'namespace: {self.namespace}')
             desc_parts.append('MQ: connected')
 
+            if sv_health['healthy']:
+                status = 'OK'
+                desc_parts.append('supervisord: OK')
+            else:
+                status = 'ERROR'
+                desc_parts.append(f"supervisord: {sv_health['error']}")
+                self.logger.error(f"Supervisord health check failed: {sv_health['error']}")
+
             data = {
                 'instance_name': f'agent-manager-{self.username}',
                 'agent_type': 'agent_manager',
-                'status': 'OK',
+                'status': status,
                 'operational_state': 'READY',
-                'namespace': self.namespace,  # From config, or None if not yet loaded
+                'namespace': self.namespace,
                 'pid': os.getpid(),
                 'hostname': os.uname().nodename,
                 'description': '. '.join(desc_parts),
+                'metadata': {'supervisord_healthy': sv_health['healthy']},
             }
 
             response = self.api.post(
@@ -549,8 +576,7 @@ class UserAgentManager(stomp.ConnectionListener):
                 self.last_heartbeat = datetime.now()
 
         except Exception as e:
-            # Heartbeat failure is not fatal
-            pass
+            self.logger.error(f"Heartbeat failed: {e}")
 
     def run(self):
         """Main run loop."""
