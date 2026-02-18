@@ -91,6 +91,15 @@ fi
 
 echo ""
 
+# --- Refresh heartbeat ---
+# After any fixes, signal agent manager to send immediate heartbeat
+# so MCP status reflects the current verified state.
+AM_PID=$(pgrep -f "testbed agent-manager" -u "$(whoami)" 2>/dev/null || true)
+if [ -n "$AM_PID" ] && [ "$STATUS" -eq 0 ]; then
+    kill -USR1 "$AM_PID" 2>/dev/null || true
+    sleep 2
+fi
+
 # --- Summary ---
 echo "--- Summary ---"
 if [ "$STATUS" -eq 0 ]; then

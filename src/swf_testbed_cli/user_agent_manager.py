@@ -30,9 +30,6 @@ HEARTBEAT_INTERVAL = 30
 # Supervisord config for agents
 AGENTS_CONF = 'agents.supervisord.conf'
 
-# Default config file (can be overridden via SWF_TESTBED_CONFIG env var)
-DEFAULT_CONFIG = os.getenv('SWF_TESTBED_CONFIG', 'workflows/testbed.toml')
-
 # Map testbed.toml agent names to supervisord program names
 AGENT_PROGRAM_MAP = {
     'data': 'example-data-agent',
@@ -110,14 +107,19 @@ class UserAgentManager(stomp.ConnectionListener):
 
         self.conn.set_listener('', self)
 
-        # Signal handling for graceful shutdown
+        # Signal handling
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGUSR1, self._sigusr1_handler)
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
         self.logger.info(f"\nReceived signal {signum}, shutting down...")
         self.running = False
+
+    def _sigusr1_handler(self, signum, frame):
+        """SIGUSR1 triggers immediate heartbeat refresh."""
+        self.send_heartbeat()
 
     def connect(self):
         """Connect to ActiveMQ and subscribe to control queue."""
@@ -179,19 +181,19 @@ class UserAgentManager(stomp.ConnectionListener):
         """Load testbed config and update namespace.
 
         Args:
-            config_name: Config file name (default: testbed.toml)
-                         Can be just name (looked up in workflows/) or full path
+            config_name: Config file name (default: from SWF_TESTBED_CONFIG env var,
+                         or workflows/testbed.toml). Can be just name (looked up
+                         in workflows/) or relative path.
 
         Returns:
             Parsed config dict
         """
         if config_name is None:
-            config_path = self.testbed_dir / DEFAULT_CONFIG
-        elif '/' in config_name:
-            # Full relative path provided
+            config_name = os.getenv('SWF_TESTBED_CONFIG', 'workflows/testbed.toml')
+
+        if '/' in config_name:
             config_path = self.testbed_dir / config_name
         else:
-            # Just a name, look in workflows/
             if not config_name.endswith('.toml'):
                 config_name = f'{config_name}.toml'
             config_path = self.testbed_dir / 'workflows' / config_name
@@ -237,10 +239,13 @@ class UserAgentManager(stomp.ConnectionListener):
         Refuses to start if agents are already running. User must call
         stop_testbed first to ensure clean slate.
         """
-        self.logger.info(f"Starting testbed (config: {config_name or 'default'})...")
+        self.logger.info(f"Starting testbed (config: {config_name or 'current'})...")
 
-        # Load config to get namespace and enabled agents
-        self.load_config(config_name)
+        # Load config if specified, otherwise use already-loaded config
+        if config_name:
+            self.load_config(config_name)
+        elif not self.config:
+            self.load_config()
 
         # Check if any agents are already running - refuse if so
         # Do this BEFORE restarting supervisord
@@ -520,7 +525,7 @@ class UserAgentManager(stomp.ConnectionListener):
             return False
 
     def _check_supervisord_health(self) -> dict:
-        """Check if supervisord is reachable."""
+        """Verify supervisord health: responding, genuinely idle, or zombie."""
         supervisorctl = self._get_venv_bin('supervisorctl')
         result = subprocess.run(
             [supervisorctl, '-c', str(self.testbed_dir / AGENTS_CONF), 'status'],
@@ -528,13 +533,26 @@ class UserAgentManager(stomp.ConnectionListener):
             text=True,
             cwd=self.testbed_dir
         )
+
         if result.returncode == 4:
-            return {'healthy': False, 'error': 'supervisord not responding (socket missing or process dead)'}
+            # Not responding — check for zombie process
+            try:
+                check = subprocess.run(
+                    ['pgrep', '-f', f'supervisord.*{AGENTS_CONF}'],
+                    capture_output=True, text=True
+                )
+                if check.returncode == 0 and check.stdout.strip():
+                    pid = check.stdout.strip().split()[0]
+                    return {'healthy': False, 'error': f'not responding but stale process exists (PID {pid})'}
+            except Exception:
+                pass
+            return {'healthy': True, 'state': 'idle'}
+
         running = [
             line.split()[0] for line in result.stdout.strip().split('\n')
             if 'RUNNING' in line
         ]
-        return {'healthy': True, 'running_agents': running}
+        return {'healthy': True, 'state': 'running', 'running_agents': running}
 
     def send_heartbeat(self):
         """Send heartbeat to monitor API (using authenticated session like BaseAgent)."""
@@ -548,7 +566,8 @@ class UserAgentManager(stomp.ConnectionListener):
 
             if sv_health['healthy']:
                 status = 'OK'
-                desc_parts.append('supervisord: OK')
+                state = sv_health.get('state', 'running')
+                desc_parts.append(f"supervisord: {state}")
             else:
                 status = 'ERROR'
                 desc_parts.append(f"supervisord: {sv_health['error']}")
