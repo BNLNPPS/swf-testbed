@@ -12,7 +12,7 @@ Hardened the MCP control path so AI agents can reliably start, monitor, and mana
 - `start_workflow` namespace resolution falls back to running agent manager's namespace when env var unavailable in Apache context
 - `start_user_testbed` no longer destroys the agent manager on every start
 - Surfaced supervisord health and agent manager errors in MCP status tools
-- Fixed MCP username resolution to use SWF_HOME directory ownership
+- Fixed MCP username resolution: use SWF_HOME directory ownership, require explicit username parameter
 
 **Agent manager hardening (swf-testbed):**
 - Verify supervisord health, check agent starts, log errors instead of failing silently
@@ -25,7 +25,7 @@ Hardened the MCP control path so AI agents can reliably start, monitor, and mana
 - MCP docs now instruct AI to actively poll `swf_get_workflow_monitor` during execution rather than sleeping
 
 **Other:**
-- AI memory hooks for cross-session dialogue persistence
+- AI memory hooks and documentation for cross-session dialogue persistence
 - Refactored monolithic mcp.py into package (system, workflows, ai_memory, common)
 
 ## v30 (2026-02-03)
