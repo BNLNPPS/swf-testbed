@@ -1,5 +1,33 @@
 # Release Notes
 
+## v31 (2026-02-18)
+
+### Robustness Improvements for LLM-driven Testbed Controls
+
+Hardened the MCP control path so AI agents can reliably start, monitor, and manage testbed workflows without misinterpreting system state.
+
+**Testbed status fixes (swf-monitor):**
+- `ready` field now checks running workflow executions, not agent count — was permanently false when agents were idle after a completed workflow
+- REST heartbeat no longer overwrites `workflow_enabled` to false on every heartbeat
+- `start_workflow` namespace resolution falls back to running agent manager's namespace when env var unavailable in Apache context
+- `start_user_testbed` no longer destroys the agent manager on every start
+- Surfaced supervisord health and agent manager errors in MCP status tools
+- Fixed MCP username resolution: use SWF_HOME directory ownership, require explicit username parameter
+
+**Agent manager hardening (swf-testbed):**
+- Verify supervisord health, check agent starts, log errors instead of failing silently
+- SIGUSR1 heartbeat refresh after check-testbed fixes
+- Exit heartbeat on shutdown so DB immediately reflects agent manager death
+- check-testbed skill for bootstrapping infrastructure
+- Fixed workflow parameter override to auto-discover all config sections
+
+**Workflow monitoring guidance:**
+- MCP docs now instruct AI to actively poll `swf_get_workflow_monitor` during execution rather than sleeping
+
+**Other:**
+- AI memory hooks and documentation for cross-session dialogue persistence
+- Refactored monolithic mcp.py into package (system, workflows, ai_memory, common)
+
 ## v30 (2026-02-03)
 
 ### Auth0 OAuth 2.1 Authentication for Claude.ai MCP
