@@ -407,7 +407,7 @@ Watch the console output for:
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Connection refused | ActiveMQ not running | Check `ACTIVEMQ_HOST` and `ACTIVEMQ_PORT` |
-| API errors | Monitor API unavailable | Verify `MONITOR_API_BASE_URL` |
+| API errors | Monitor API unavailable | Verify `SWF_MONITOR_URL` |
 | No messages received | Wrong testbed namespace | Check `testbed.namespace` in config |
 | Import errors | Missing dependencies | Run `pip install -e .` in workspace root |
 
