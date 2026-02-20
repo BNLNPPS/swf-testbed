@@ -292,6 +292,125 @@ Run 101993 Summary:
     └── fast_processing-agent-wenauseic-483
 ```
 
+## Running the Fast Processing Agent
+
+### Prerequisites
+
+1. **Python Environment**: Activate the virtual environment
+   ```bash
+   source .venv/bin/activate
+   ```
+
+2. **Environment Variables**: Source the environment file containing:
+   - `ACTIVEMQ_HOST` - ActiveMQ broker address
+   - `ACTIVEMQ_PORT` - ActiveMQ broker port (default: 61612)
+   - `ACTIVEMQ_USER` - ActiveMQ username
+   - `ACTIVEMQ_PASSWORD` - ActiveMQ password
+   - `ACTIVEMQ_HEARTBEAT_TOPIC` - Heartbeat topic (e.g., 'epictopic')
+   - `ACTIVEMQ_USE_SSL` - Enable SSL connection (True/False)
+   - `ACTIVEMQ_SSL_CA_CERTS` - Path to SSL CA certificates
+   - `SWF_MONITOR_URL` and `SWF_MONITOR_HTTP_URL` - Monitor REST API endpoint
+   - Other testbed-specific variables
+
+   Example environment file (`~/.env`):
+   ```bash
+   export ACTIVEMQ_HOST='your-activemq-host'
+   export ACTIVEMQ_PORT='61612'
+   export ACTIVEMQ_USER='username'
+   export ACTIVEMQ_PASSWORD='password'
+   export ACTIVEMQ_HEARTBEAT_TOPIC='epictopic'
+   export ACTIVEMQ_USE_SSL=True
+   export ACTIVEMQ_SSL_CA_CERTS='/path/to/ca-certificates.crt'
+   export SWF_MONITOR_URL='http://your-monitor-api:8000'
+   export SWF_MONITOR_HTTP_URL='http://your-monitor-api:8000'
+   ```
+
+   Load the environment:
+   ```bash
+   source ~/.env
+   ```
+
+3. **Testbed Configuration**: Ensure `workflows/testbed.toml` exists with correct settings
+
+### Command Line Usage
+
+```bash
+python example_agents/fast_processing_agent.py \
+    --testbed-config workflows/testbed.toml \
+    --debug
+```
+
+#### Command Line Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--testbed-config` | Yes | Path to testbed configuration TOML file |
+| `--debug` | No | Enable debug logging for detailed output |
+
+### Example Run Script
+
+Create a shell script to run the agent:
+
+```bash
+#!/bin/bash
+# run_fast_processing.sh
+
+cd <some_path>/swf-project
+cd swf-testbed && source .venv/bin/activate && source ~/.env
+
+python example_agents/fast_processing_agent.py \
+    --testbed-config workflows/testbed.toml \
+    --debug
+```
+
+Make it executable:
+```bash
+chmod +x run_fast_processing.sh
+./run_fast_processing.sh
+```
+
+### What Happens at Startup
+
+1. **Initialization**:
+   - Connects to ActiveMQ broker
+   - Subscribes to `/topic/epictopic` (workflow messages)
+   - Subscribes to `/queue/panda.results.fastprocessing` (slice results)
+   - Fetches workflow execution parameters from Monitor API
+
+2. **Ready State**:
+   - Listens for `run_imminent` message
+   - Logs "Fast Processing Agent ready" to console
+
+3. **During Run**:
+   - Processes `tf_file_registered` messages
+   - Creates TF slices (15 per TF sample by default)
+   - Sends slices to `/topic/panda.slices`
+   - Broadcasts `run_imminent` and `end_run` to `/topic/panda.workers`
+   - Receives and processes slice results
+   - Updates TFSlice records in Monitor database
+
+### Monitoring Agent Activity
+
+Watch the console output for:
+```
+[INFO] Fast Processing Agent ready
+[INFO] Received run_imminent for run 101993
+[INFO] Broadcasting run_imminent to workers (target: 30)
+[INFO] Received tf_file_registered: swf.101993.000001_tf_001.tf
+[INFO] Created 15 slices for TF swf.101993.000001_tf_001.tf
+[INFO] Sent slice swf.101993.000001_slice_000.tf to queue
+[INFO] Received slice_result: slice_000 completed (success)
+```
+
+### Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Connection refused | ActiveMQ not running | Check `ACTIVEMQ_HOST` and `ACTIVEMQ_PORT` |
+| API errors | Monitor API unavailable | Verify `MONITOR_API_BASE_URL` |
+| No messages received | Wrong testbed namespace | Check `testbed.namespace` in config |
+| Import errors | Missing dependencies | Run `pip install -e .` in workspace root |
+
 ## See Also
 
 - [Agent Management](agent-management.md) - Starting and stopping agents
