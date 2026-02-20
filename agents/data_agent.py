@@ -30,6 +30,8 @@ xrd_folder = '/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/'
 
 # Generic imports
 import os, sys, time, json
+import requests, urllib3
+from datetime import datetime
 
 # Rucio imports
 from rucio.client.client        import Client
@@ -41,8 +43,11 @@ from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse, RucioUtils
 from api_utils import           get_next_agent_id
 
+from swf_common_lib.base_agent import BaseAgent
+from swf_common_lib.api_utils import ensure_namespace
+
 #################################################################################
-class DATA:
+class DATA(BaseAgent):
     ''' The DATA class is the main data management class.
         It receives messages from the DAQ simulator and handles them.
         Main functionality is to create Rucio datasets, upload and register files to
@@ -51,12 +56,15 @@ class DATA:
     '''
 
     def __init__(self,
+                config_path:    str | None = None,
                 verbose:        bool = False,
                 mqxmit:         bool = True,
                 xrdup:          bool = False,
                 rucio_scope:    str  = '',
                 data_folder:    str  = '',
                 rse:            str  = ''):
+        super().__init__(agent_type='DATA', subscription_queue='/topic/epictopic',
+                         config_path=config_path)
         ''' Initialize the DATA class.
             Parameters:
                 verbose (bool): Verbose mode
@@ -84,13 +92,11 @@ class DATA:
         self.dataset                = ''                # current dataset name, to be set upon receiving the run_imminent message
         self.folder                 = ''                # the actual folder for the current run, to be accessed later
         self.rse                    = rse               # RSE to target for upload
-
-        self.sndr                   = None
-        self.rcvr                   = None
-
+        
         self.count                  = 0
 
-        self.init_mq()  # Initialize the MQ receiver to get messages from the DAQ simulator.
+        self.active_runs = {}   # Track active runs and their monitor IDs
+        self.active_files = {}  # Track STF files being processed
 
         if self.rucio_scope == '':
             if self.verbose: print('*** No Rucio scope provided, Rucio operations will be skipped ***')
@@ -107,8 +113,9 @@ class DATA:
 
 
         if self.verbose: print(f'''*** DATA class initialized. RSE: {self.rse} ***''')
-        # agent_id = get_next_agent_id()
-        # print(agent_id, '*** DATA agent initialized with ID ***')
+
+        time.sleep(1)
+
 
     # ---
     def init_rucio(self):
@@ -156,53 +163,6 @@ class DATA:
             print(f'*** Failed to instantiate the File Manager: {e}, exiting... ***')
             exit(-1)
 
-    # ---
-    def init_mq(self):
-        ''' Initialize the MQ receiver to get messages from the DAQ simulator.
-        '''
-        try:
-            from mq_comms import Sender, Receiver
-        except:
-            if self.verbose: print('*** Failed to import the Sender and Receiver from comms, exiting...***')
-            exit(-1)
-
-        if self.mqxmit:
-            try:
-                self.sndr = Sender(verbose=self.verbose)
-                if self.verbose: print(f'''*** Successfully instantiated the Sender ***''')
-                self.sndr.connect()
-                if self.verbose: print(f'''*** Successfully connected the Sender to MQ ***''')
-            except:
-                print('*** Failed to instantiate the Sender, exiting...***')
-                exit(-1)
-        else:
-            self.sndr = None
-            if self.verbose: print(f'''*** MQ transmission is disabled, Sender will not be instantiated ***''')
-
-        try:
-            self.rcvr = Receiver(verbose=self.verbose, client_id="data", processor=self.on_message) # a function to process received messages
-            self.rcvr.connect()
-            if self.verbose: print(f'''*** Successfully instantiated and connected the Receiver, will receive messages from MQ ***''')
-        except:
-            print('*** Failed to instantiate the Receiver, exiting...***')
-            exit(-1)    
-    
-    # ---
-    def run(self):
-        ''' Run the DATA class, which will start receiving messages from the DAQ simulator.
-            It will process these messages and handle data management tasks.
-        '''
-        if self.verbose:
-            print(f'''*** DATA class run method called ***''')
-
-        try:
-            if self.verbose: print(f"*** Data agent is running. Press Ctrl+C to stop. ***")
-            while True:
-                time.sleep(1) # Keep the main thread alive, heartbeats can be added here
-        except KeyboardInterrupt:
-            if self.verbose:
-                print(f'''*** DATA class run method interrupted by the KeyboardInterrupt ***''')
-    
 
     # ---
     def mq_data_ready_message(self):
@@ -211,13 +171,17 @@ class DATA:
         '''
         
         msg = {}
-        
+       
+        msg['namespace']    = self.namespace 
+        msg['sender']       = self.agent_name 
         msg['req_id']       = 1
-        msg['msg_type']     = 'data_ready'
+        msg['msg_type']     = 'stf_ready'
         msg['run_id']       = self.run_id
         
-        return json.dumps(msg)
+        return msg
+        #return json.dumps(msg)
  
+
     # ---
     def on_message(self, msg):
         """
@@ -225,25 +189,30 @@ class DATA:
         """
 
         try:
-            message_data = json.loads(msg)
+            message_data = json.loads(msg.body)
             
             msg_type = message_data.get('msg_type')
+            msg_namespace = message_data.get('namespace')
             # Debug only: print(f'===================================> {msg_type}')
             
-            if msg_type == 'stf_gen':
-                self.handle_stf_gen(message_data)
-            elif msg_type == 'data_ready':
-                self.handle_data_ready(message_data)
-            elif msg_type == 'run_imminent':
-                self.handle_run_imminent(message_data)
-            elif msg_type == 'start_run':
-                self.handle_start_run(message_data)
-            elif msg_type == 'end_run':
-                self.handle_end_run(message_data)
+            if msg_namespace == self.namespace:
+                if msg_type == 'stf_gen':
+                    self.handle_stf_gen(message_data)
+                elif msg_type == 'stf_ready':
+                    self.handle_data_ready(message_data)
+                elif msg_type == 'run_imminent':
+                    self.handle_run_imminent(message_data)
+                elif msg_type == 'start_run':
+                    self.handle_start_run(message_data)
+                elif msg_type == 'end_run':
+                    self.handle_end_run(message_data)
+                else:
+                    if self.verbose: print(f"*** Ignoring unknown message type {msg_type} ***")
             else:
-                if self.verbose: print(f"*** Ignoring unknown message type {msg_type} ***")
+                print("Ignoring other namespaces ", msg_namespace)
         except Exception as e:
             print(f"CRITICAL: Message processing failed - {str(e)}")
+
 
     # ---
     def handle_run_imminent(self, message_data):
@@ -256,6 +225,12 @@ class DATA:
         
         if self.verbose: print(F'''*** MQ: run_imminent message for run {run_id}***''')
 
+        self.logger.info("Processing run_imminent message",
+                        extra=self._log_extra(simulation_tick=message_data.get('simulation_tick')))
+
+        # Create run record in monitor
+        monitor_run_id = self.create_run_record(run_id, run_conditions)
+
         self.count = 0 # reset file counter for the new run
         
         self.run_id     = run_id
@@ -263,7 +238,6 @@ class DATA:
         self.folder     = f"{self.data_folder}/{self.dataset}"
 
         if self.verbose: print(f'''*** Current dataset set to {self.dataset}, folder set to {self.folder} ***''')
-
         
         lifetime = 1 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
@@ -280,13 +254,15 @@ class DATA:
             status, _ = self.fs.mkdir(f"{xrd_folder}/{self.dataset}")
             # FIXME: Check the status
             if self.verbose: print(f'''*** Created folder {xrd_folder}/{self.dataset} using XRootD ***''')
-       
+
+
     # ---
     def handle_start_run(self, message_data):
         """Handle start_run message"""
         run_id = message_data.get('run_id')
         self.count = 0 # reset file counter for the new run
         if self.verbose: print(f"*** MQ: start_run message for run_id: {run_id} ***")
+
 
     # ---
     def handle_end_run(self, message_data):
@@ -300,6 +276,16 @@ class DATA:
             name=self.dataset,
             open=False  # Setting to False closes the dataset
         )
+
+        total_files = message_data.get('total_files', 0)
+        self.logger.info("Processing end_run message",
+                        extra=self._log_extra(total_files=total_files, simulation_tick=message_data.get('simulation_tick')))
+
+        # Update run status in monitor API
+        if run_id in self.active_runs:
+            self.active_runs[run_id]['total_files'] = total_files
+            self.update_run_status(run_id, 'completed')
+
 
     # ---
     def handle_stf_gen(self, message_data):
@@ -371,17 +357,149 @@ class DATA:
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
 
         if self.count == 0:
-            if self.sndr is not None:
-                self.sndr.send(destination='epictopic', body=self.mq_data_ready_message(), headers={'persistent': 'true'})
+            self.send_message('/topic/epictopic', self.mq_data_ready_message())
             if self.verbose: print(f'''*** First file for run {self.run_id} has been processed, sending data ready message to MQ ***''')
 
         self.count += 1
-          
+        
+        run_id = message_data.get('run_id')  
+        file_url = message_data.get('file_url')
+        checksum = message_data.get('checksum')
+        size_bytes = message_data.get('size_bytes')
+        # Capture timing, state, and sequence fields
+        start = message_data.get('start')
+        end = message_data.get('end')
+        state = message_data.get('state')
+        substate = message_data.get('substate')
+        sequence = message_data.get('sequence')
+
+        self.logger.info("Processing STF file",
+                        extra=self._log_extra(stf_filename=fn, size_bytes=size_bytes,
+                                             simulation_tick=message_data.get('simulation_tick')))
+
+        # Register STF file and workflow with monitor
+        self.register_stf_file(run_id, fn, size_bytes, start, end, state, substate, sequence)
+
         return None
+
 
     # ---
     def handle_data_ready(self, message_data):
         run_id = message_data.get('run_id')
         if self.verbose: print(f"*** MQ: cross-check - data ready for run {run_id} ***")
+
+
+    def create_run_record(self, run_id, run_conditions):
+        """Create a run record in the monitor."""
+        self.logger.info(f"Creating run record {run_id} in monitor...")
+
+        run_data = {
+            'run_number': int(run_id),  # Convert string run_id to integer
+            'start_time': datetime.now().isoformat(),
+            'run_conditions': run_conditions
+        }
+
+        try:
+            result = self.call_monitor_api('POST', '/runs/', run_data)
+            if result:
+                monitor_run_id = result.get('run_id')
+                self.active_runs[run_id] = {
+                    'monitor_run_id': monitor_run_id,
+                    'files_created': 0,
+                    'total_files': 0
+                }
+                self.logger.info(f"Run {run_id} registered in monitor with ID {monitor_run_id}")
+                return monitor_run_id
+            else:
+                self.logger.error(f"Failed to register run {run_id} in monitor - API returned no data")
+                return None
+        except RuntimeError as e:
+            if "400 Client Error" in str(e):
+                # Report the actual error details so we can see what it is
+                error_msg = str(e)
+                self.logger.error(f"Run {run_id} registration failed with 400 error: {error_msg}")
+                # Crash so we can examine the actual error and implement proper handling
+                raise
+            else:
+                # Re-raise other API errors
+                raise
+
+
+    def update_run_status(self, run_id, status='completed'):
+        """Update run status in the monitor."""
+        if run_id not in self.active_runs:
+            self.logger.warning(f"Run {run_id} not found in active runs")
+            return False
+
+        monitor_run_id = self.active_runs[run_id]['monitor_run_id']
+        self.logger.info(f"Updating run {run_id} status to {status} in monitor...")
+
+        update_data = {
+            'end_time': datetime.now().isoformat()
+        }
+
+        result = self.call_monitor_api('PATCH', f'/runs/{monitor_run_id}/', update_data)
+        if result:
+            self.logger.info(f"Run {run_id} status updated successfully")
+            return True
+        else:
+            self.logger.warning(f"Failed to update run {run_id} status")
+            return False
+
+
+    def register_stf_file(self, run_id, filename, file_size=None, start=None, end=None, state=None, substate=None, sequence=None):
+        """Register an STF file in the monitor."""
+        if run_id not in self.active_runs:
+            self.logger.warning(f"Cannot register file {filename} - run {run_id} not active")
+            return None
+
+        monitor_run_id = self.active_runs[run_id]['monitor_run_id']
+
+        # Skip registration if run registration failed
+        if monitor_run_id is None:
+            self.logger.warning(f"Skipping STF file registration for {filename} - run {run_id} was not registered in monitor")
+            return None
+
+        self.logger.info(f"Registering STF file {filename} in monitor...")
+
+        file_data = {
+            'run': monitor_run_id,
+            'stf_filename': filename,
+            'file_size_bytes': file_size,
+            'machine_state': state or 'unknown',
+            'status': 'registered',
+            'metadata': {
+                'created_by': self.agent_name,
+                'substate': substate,
+                'start': start,
+                'end': end,
+                'sequence': sequence
+            }
+        }
+
+        try:
+            result = self.call_monitor_api('POST', '/stf-files/', file_data)
+            if result:
+                file_id = result.get('file_id')
+                self.active_files[filename] = {
+                    'file_id': file_id,
+                    'run_id': run_id,
+                    'status': 'registered'
+                }
+                self.active_runs[run_id]['files_created'] += 1
+                self.logger.info(f"STF file {filename} registered with ID {file_id}")
+                return file_id
+            else:
+                self.logger.warning(f"Failed to register STF file {filename} - API returned no data")
+                return None
+        except RuntimeError as e:
+            if "400 Client Error" in str(e):
+                # Parse the actual error response to understand what went wrong
+                error_msg = str(e)
+                self.logger.error(f"STF file {filename} registration failed with 400 error: {error_msg}")
+                return None
+            else:
+                # Re-raise other API errors
+                raise
 
 ############################################################################################
