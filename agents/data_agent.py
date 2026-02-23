@@ -64,7 +64,7 @@ class DATA(BaseAgent):
                 data_folder:    str  = '',
                 rse:            str  = ''):
         super().__init__(agent_type='DATA', subscription_queue='/topic/epictopic',
-                         config_path=config_path)
+                         debug=verbose, config_path=config_path)
         ''' Initialize the DATA class.
             Parameters:
                 verbose (bool): Verbose mode
