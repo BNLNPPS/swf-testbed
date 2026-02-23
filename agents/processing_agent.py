@@ -65,7 +65,7 @@ class PROCESSING(BaseAgent):
 
         # Important: to process input files as they are added to the dataset
         params['runUntilClosed'] = False # for testing, set to False
-        params['taskType'] = "stfprocessing"
+        #params['taskType'] = "stfprocessing"
 
         status, msg = self.panda_submit_task(params)
         self.panda_status[self.run_id] = {'status': status, 'message': msg}
@@ -178,7 +178,7 @@ class PROCESSING(BaseAgent):
 
         # to process input files as they are added to the dataset
         params['runUntilClosed'] = True
-        params['taskType'] = "stfprocessing"
+        #params['taskType'] = "stfprocessing"
 
         status, msg = self.panda_submit_task(params)
         self.panda_status[self.run_id] = {'status': status, 'message': msg}
