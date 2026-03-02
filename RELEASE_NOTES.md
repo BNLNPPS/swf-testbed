@@ -55,6 +55,10 @@ Six new tools for PanDA production monitoring via MCP:
 - Fixed fastmon-files API to accept STF filename string instead of requiring UUID
 - Added Bootstrap 5 CSS
 
+### Documentation Cleanup
+
+Deleted 9 stale or superseded files across both repos (1,800+ lines removed): old monolithic README backup, abandoned design docs, failed procedure docs, one-time reports, broken index pages. Fixed hardcoded credentials in installation guide, dead links, malformed markdown, and updated CLAUDE.md branch reference to v32.
+
 ### swf-common-lib
 
 No changes in v32.
