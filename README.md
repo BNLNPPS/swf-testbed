@@ -2,13 +2,7 @@
 
 This is the umbrella repository for the ePIC streaming workflow testbed.
 
-## 🤖 For AI Assistants
-
-**⚠️ CRITICAL: Read [AI Assistant Guidance](docs/AI-ASSISTANT-GUIDANCE.md) before making any changes to this repository.**
-
-This document contains mandatory critical thinking requirements, coding rules, and architecture understanding that must be followed to avoid common failure patterns.
-
-## Documentation Structure
+## Documentation
 
 ### Release Notes
 - [**Release Notes**](RELEASE_NOTES.md) - What's new in each version
@@ -22,8 +16,10 @@ This document contains mandatory critical thinking requirements, coding rules, a
 - [**Workflow Orchestration**](docs/workflows.md) - Running and managing workflows
 - [**Monitor Integration**](docs/monitor.md) - Web interface and API usage
 - [**MCP Integration**](../swf-monitor/docs/MCP.md) - Model Context Protocol for LLM interaction
+- [**EMI (ePIC Metadata Interface)**](../swf-monitor/docs/EMI.md) - Production metadata tags for MC campaigns
 - [**SSE Real-Time Streaming**](docs/sse-streaming.md) - Remote workflow event monitoring via HTTPS
-- [**Production Deployment**](../swf-monitor/docs/PRODUCTION_DEPLOYMENT.md) - Complete Apache production deployment guide
+- [**EMI (ePIC Metadata Interface)**](../swf-monitor/docs/EMI.md) - Production metadata tags for MC campaigns
+- [**Production Deployment**](../swf-monitor/docs/PRODUCTION_DEPLOYMENT.md) - Apache production deployment guide
 
 ### MCP for Claude Code
 
@@ -43,12 +39,3 @@ claude mcp add --transport http swf-testbed https://pandaserver02.sdcc.bnl.gov/s
 - [**Development Guide**](docs/development.md) - Contributing and development workflow
 - [**AI Memory**](docs/ai-memory.md) - Cross-session dialogue persistence (experimental)
 
-## AI Assistant Usage
-
-This modular structure is designed to help AI assistants:
-- **Find specific information quickly** without parsing large documents
-- **Understand focused topics** without information overload  
-- **Provide accurate guidance** based on targeted documentation sections
-- **Update documentation incrementally** without affecting unrelated sections
-
-Each document focuses on a single concern and cross-references related topics.

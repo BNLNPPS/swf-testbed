@@ -28,6 +28,7 @@ export SWF_MONITOR_HTTP_URL=http://localhost:8002  # REST logging (no auth)
 
 # Authentication token for API calls
 export SWF_API_TOKEN=your_token_here
+```
 
 ## API Endpoints
 
@@ -72,7 +73,6 @@ export REQUESTS_CA_BUNDLE=/eic/u/wenauseic/github/swf-monitor/full-chain.pem
 This ensures the receiver can validate the server certificate when calling:
 - `${SWF_MONITOR_PROD_URL}/api/messages/stream/status/`
 - `${SWF_MONITOR_PROD_URL}/api/messages/stream/`
-```
 
 ## Web Interface Access
 

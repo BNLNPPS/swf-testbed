@@ -6,7 +6,7 @@ Complete setup instructions for the SWF Testbed.
 
 Before starting, ensure you have:
 
-- **Python 3.8+** with pip
+- **Python 3.9+** with pip
 - **Docker Desktop** (for infrastructure services)
 - **Git** for repository management
 - **Administrative access** (for some package installations)
@@ -89,19 +89,19 @@ export no_proxy=localhost,127.0.0.1,0.0.0.0
 
 # Database configuration (PostgreSQL)
 export DB_NAME='swfdb'
-export DB_USER='wenaus'
-export DB_PASSWORD='swf123_wenaus'
+export DB_USER='your_db_user'
+export DB_PASSWORD='your_db_password'
 export DB_HOST='localhost'
 export DB_PORT='5432'
 
 # ActiveMQ configuration
-export ACTIVEMQ_HOST='pandaserver02.sdcc.bnl.gov'
+export ACTIVEMQ_HOST='your_activemq_host'
 export ACTIVEMQ_PORT=61612
-export ACTIVEMQ_USER='wenauseic'
-export ACTIVEMQ_PASSWORD='swf123_wenauseic'
+export ACTIVEMQ_USER='your_activemq_user'
+export ACTIVEMQ_PASSWORD='your_activemq_password'
 export ACTIVEMQ_HEARTBEAT_TOPIC='epictopic'
 export ACTIVEMQ_USE_SSL=True
-export ACTIVEMQ_SSL_CA_CERTS='/eic/u/wenauseic/github/swf-monitor/full-chain.pem'
+export ACTIVEMQ_SSL_CA_CERTS='/path/to/full-chain.pem'
 
 # Monitor URLs
 export SWF_MONITOR_URL=https://localhost:8443      # Authenticated API calls
@@ -309,8 +309,6 @@ The Django application will automatically read these values during startup.
    # Reinstall packages in correct order
    pip install -e ../swf-common-lib ../swf-monitor .
    ```
-
-For more troubleshooting help, see [Troubleshooting Guide](troubleshooting.md).
 
 ## Next Steps
 
