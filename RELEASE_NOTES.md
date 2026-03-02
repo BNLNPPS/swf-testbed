@@ -1,5 +1,66 @@
 # Release Notes
 
+## v32 (2026-03-02)
+
+### EMI (ePIC Metadata Interface) — New Django App (swf-monitor)
+
+A new Django app for managing production metadata tags for ePIC Monte Carlo simulation campaigns. EMI organizes metadata as tags — named parameter sets for each stage of the MC pipeline:
+
+- **Physics tags (p):** process, beam energies, species, Q2 range
+- **EvGen tags (e):** event generator and version
+- **Simu tags (s):** detector simulation config
+- **Reco tags (r):** reconstruction config
+
+Tags have a draft/locked lifecycle. Locked tags are immutable and used in production.
+
+**Tag compose UI:** Split-panel interface for browsing, creating, editing, copying, and locking tags. Arrow key navigation, parameter filter dropdowns, inline editing with suggestion bars, predicted tag numbering, and diff highlighting for edits. Generalized for all four tag types with category-conditional fields.
+
+**Seeded data:** `seed_campaign_tags` management command creates 64 tags from the 26.02.0 campaign (47 physics, 15 evgen, 1 simu, 1 reco).
+
+**MCP tools:** `emi_list_tags`, `emi_get_tag`, `emi_search_tags`.
+
+### PanDA Mattermost Bot (swf-monitor)
+
+Claude-based production monitoring chatbot in Mattermost. Listens in the `#pandabot` channel, answers questions using Claude Haiku with tool use.
+
+- Discovers tools from MCP server automatically
+- System prompt built from MCP server instructions, stays in sync with deployed tool documentation
+- Supports PanDA and EMI tools
+- Thread-aware conversations
+
+### PanDA Web Monitor (swf-monitor)
+
+New web views for ePIC-focused PanDA production monitoring:
+
+- Activity overview, job list, task list, job detail, task detail, error summary, job diagnostics
+- Cross-linking, days selector, server-side DataTables, colored status badges
+- Shares data layer with MCP tools via factored `panda/` package (`constants.py`, `sql.py`, `queries.py`)
+
+### PanDA MCP Tools — New and Enhanced (swf-monitor)
+
+Six new tools for PanDA production monitoring via MCP:
+
+- `panda_list_jobs` — job overview with summary stats, cursor-based pagination
+- `panda_list_tasks` — JEDI task monitoring with workinggroup/processingtype filters
+- `panda_get_activity` — pre-digested activity overview (aggregate counts, no individual records)
+- `panda_error_summary` — aggregate error ranking across failed jobs
+- `panda_diagnose_jobs` — failed job diagnostics with all 7 error component fields
+- `panda_study_job` — deep single-job analysis (~40 fields, filestable, condor logs, structured errors)
+
+### MCP Infrastructure (swf-monitor)
+
+- Refactored monolithic `mcp.py` (2,544 lines) into `mcp/` package
+- AI memory model and REST API for cross-session dialogue persistence
+- Fixed `_get_username()`: use SWF_HOME directory ownership instead of `getpass.getuser()` (returns 'apache' under WSGI)
+- Fixed fastmon-files API to accept STF filename string instead of requiring UUID
+- Added Bootstrap 5 CSS
+
+### swf-common-lib
+
+No changes in v32.
+
+---
+
 ## v31 (2026-02-18)
 
 ### Robustness Improvements for LLM-driven Testbed Controls
