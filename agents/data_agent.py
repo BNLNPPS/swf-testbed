@@ -239,7 +239,7 @@ class DATA(BaseAgent):
 
         if self.verbose: print(f'''*** Current dataset set to {self.dataset}, folder set to {self.folder} ***''')
         
-        lifetime = 1 # days
+        lifetime = 7 # days
         result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
         if self.verbose: print(f'''*** Dataset {self.dataset}, creation result: {result} ***''')
         if not result:
@@ -317,6 +317,7 @@ class DATA(BaseAgent):
             'rse':          self.rse,
             'did_scope':    self.rucio_scope,
             'did_name':     fn,
+            'pfn':          f'{xrd_server.rstrip("/")}{xrd_folder}/{self.dataset}/{fn}'
         }
 
         # Upload the file using either XRootD or Rucio
