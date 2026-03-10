@@ -12,8 +12,14 @@ Pipeline: FastMon Agent [tf_file_registered] -> Fast Processing Agent [TF slices
 Message format specification: https://github.com/wguanicedew/iDDS/blob/dev/main/prompt.md
 """
 
+import signal
+import time
+import logging
+import traceback
+import json
 import uuid
 from datetime import datetime
+import stomp
 from swf_common_lib.base_agent import BaseAgent
 
 
@@ -37,10 +43,12 @@ class FastProcessingAgent(BaseAgent):
     def __init__(self, debug=False, config_path=None):
         super().__init__(
             agent_type='Fast_Processing',
-            subscription_queues=['/topic/epictopic', self.TRANSFORMER_RESULTS_QUEUE],
+            subscription_queue='/topic/epictopic',
             debug=debug,
             config_path=config_path
         )
+        # Additional subscriptions beyond the primary queue (subscribed in run())
+        self._extra_subscription_queues = [self.TRANSFORMER_RESULTS_QUEUE]
 
         # Workflow parameters (populated on run_imminent)
         self.workflow_params = {}
@@ -58,6 +66,162 @@ class FastProcessingAgent(BaseAgent):
             'results_done': 0,
             'results_failed': 0
         }
+
+    def run(self):
+        """
+        Override run() to subscribe to both the workflow topic and the
+        transformer results queue before entering the main loop.
+        """
+        def signal_handler(signum, frame):
+            sig_name = signal.Signals(signum).name
+            logging.info(f"Received {sig_name}, initiating graceful shutdown...")
+            raise KeyboardInterrupt(f"Received {sig_name}")
+
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGQUIT, signal_handler)
+
+        logging.info(f"Starting {self.agent_name}...")
+
+        # Connect to ActiveMQ
+        if not getattr(self, 'mq_connected', False):
+            max_retries = 3
+            retry_delay = 5
+            for attempt in range(1, max_retries + 1):
+                logging.info(f"Connecting to ActiveMQ at {self.mq_host}:{self.mq_port} (attempt {attempt}/{max_retries})")
+                try:
+                    self.conn.connect(
+                        self.mq_user,
+                        self.mq_password,
+                        wait=True,
+                        version='1.1',
+                        headers={
+                            'client-id': self.agent_name,
+                            'heart-beat': '30000,30000'
+                        }
+                    )
+                    self.mq_connected = True
+                    break
+                except Exception as e:
+                    logging.warning(f"Connection attempt {attempt} failed: {e}")
+                    if attempt < max_retries:
+                        logging.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        logging.error(f"Failed to connect after {max_retries} attempts")
+                        raise
+
+        try:
+            # Subscribe to primary workflow topic
+            self.conn.subscribe(destination=self.subscription_queue, id=1, ack='auto')
+            logging.info(f"Subscribed to queue: '{self.subscription_queue}'")
+
+            # Subscribe to all extra queues (e.g. transformer results)
+            for idx, queue in enumerate(self._extra_subscription_queues, start=2):
+                self.conn.subscribe(destination=queue, id=idx, ack='auto')
+                logging.info(f"Subscribed to queue: '{queue}'")
+
+            # Register all subscriptions in monitor
+            self._register_subscribers()
+
+            # Agent is now ready and waiting for work
+            self.set_ready()
+
+            self.send_heartbeat()
+
+            logging.info(f"{self.agent_name} is running. Press Ctrl+C to stop.")
+            while True:
+                time.sleep(60)
+                if not self.mq_connected:
+                    self._attempt_reconnect()
+                self.send_heartbeat()
+
+        except KeyboardInterrupt:
+            logging.info(f"Stopping {self.agent_name}...")
+        except stomp.exception.ConnectFailedException as e:
+            self.mq_connected = False
+            logging.error(f"Failed to connect to ActiveMQ: {e}")
+            logging.error("Please check the connection details and ensure ActiveMQ is running.")
+        except Exception as e:
+            self.mq_connected = False
+            logging.error(f"An unexpected error occurred: {e}")
+            traceback.print_exc()
+        finally:
+            try:
+                self.operational_state = 'EXITED'
+                self.send_heartbeat()
+            except Exception:
+                pass
+            try:
+                if self.mq_connected:
+                    self.conn.disconnect()
+            except Exception:
+                pass
+
+    def _attempt_reconnect(self):
+        """
+        Override _attempt_reconnect to resubscribe to all queues
+        (primary + extra) after reconnection.
+        """
+        if self.mq_connected:
+            return True
+
+        try:
+            logging.info("Attempting to reconnect to ActiveMQ...")
+            if self.conn.is_connected():
+                self.conn.disconnect()
+
+            self.conn.connect(
+                self.mq_user,
+                self.mq_password,
+                wait=True,
+                version='1.1',
+                headers={
+                    'client-id': self.agent_name,
+                    'heart-beat': '30000,30000'
+                }
+            )
+
+            # Resubscribe to primary queue
+            self.conn.subscribe(destination=self.subscription_queue, id=1, ack='auto')
+            logging.info(f"Resubscribed to queue: '{self.subscription_queue}'")
+
+            # Resubscribe to all extra queues
+            for idx, queue in enumerate(self._extra_subscription_queues, start=2):
+                self.conn.subscribe(destination=queue, id=idx, ack='auto')
+                logging.info(f"Resubscribed to queue: '{queue}'")
+
+            self.mq_connected = True
+            logging.info("Successfully reconnected to ActiveMQ")
+            return True
+
+        except Exception as e:
+            logging.warning(f"Reconnection attempt failed: {e}")
+            self.mq_connected = False
+            return False
+
+    def _register_subscribers(self):
+        """Register all subscriptions (primary + extra) in the monitor."""
+        all_queues = [self.subscription_queue] + self._extra_subscription_queues
+        for queue in all_queues:
+            self._register_single_subscriber(queue)
+
+    def _register_single_subscriber(self, queue):
+        """Register a single subscription in the monitor API."""
+        subscriber_data = {
+            'subscriber_name': f"{self.agent_name}-{queue}",
+            'description': f"{self.agent_type} agent subscribing to {queue}",
+            'is_active': True,
+            'fraction': 1.0
+        }
+        try:
+            result = self._api_request('post', '/subscribers/', subscriber_data)
+            if result:
+                if result.get('status') == 'already_exists':
+                    logging.info(f"Subscriber already registered: {subscriber_data['subscriber_name']}")
+                else:
+                    logging.info(f"Subscriber registered: {subscriber_data['subscriber_name']}")
+        except Exception as e:
+            logging.error(f"Failed to register subscriber for {queue}: {e}")
 
     def on_message(self, frame):
         """Handle incoming workflow messages."""
@@ -88,7 +252,6 @@ class FastProcessingAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Error processing {msg_type}: {e}",
                               extra=self._log_extra(error=str(e)))
-            import traceback
             self.logger.error(traceback.format_exc())
 
     def _update_run_context(self, message_data):
@@ -108,7 +271,10 @@ class FastProcessingAgent(BaseAgent):
             self.stats = {
                 'tf_files_received': 0,
                 'slices_created': 0,
-                'slices_sent': 0
+                'slices_sent': 0,
+                'results_received': 0,
+                'results_done': 0,
+                'results_failed': 0
             }
 
         if execution_id and execution_id != self.current_execution_id:
@@ -117,7 +283,6 @@ class FastProcessingAgent(BaseAgent):
             if not self.workflow_params:
                 self.workflow_params = self._fetch_workflow_parameters(execution_id)
                 if self.workflow_params:
-                    import json
                     self.logger.info(f"Workflow parameters loaded (mid-run): {json.dumps(self.workflow_params, indent=2, sort_keys=True)}")
 
     def handle_run_imminent(self, message_data):
@@ -157,9 +322,7 @@ class FastProcessingAgent(BaseAgent):
 
             # Topic for worker broadcasts
             worker_topic = self.WORKER_BROADCAST_TOPIC
-
-            headers = {'persistent': 'false'}
-            self.send_message(worker_topic, message, headers=headers)
+            self.send_message(worker_topic, message)
 
             self.logger.info(f"Broadcasted run_imminent to workers: {worker_topic}",
                              extra=self._log_extra(destination=worker_topic))
@@ -277,9 +440,7 @@ class FastProcessingAgent(BaseAgent):
             }
 
             worker_topic = self.WORKER_BROADCAST_TOPIC
-
-            headers = {'persistent': 'false'}
-            self.send_message(worker_topic, message, headers=headers)
+            self.send_message(worker_topic, message)
 
             self.logger.info(f"Broadcasted end_run to workers: {worker_topic}",
                              extra=self._log_extra(destination=worker_topic))
@@ -485,12 +646,7 @@ class FastProcessingAgent(BaseAgent):
 
         # Send to transformer queue with required headers
         try:
-            # Use send_message with persistent=True and ttl for slice messages
-            headers = {
-                'persistent': 'true',
-                'ttl': str(12 * 3600 * 1000)  # 12 hours in ms
-            }
-            self.send_message(self.TRANSFORMER_QUEUE, message, headers=headers)
+            self.send_message(self.TRANSFORMER_QUEUE, message)
 
             self.stats['slices_sent'] += 1
             self.logger.info(
