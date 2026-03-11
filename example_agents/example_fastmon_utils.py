@@ -85,6 +85,9 @@ def simulate_tf_subsamples(stf_file: Dict[str, Any], config: dict, logger: loggi
         
         tf_subsamples = []
         stf_size = stf_file.get("size_bytes", 0)
+        if stf_size is None or stf_size <= 0:
+            logger.warning(f"STF file {stf_file.get('filename', 'unknown')} has invalid size_bytes: {stf_size}. Using default size of 0 for simulation.")
+            stf_size = 100
         # filename without extension
         base_filename = stf_file.get("filename", "unknown").rsplit('.', 1)[0]
         
