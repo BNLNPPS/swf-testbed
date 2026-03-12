@@ -531,6 +531,7 @@ class FastProcessingAgent(BaseAgent):
 
     def handle_slice_result(self, message_data):
         """Process slice_result messages from transformer workers."""
+        logging.info(f"Received slice_result message: {message_data}")
         self.stats['results_received'] += 1
 
         content = message_data.get('content', {})
