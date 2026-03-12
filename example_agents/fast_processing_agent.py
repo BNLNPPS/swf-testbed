@@ -223,6 +223,79 @@ class FastProcessingAgent(BaseAgent):
         except Exception as e:
             logging.error(f"Failed to register subscriber for {queue}: {e}")
 
+    def send_message(self, destination, message_body, headers=None):
+        """
+        Override BaseAgent.send_message to add optional STOMP headers support.
+
+        The base agent calls conn.send(body, destination) with no headers.
+        This override merges caller-supplied headers with sensible defaults and
+        passes them through to the broker.
+
+        Args:
+            destination: ActiveMQ destination ('/queue/...' or '/topic/...')
+            message_body: Dict to send as JSON. 'sender'/'namespace' auto-injected
+                          by the base class logic replicated here.
+            headers: Optional dict of additional STOMP headers, e.g.
+                     {'persistent': 'true', 'ttl': '43200000'}
+        """
+        if not destination.startswith('/queue/') and not destination.startswith('/topic/'):
+            raise ValueError(
+                f"destination must start with '/queue/' or '/topic/', got: '{destination}'. "
+                f"Use '/queue/{destination}' for anycast or '/topic/{destination}' for multicast."
+            )
+
+        # Mirror base agent: auto-inject sender and namespace
+        message_body['sender'] = self.agent_name
+        if self.namespace:
+            message_body['namespace'] = self.namespace
+        else:
+            logging.warning(
+                f"Sending message without namespace (msg_type={message_body.get('msg_type', 'unknown')}). "
+                "Configure namespace in testbed.toml to enable namespace filtering."
+            )
+
+        # Auto-inject created_at if not already set by the caller
+        if 'created_at' not in message_body:
+            message_body['created_at'] = datetime.utcnow().isoformat()
+
+        # Build STOMP headers: start with defaults, merge caller overrides on top
+        run_id = message_body.get('run_id') or self.current_run_id
+        stomp_headers = {
+            'persistent': 'false',
+            'vo': 'eic',
+            'msg_type': message_body.get('msg_type', 'unknown'),
+            'namespace': message_body.get('namespace', 'default'),
+            'run_id': str(run_id) if run_id else 'none',
+        }
+        if headers:
+            stomp_headers.update(headers)
+
+        try:
+            self.conn.send(
+                body=json.dumps(message_body),
+                destination=destination,
+                headers=stomp_headers
+            )
+            logging.info(f"Sent message to '{destination}': {message_body}")
+        except Exception as e:
+            logging.error(f"Failed to send message to '{destination}': {e}")
+            if any(t in str(e).lower() for t in ['ssl', 'eof', 'connection', 'broken pipe']):
+                logging.warning("Connection error detected - attempting recovery")
+                self.mq_connected = False
+                time.sleep(1)
+                if self._attempt_reconnect():
+                    try:
+                        self.conn.send(
+                            body=json.dumps(message_body),
+                            destination=destination,
+                            headers=stomp_headers
+                        )
+                        logging.info(f"Message sent after reconnection to '{destination}'")
+                    except Exception as retry_e:
+                        logging.error(f"Retry failed after reconnection: {retry_e}")
+                else:
+                    logging.error("Reconnection failed - message lost")
+
     def on_message(self, frame):
         """Handle incoming workflow messages."""
         message_data, msg_type = self.log_received_message(frame)
@@ -644,9 +717,17 @@ class FastProcessingAgent(BaseAgent):
             }
         }
 
-        # Send to transformer queue with required headers
+        # Send to transformer queue — persistent so slices survive broker restart,
+        # ttl of 12 hours so unprocessed slices are eventually discarded
         try:
-            self.send_message(self.TRANSFORMER_QUEUE, message)
+            self.send_message(
+                self.TRANSFORMER_QUEUE,
+                message,
+                headers={
+                    'persistent': 'true',
+                    'ttl': str(12 * 3600 * 1000)  # 12 hours in ms
+                }
+            )
 
             self.stats['slices_sent'] += 1
             self.logger.info(
