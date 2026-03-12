@@ -276,7 +276,7 @@ class FastProcessingAgent(BaseAgent):
                 destination=destination,
                 headers=stomp_headers
             )
-            logging.info(f"Sent message to '{destination}': {message_body}")
+            logging.info(f"Sent message to '{destination}' | headers={stomp_headers} | body={message_body}")
         except Exception as e:
             logging.error(f"Failed to send message to '{destination}': {e}")
             if any(t in str(e).lower() for t in ['ssl', 'eof', 'connection', 'broken pipe']):
@@ -290,7 +290,7 @@ class FastProcessingAgent(BaseAgent):
                             destination=destination,
                             headers=stomp_headers
                         )
-                        logging.info(f"Message sent after reconnection to '{destination}'")
+                        logging.info(f"Message sent after reconnection to '{destination}' | headers={stomp_headers} | body={message_body}")
                     except Exception as retry_e:
                         logging.error(f"Retry failed after reconnection: {retry_e}")
                 else:
