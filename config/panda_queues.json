@@ -1,4 +1,385 @@
 {
+  "BNL_OSG_PanDA_1": {
+    "acopytools": {
+      "pl": [
+        "rucio"
+      ],
+      "pr": [
+        "rucio"
+      ],
+      "pw": [
+        "rucio"
+      ],
+      "read_lan": [
+        "rucio"
+      ],
+      "read_lan_analysis": [
+        "rucio"
+      ],
+      "write_lan": [
+        "rucio"
+      ],
+      "write_lan_analysis": [
+        "rucio"
+      ]
+    },
+    "allow_lan": true,
+    "allow_wan": false,
+    "appdir": "",
+    "astorages": {
+      "pl": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pr": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pw": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ]
+    },
+    "atlas_site": "BNL-OSG",
+    "availablecpu": null,
+    "cachedse": null,
+    "capability": "score",
+    "catchall": "allow_no_pilot,logging=logstash;http://pandalogstash.sdcc.bnl.gov:8443,osgpool=true",
+    "cloud": "US",
+    "comment": "no active blacklisting rules defined",
+    "container_options": "",
+    "container_type": "apptainer:pilot",
+    "copytools": {
+      "rucio": {
+        "setup": ""
+      }
+    },
+    "corecount": null,
+    "coreenergy": 10.0,
+    "coreenergy_data": {
+      "coreenergy": 0.0,
+      "coreenergy_on": false,
+      "parent_coreenergy": 0.0,
+      "parent_coreenergy_on": false,
+      "parent_rc_site_coreenergy": 10.0,
+      "parent_site_coreenergy": 0.0,
+      "parent_site_coreenergy_on": false,
+      "scope": "rcsite"
+    },
+    "corepower": 12.32,
+    "corepower_data": {
+      "corepower": 0.0,
+      "corepower_on": false,
+      "parent_corepower": 0.0,
+      "parent_corepower_on": false,
+      "parent_rc_site_corepower": 12.32,
+      "parent_site_corepower": 0.0,
+      "parent_site_corepower_on": false,
+      "scope": "rcsite"
+    },
+    "country": "United States",
+    "countrygroup": "",
+    "depthboost": null,
+    "description": "",
+    "direct_access_lan": false,
+    "direct_access_wan": true,
+    "environ": "RUCIO_ACCOUNT=panda   RUCIO_CONFIG=/cvmfs/eic.opensciencegrid.org/rucio-clients/rucio.cfg",
+    "envsetup": "",
+    "fairsharepolicy": "",
+    "gocname": "BNL-OSG",
+    "gstat": "BNL-OSG",
+    "harvester": "",
+    "harvester_template": "",
+    "hc_param": "False",
+    "hc_suite": [
+      "PFT"
+    ],
+    "id": 66,
+    "is_cvmfs": true,
+    "is_default": false,
+    "is_virtual": false,
+    "jobseed": "std",
+    "last_modified": "2026-01-31T15:15:53.676466",
+    "localqueue": "",
+    "maxdiskio": null,
+    "maxdiskio_data": {
+      "maxdiskio": null,
+      "maxdiskio_on": false,
+      "parent_maxdiskio": null,
+      "parent_maxdiskio_on": false,
+      "parent_rc_site_maxdiskio": null,
+      "parent_site_maxdiskio": null,
+      "parent_site_maxdiskio_on": false,
+      "scope": "rcsite"
+    },
+    "maxinputsize": 14336,
+    "maxrss": 0,
+    "maxtime": 0,
+    "maxwdir": 30000,
+    "meanrss": 6000,
+    "minrss": 0,
+    "mintime": 0,
+    "name": "BNL_OSG_PanDA_1",
+    "nickname": "BNL_OSG_PanDA_1",
+    "nodes": 0,
+    "panda_resource": "BNL_OSG_PanDA_1",
+    "panda_site": "BNL-OSG-PanDA",
+    "params": {},
+    "parent": "OSG_VIRTUAL",
+    "pilot_manager": "Harvester",
+    "pilot_version": "3",
+    "pledgedcpu": null,
+    "probe": null,
+    "python_version": "2",
+    "queuehours": 0,
+    "queues": [],
+    "rc": "US-T1-BNL",
+    "rc_country": "United States",
+    "rc_site": "BNL-OSG",
+    "rc_site_state": "ACTIVE",
+    "region": "US",
+    "releases": [
+      "ANY"
+    ],
+    "resource_type": "GRID",
+    "site": "BNL-OSG-PanDA",
+    "site_state": "ACTIVE",
+    "siteid": "BNL_OSG_PanDA_1",
+    "special_par": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was cloned from BNL_PanDA_1 via WebUI",
+    "state_update": "2024-08-04T23:38:31.664121",
+    "status": "online",
+    "system": "osg",
+    "tags": "has_worked itb osg working",
+    "tier": "T1",
+    "tier_level": 1,
+    "timefloor": 60,
+    "transferringlimit": null,
+    "type": "production",
+    "uconfig": {},
+    "use_pcache": false,
+    "validatedreleases": "None",
+    "vo_name": "eic",
+    "wnconnectivity": "full",
+    "workflow": null,
+    "zip_time_gap": 7200
+  },
+  "BNL_PanDA_1": {
+    "acopytools": {
+      "pl": [
+        "rucio"
+      ],
+      "pr": [
+        "rucio"
+      ],
+      "pw": [
+        "rucio"
+      ],
+      "read_lan": [
+        "rucio"
+      ],
+      "read_lan_analysis": [
+        "rucio"
+      ],
+      "write_lan": [
+        "rucio"
+      ],
+      "write_lan_analysis": [
+        "rucio"
+      ]
+    },
+    "allow_lan": true,
+    "allow_wan": false,
+    "appdir": "",
+    "astorages": {
+      "pl": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pr": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pw": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ]
+    },
+    "atlas_site": "BNL-OSG",
+    "availablecpu": null,
+    "cachedse": null,
+    "capability": "score",
+    "catchall": "allow_no_pilot,logging=logstash;http://pandalogstash.sdcc.bnl.gov:8443",
+    "cloud": "US",
+    "comment": "no active blacklisting rules defined",
+    "container_options": "",
+    "container_type": "apptainer:pilot",
+    "copytools": {
+      "rucio": {
+        "setup": ""
+      }
+    },
+    "corecount": null,
+    "coreenergy": 10.0,
+    "coreenergy_data": {
+      "coreenergy": 0.0,
+      "coreenergy_on": false,
+      "parent_coreenergy": 0.0,
+      "parent_coreenergy_on": false,
+      "parent_rc_site_coreenergy": 10.0,
+      "parent_site_coreenergy": 0.0,
+      "parent_site_coreenergy_on": false,
+      "scope": "rcsite"
+    },
+    "corepower": 12.32,
+    "corepower_data": {
+      "corepower": 0.0,
+      "corepower_on": false,
+      "parent_corepower": 0.0,
+      "parent_corepower_on": false,
+      "parent_rc_site_corepower": 12.32,
+      "parent_site_corepower": 0.0,
+      "parent_site_corepower_on": false,
+      "scope": "rcsite"
+    },
+    "country": "United States",
+    "countrygroup": "",
+    "depthboost": null,
+    "description": "",
+    "direct_access_lan": false,
+    "direct_access_wan": true,
+    "environ": "RUCIO_CONFIG=/cvmfs/eic.opensciencegrid.org/rucio-clients/rucio.cfg RUCIO_ACCOUNT=panda",
+    "envsetup": "",
+    "fairsharepolicy": "",
+    "gocname": "BNL-OSG",
+    "gstat": "BNL-OSG",
+    "harvester": "",
+    "harvester_template": "",
+    "hc_param": "False",
+    "hc_suite": [
+      "PFT"
+    ],
+    "id": 65,
+    "is_cvmfs": true,
+    "is_default": false,
+    "is_virtual": false,
+    "jobseed": "std",
+    "last_modified": "2025-07-27T22:35:02.173358",
+    "localqueue": "",
+    "maxdiskio": null,
+    "maxdiskio_data": {
+      "maxdiskio": null,
+      "maxdiskio_on": false,
+      "parent_maxdiskio": null,
+      "parent_maxdiskio_on": false,
+      "parent_rc_site_maxdiskio": null,
+      "parent_site_maxdiskio": null,
+      "parent_site_maxdiskio_on": false,
+      "scope": "rcsite"
+    },
+    "maxinputsize": 14336,
+    "maxrss": 0,
+    "maxtime": 0,
+    "maxwdir": 30000,
+    "meanrss": 2000,
+    "minrss": 0,
+    "mintime": 0,
+    "name": "BNL_PanDA_1",
+    "nickname": "BNL_PanDA_1",
+    "nodes": 0,
+    "panda_resource": "BNL_PanDA_1",
+    "panda_site": "BNL-OSG-PanDA",
+    "params": {},
+    "parent": "OSG_VIRTUAL",
+    "pilot_manager": "Harvester",
+    "pilot_version": "3",
+    "pledgedcpu": null,
+    "probe": null,
+    "python_version": "2",
+    "queuehours": 0,
+    "queues": [
+      {
+        "ce_endpoint": "spoolce01.sdcc.bnl.gov:9619",
+        "ce_flavour": "HTCONDOR-CE",
+        "ce_id": 111,
+        "ce_jobmanager": "HTCondorCE",
+        "ce_name": "BNL-CE-HTCONDOR-CE-spoolce01.sdcc.bnl.gov",
+        "ce_queue_id": 67,
+        "ce_queue_maxcputime": 0,
+        "ce_queue_maxwctime": 0,
+        "ce_queue_name": "bnl-default",
+        "ce_queue_status": "production",
+        "ce_state": "ACTIVE",
+        "ce_status": "production",
+        "ce_version": null
+      },
+      {
+        "ce_endpoint": "spoolce02.sdcc.bnl.gov:9619",
+        "ce_flavour": "HTCONDOR-CE",
+        "ce_id": 114,
+        "ce_jobmanager": "HTCondorCE",
+        "ce_name": "BNL-CE-HTCONDOR-CE-spoolce02.sdcc.bnl.gov",
+        "ce_queue_id": 78,
+        "ce_queue_maxcputime": 0,
+        "ce_queue_maxwctime": 0,
+        "ce_queue_name": "bnl-default",
+        "ce_queue_status": "production",
+        "ce_state": "ACTIVE",
+        "ce_status": "production",
+        "ce_version": null
+      }
+    ],
+    "rc": "US-T1-BNL",
+    "rc_country": "United States",
+    "rc_site": "BNL-OSG",
+    "rc_site_state": "ACTIVE",
+    "region": "US",
+    "releases": [
+      "ANY"
+    ],
+    "resource_type": "GRID",
+    "site": "BNL-OSG-PanDA",
+    "site_state": "ACTIVE",
+    "siteid": "BNL_PanDA_1",
+    "special_par": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was cloned from BNL_OSG_1 via WebUI",
+    "state_update": "2024-06-27T20:11:04.676263",
+    "status": "online",
+    "system": "osg",
+    "tags": "has_worked itb osg working",
+    "tier": "T1",
+    "tier_level": 1,
+    "timefloor": 0,
+    "transferringlimit": null,
+    "type": "production",
+    "uconfig": {},
+    "use_pcache": false,
+    "validatedreleases": "None",
+    "vo_name": "eic",
+    "wnconnectivity": "full",
+    "workflow": null,
+    "zip_time_gap": 7200
+  },
   "E1_BNL": {
     "acopytools": {
       "pl": [
@@ -395,6 +776,593 @@
     "state": "ACTIVE",
     "state_comment": "Object was cloned from BNL_PanDA_1 via WebUI",
     "state_update": "2025-05-17T15:17:51.594424",
+    "status": "online",
+    "system": "osg",
+    "tags": "has_worked itb osg working",
+    "tier": "T1",
+    "tier_level": 1,
+    "timefloor": 0,
+    "transferringlimit": null,
+    "type": "production",
+    "uconfig": {},
+    "use_pcache": false,
+    "validatedreleases": "None",
+    "vo_name": "eic",
+    "wnconnectivity": "full",
+    "workflow": null,
+    "zip_time_gap": 7200
+  },
+  "NERSC_Perlmutter_epic": {
+    "acopytools": {
+      "pl": [
+        "rucio"
+      ],
+      "pr": [
+        "rucio"
+      ],
+      "pw": [
+        "rucio"
+      ],
+      "read_lan": [
+        "rucio"
+      ],
+      "read_lan_analysis": [
+        "rucio"
+      ],
+      "write_lan": [
+        "rucio"
+      ],
+      "write_lan_analysis": [
+        "rucio"
+      ]
+    },
+    "allow_lan": true,
+    "allow_wan": false,
+    "appdir": "",
+    "astorages": {
+      "pl": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pr": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pw": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ]
+    },
+    "atlas_site": "BNL-OSG",
+    "availablecpu": null,
+    "cachedse": null,
+    "capability": "mcore",
+    "catchall": "allow_no_pilot,logging=logstash;http://pandalogstash.sdcc.bnl.gov:8443",
+    "cloud": "US",
+    "comment": "no active blacklisting rules defined",
+    "container_options": "-B /global -B /cvmfs -B /pscratch -C",
+    "container_type": "apptainer:pilot",
+    "copytools": {
+      "rucio": {
+        "setup": ""
+      }
+    },
+    "corecount": null,
+    "coreenergy": 10.0,
+    "coreenergy_data": {
+      "coreenergy": 0.0,
+      "coreenergy_on": false,
+      "parent_coreenergy": 0.0,
+      "parent_coreenergy_on": false,
+      "parent_rc_site_coreenergy": 10.0,
+      "parent_site_coreenergy": 0.0,
+      "parent_site_coreenergy_on": false,
+      "scope": "rcsite"
+    },
+    "corepower": 12.32,
+    "corepower_data": {
+      "corepower": 0.0,
+      "corepower_on": false,
+      "parent_corepower": 0.0,
+      "parent_corepower_on": false,
+      "parent_rc_site_corepower": 12.32,
+      "parent_site_corepower": 0.0,
+      "parent_site_corepower_on": false,
+      "scope": "rcsite"
+    },
+    "country": "United States",
+    "countrygroup": "",
+    "depthboost": null,
+    "description": "",
+    "direct_access_lan": false,
+    "direct_access_wan": true,
+    "environ": "RUCIO_CONFIG=/global/common/software/m3763/panda-harvester/rucio.cfg RUCIO_ACCOUNT=panda",
+    "envsetup": "",
+    "fairsharepolicy": "",
+    "gocname": "BNL-OSG",
+    "gstat": "BNL-OSG",
+    "harvester": "",
+    "harvester_template": "",
+    "hc_param": "False",
+    "hc_suite": [
+      "PFT"
+    ],
+    "id": 98,
+    "is_cvmfs": true,
+    "is_default": false,
+    "is_virtual": false,
+    "jobseed": "std",
+    "last_modified": "2026-03-09T20:59:19.159436",
+    "localqueue": "",
+    "maxdiskio": null,
+    "maxdiskio_data": {
+      "maxdiskio": null,
+      "maxdiskio_on": false,
+      "parent_maxdiskio": null,
+      "parent_maxdiskio_on": false,
+      "parent_rc_site_maxdiskio": null,
+      "parent_site_maxdiskio": null,
+      "parent_site_maxdiskio_on": false,
+      "scope": "rcsite"
+    },
+    "maxinputsize": 14336,
+    "maxrss": 0,
+    "maxtime": 0,
+    "maxwdir": 30000,
+    "meanrss": 2000,
+    "minrss": 0,
+    "mintime": 0,
+    "name": "NERSC_Perlmutter_epic",
+    "nickname": "NERSC_Perlmutter_epic",
+    "nodes": 0,
+    "panda_resource": "NERSC_Perlmutter_epic",
+    "panda_site": "BNL-OSG-PanDA",
+    "params": {},
+    "parent": "OSG_VIRTUAL",
+    "pilot_manager": "local",
+    "pilot_version": "3",
+    "pledgedcpu": null,
+    "probe": null,
+    "python_version": "2",
+    "queuehours": 0,
+    "queues": [
+      {
+        "ce_endpoint": "spoolce01.sdcc.bnl.gov:9619",
+        "ce_flavour": "HTCONDOR-CE",
+        "ce_id": 111,
+        "ce_jobmanager": "HTCondorCE",
+        "ce_name": "BNL-CE-HTCONDOR-CE-spoolce01.sdcc.bnl.gov",
+        "ce_queue_id": 67,
+        "ce_queue_maxcputime": 0,
+        "ce_queue_maxwctime": 0,
+        "ce_queue_name": "bnl-default",
+        "ce_queue_status": "production",
+        "ce_state": "ACTIVE",
+        "ce_status": "production",
+        "ce_version": null
+      },
+      {
+        "ce_endpoint": "spoolce02.sdcc.bnl.gov:9619",
+        "ce_flavour": "HTCONDOR-CE",
+        "ce_id": 114,
+        "ce_jobmanager": "HTCondorCE",
+        "ce_name": "BNL-CE-HTCONDOR-CE-spoolce02.sdcc.bnl.gov",
+        "ce_queue_id": 78,
+        "ce_queue_maxcputime": 0,
+        "ce_queue_maxwctime": 0,
+        "ce_queue_name": "bnl-default",
+        "ce_queue_status": "production",
+        "ce_state": "ACTIVE",
+        "ce_status": "production",
+        "ce_version": null
+      }
+    ],
+    "rc": "US-T1-BNL",
+    "rc_country": "United States",
+    "rc_site": "BNL-OSG",
+    "rc_site_state": "ACTIVE",
+    "region": "US",
+    "releases": [
+      "ANY"
+    ],
+    "resource_type": "hpc_special",
+    "site": "BNL-OSG-PanDA",
+    "site_state": "ACTIVE",
+    "siteid": "NERSC_Perlmutter_epic",
+    "special_par": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was cloned from NERSC_Perlmutter_epic_test via WebUI",
+    "state_update": "2026-03-09T20:59:19.158564",
+    "status": "online",
+    "system": "osg",
+    "tags": "has_worked itb osg working",
+    "tier": "T1",
+    "tier_level": 1,
+    "timefloor": 0,
+    "transferringlimit": null,
+    "type": "production",
+    "uconfig": {},
+    "use_pcache": false,
+    "validatedreleases": "None",
+    "vo_name": "eic",
+    "wnconnectivity": "full",
+    "workflow": null,
+    "zip_time_gap": 7200
+  },
+  "NERSC_Perlmutter_epic_gpu_test": {
+    "acopytools": {
+      "pl": [
+        "rucio"
+      ],
+      "pr": [
+        "rucio"
+      ],
+      "pw": [
+        "rucio"
+      ],
+      "read_lan": [
+        "rucio"
+      ],
+      "read_lan_analysis": [
+        "rucio"
+      ],
+      "write_lan": [
+        "rucio"
+      ],
+      "write_lan_analysis": [
+        "rucio"
+      ]
+    },
+    "allow_lan": true,
+    "allow_wan": false,
+    "appdir": "",
+    "astorages": {
+      "pl": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pr": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pw": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ]
+    },
+    "atlas_site": "BNL-OSG",
+    "availablecpu": null,
+    "cachedse": null,
+    "capability": "ucore",
+    "catchall": "allow_no_pilot,logging=logstash;http://pandalogstash.sdcc.bnl.gov:8443",
+    "cloud": "US",
+    "comment": "no active blacklisting rules defined",
+    "container_options": "--nv -B /global -B /cvmfs -B /pscratch",
+    "container_type": "apptainer:pilot",
+    "copytools": {
+      "rucio": {
+        "setup": ""
+      }
+    },
+    "corecount": 16,
+    "coreenergy": 10.0,
+    "coreenergy_data": {
+      "coreenergy": 0.0,
+      "coreenergy_on": false,
+      "parent_coreenergy": 0.0,
+      "parent_coreenergy_on": false,
+      "parent_rc_site_coreenergy": 10.0,
+      "parent_site_coreenergy": 0.0,
+      "parent_site_coreenergy_on": false,
+      "scope": "rcsite"
+    },
+    "corepower": 12.32,
+    "corepower_data": {
+      "corepower": 0.0,
+      "corepower_on": false,
+      "parent_corepower": 0.0,
+      "parent_corepower_on": false,
+      "parent_rc_site_corepower": 12.32,
+      "parent_site_corepower": 0.0,
+      "parent_site_corepower_on": false,
+      "scope": "rcsite"
+    },
+    "country": "United States",
+    "countrygroup": "",
+    "depthboost": null,
+    "description": "",
+    "direct_access_lan": false,
+    "direct_access_wan": true,
+    "environ": "RUCIO_CONFIG=/global/common/software/m3763/panda-harvester/rucio.cfg RUCIO_ACCOUNT=panda ALRB_SCRATCH=/pscratch/sd/x/xin/panda/.alrb ALRB_tmpScratch=/pscratch/sd/x/xin/panda/.alrb",
+    "envsetup": "",
+    "fairsharepolicy": "",
+    "gocname": "BNL-OSG",
+    "gstat": "BNL-OSG",
+    "harvester": "",
+    "harvester_template": "",
+    "hc_param": "False",
+    "hc_suite": [
+      "PFT"
+    ],
+    "id": 94,
+    "is_cvmfs": true,
+    "is_default": false,
+    "is_virtual": false,
+    "jobseed": "std",
+    "last_modified": "2025-12-18T17:17:47.495315",
+    "localqueue": "",
+    "maxdiskio": null,
+    "maxdiskio_data": {
+      "maxdiskio": null,
+      "maxdiskio_on": false,
+      "parent_maxdiskio": null,
+      "parent_maxdiskio_on": false,
+      "parent_rc_site_maxdiskio": null,
+      "parent_site_maxdiskio": null,
+      "parent_site_maxdiskio_on": false,
+      "scope": "rcsite"
+    },
+    "maxinputsize": 122880,
+    "maxrss": 64000,
+    "maxtime": 86400,
+    "maxwdir": 124880,
+    "meanrss": 4000,
+    "minrss": 0,
+    "mintime": 0,
+    "name": "NERSC_Perlmutter_epic_gpu_test",
+    "nickname": "NERSC_Perlmutter_epic_gpu_test",
+    "nodes": 0,
+    "panda_resource": "NERSC_Perlmutter_epic_gpu_test",
+    "panda_site": "BNL-OSG-PanDA",
+    "params": {},
+    "parent": "OSG_VIRTUAL",
+    "pilot_manager": "local",
+    "pilot_version": "3",
+    "pledgedcpu": null,
+    "probe": null,
+    "python_version": "2",
+    "queuehours": 0,
+    "queues": [],
+    "rc": "US-T1-BNL",
+    "rc_country": "United States",
+    "rc_site": "BNL-OSG",
+    "rc_site_state": "ACTIVE",
+    "region": "US",
+    "releases": [
+      "ANY"
+    ],
+    "resource_type": "gpu",
+    "site": "BNL-OSG-PanDA",
+    "site_state": "ACTIVE",
+    "siteid": "NERSC_Perlmutter_epic_gpu_test",
+    "special_par": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was cloned from NERSC_Perlmutter_epic_test via WebUI",
+    "state_update": "2025-12-18T17:17:47.494665",
+    "status": "online",
+    "system": "osg",
+    "tags": "has_worked itb osg working",
+    "tier": "T1",
+    "tier_level": 1,
+    "timefloor": 0,
+    "transferringlimit": null,
+    "type": "unified",
+    "uconfig": {},
+    "use_pcache": false,
+    "validatedreleases": "None",
+    "vo_name": "eic",
+    "wnconnectivity": "full",
+    "workflow": "pull_ups",
+    "zip_time_gap": 7200
+  },
+  "NERSC_Perlmutter_epic_test": {
+    "acopytools": {
+      "pl": [
+        "rucio"
+      ],
+      "pr": [
+        "rucio"
+      ],
+      "pw": [
+        "rucio"
+      ],
+      "read_lan": [
+        "rucio"
+      ],
+      "read_lan_analysis": [
+        "rucio"
+      ],
+      "write_lan": [
+        "rucio"
+      ],
+      "write_lan_analysis": [
+        "rucio"
+      ]
+    },
+    "allow_lan": true,
+    "allow_wan": false,
+    "appdir": "",
+    "astorages": {
+      "pl": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pr": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pw": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ]
+    },
+    "atlas_site": "BNL-OSG",
+    "availablecpu": null,
+    "cachedse": null,
+    "capability": "mcore",
+    "catchall": "allow_no_pilot,logging=logstash;http://pandalogstash.sdcc.bnl.gov:8443",
+    "cloud": "US",
+    "comment": "no active blacklisting rules defined",
+    "container_options": "-B /global -B /cvmfs -B /pscratch -C",
+    "container_type": "apptainer:pilot",
+    "copytools": {
+      "rucio": {
+        "setup": ""
+      }
+    },
+    "corecount": null,
+    "coreenergy": 10.0,
+    "coreenergy_data": {
+      "coreenergy": 0.0,
+      "coreenergy_on": false,
+      "parent_coreenergy": 0.0,
+      "parent_coreenergy_on": false,
+      "parent_rc_site_coreenergy": 10.0,
+      "parent_site_coreenergy": 0.0,
+      "parent_site_coreenergy_on": false,
+      "scope": "rcsite"
+    },
+    "corepower": 12.32,
+    "corepower_data": {
+      "corepower": 0.0,
+      "corepower_on": false,
+      "parent_corepower": 0.0,
+      "parent_corepower_on": false,
+      "parent_rc_site_corepower": 12.32,
+      "parent_site_corepower": 0.0,
+      "parent_site_corepower_on": false,
+      "scope": "rcsite"
+    },
+    "country": "United States",
+    "countrygroup": "",
+    "depthboost": null,
+    "description": "",
+    "direct_access_lan": false,
+    "direct_access_wan": true,
+    "environ": "RUCIO_CONFIG=/global/common/software/m3763/panda-harvester/rucio.cfg RUCIO_ACCOUNT=panda",
+    "envsetup": "",
+    "fairsharepolicy": "",
+    "gocname": "BNL-OSG",
+    "gstat": "BNL-OSG",
+    "harvester": "",
+    "harvester_template": "",
+    "hc_param": "False",
+    "hc_suite": [
+      "PFT"
+    ],
+    "id": 92,
+    "is_cvmfs": true,
+    "is_default": false,
+    "is_virtual": false,
+    "jobseed": "std",
+    "last_modified": "2025-12-12T13:22:44.857727",
+    "localqueue": "",
+    "maxdiskio": null,
+    "maxdiskio_data": {
+      "maxdiskio": null,
+      "maxdiskio_on": false,
+      "parent_maxdiskio": null,
+      "parent_maxdiskio_on": false,
+      "parent_rc_site_maxdiskio": null,
+      "parent_site_maxdiskio": null,
+      "parent_site_maxdiskio_on": false,
+      "scope": "rcsite"
+    },
+    "maxinputsize": 14336,
+    "maxrss": 0,
+    "maxtime": 0,
+    "maxwdir": 30000,
+    "meanrss": 2000,
+    "minrss": 0,
+    "mintime": 0,
+    "name": "NERSC_Perlmutter_epic_test",
+    "nickname": "NERSC_Perlmutter_epic_test",
+    "nodes": 0,
+    "panda_resource": "NERSC_Perlmutter_epic_test",
+    "panda_site": "BNL-OSG-PanDA",
+    "params": {},
+    "parent": "OSG_VIRTUAL",
+    "pilot_manager": "local",
+    "pilot_version": "3",
+    "pledgedcpu": null,
+    "probe": null,
+    "python_version": "2",
+    "queuehours": 0,
+    "queues": [
+      {
+        "ce_endpoint": "spoolce01.sdcc.bnl.gov:9619",
+        "ce_flavour": "HTCONDOR-CE",
+        "ce_id": 111,
+        "ce_jobmanager": "HTCondorCE",
+        "ce_name": "BNL-CE-HTCONDOR-CE-spoolce01.sdcc.bnl.gov",
+        "ce_queue_id": 67,
+        "ce_queue_maxcputime": 0,
+        "ce_queue_maxwctime": 0,
+        "ce_queue_name": "bnl-default",
+        "ce_queue_status": "production",
+        "ce_state": "ACTIVE",
+        "ce_status": "production",
+        "ce_version": null
+      },
+      {
+        "ce_endpoint": "spoolce02.sdcc.bnl.gov:9619",
+        "ce_flavour": "HTCONDOR-CE",
+        "ce_id": 114,
+        "ce_jobmanager": "HTCondorCE",
+        "ce_name": "BNL-CE-HTCONDOR-CE-spoolce02.sdcc.bnl.gov",
+        "ce_queue_id": 78,
+        "ce_queue_maxcputime": 0,
+        "ce_queue_maxwctime": 0,
+        "ce_queue_name": "bnl-default",
+        "ce_queue_status": "production",
+        "ce_state": "ACTIVE",
+        "ce_status": "production",
+        "ce_version": null
+      }
+    ],
+    "rc": "US-T1-BNL",
+    "rc_country": "United States",
+    "rc_site": "BNL-OSG",
+    "rc_site_state": "ACTIVE",
+    "region": "US",
+    "releases": [
+      "ANY"
+    ],
+    "resource_type": "hpc_special",
+    "site": "BNL-OSG-PanDA",
+    "site_state": "ACTIVE",
+    "siteid": "NERSC_Perlmutter_epic_test",
+    "special_par": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was cloned from BNL_PanDA_test via WebUI",
+    "state_update": "2025-12-12T13:22:44.857185",
     "status": "online",
     "system": "osg",
     "tags": "has_worked itb osg working",
