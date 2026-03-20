@@ -5,7 +5,7 @@ Minimal setup for experienced users who want to get the testbed running quickly.
 ## Prerequisites
 
 - Docker Desktop (running)
-- Python 3.8+
+- Python 3.9+
 - Git
 
 ## One-Command Setup
@@ -105,4 +105,3 @@ export SWF_API_TOKEN=<get_from_django_admin>
 - **ActiveMQ connection failed**: Check Docker services running
 
 For detailed setup: [Installation Guide](installation.md)
-For troubleshooting: [Troubleshooting](troubleshooting.md)

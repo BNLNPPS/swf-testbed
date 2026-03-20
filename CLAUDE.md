@@ -27,12 +27,12 @@ swf_list_logs(execution_id='...')         # Workflow logs
 
 ## Project-Specific Rules
 
-**Branch:** All 3 repos must be on `infra/baseline-v30` (shorthand: v30)
+**Branch:** All 3 repos must be on `infra/baseline-v32` (shorthand: v30)
 
 **Deploy swf-monitor:** Commit and push first - deploy pulls from git, not local files.
 ```bash
 git add . && git commit -m "description" && git push
-sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v30
+sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v32
 ```
 
 **Git conventions:**
