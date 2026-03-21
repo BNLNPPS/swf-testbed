@@ -40,9 +40,16 @@ from rucio.client.didclient     import DIDClient
 from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 
 # Common lib imports
-from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse, RucioUtils
-from api_utils import           get_next_agent_id
+RUCIO_COMMS_PATH    = ''
+try:
+    RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
+    print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
+    sys.path.append(RUCIO_COMMS_PATH)
+except KeyError:
+    print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
+print(f'''*** Set the Python path: {sys.path} ***''')
 
+from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse, RucioUtils
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.api_utils import ensure_namespace
 
@@ -503,4 +510,36 @@ class DATA(BaseAgent):
                 # Re-raise other API errors
                 raise
 
+
 ############################################################################################
+if __name__ == "__main__":
+    # ---
+    import argparse
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-v", "--verbose",  action='store_true',    help="Verbose mode")
+    parser.add_argument("-x", "--xrdup",    action='store_true',    help="XRootD upload, instead of Rucio",         default=False)
+    parser.add_argument("-m", "--mqxmit",   action='store_true',    help="Transmit MQ messages, default to False",  default=False)
+    parser.add_argument("-s", "--scope",    type=str,               help="Rucio scope for the data",                default='group.daq')
+    parser.add_argument("-d", "--datadir",  type=str,               help="Data folder, from which to upload data",  default='/tmp')
+    parser.add_argument("-r", "--rse",      type=str,               help="RSE to target for upload",                default='DAQ_DISK_3')
+
+    args        = parser.parse_args()
+    verbose     = args.verbose
+    scope       = args.scope
+    datadir     = args.datadir
+    rse         = args.rse
+    xrdup       = args.xrdup
+    mqxmit      = args.mqxmit
+
+    if verbose:
+        print(f'''*** {'Verbose mode            ':<20} {verbose:>20} ***''')
+        print(f'''*** {'XRootD mode             ':<20} {xrdup:>20} ***''')
+        print(f'''*** {'Rucio scope             ':<20} {scope:>20} ***''')
+        print(f'''*** {'Data container (folder) ':<20} {datadir:>20} ***''')
+        print(f'''*** {'RSE for upload          ':<20} {rse:>20} ***''')
+    # ---
+
+    data = DATA(verbose=verbose, mqxmit=mqxmit, xrdup=xrdup, rucio_scope=scope, data_folder=datadir, rse=rse)
+
+    data.run()
