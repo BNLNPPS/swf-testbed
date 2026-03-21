@@ -120,8 +120,8 @@ export PANDA_BEHIND_REAL_LB=1
 
 #### Option 1: Start Individually in CLI Mode
 ```bash
-cd swf-processing-agent
-./simulator/processing_simulator.py
+cd swf-testbed
+./agents/prompt_processing_agent.py
 ```
 - The agent subscribes to ActiveMQ `/topic/epictopic`
 - When a `stf_ready` message is broadcasted, the agent submits the task to PanDA
@@ -148,7 +148,7 @@ stdout_logfile=%(here)s/logs/%(program_name)s.log
 stderr_logfile=%(here)s/logs/%(program_name)s.log
 
 [program:stf-processing-agent]
-command=python -u agents/prompt_processing_agent.py
+command=python -u agents/prompt_processing_agent.py -v
 directory=%(ENV_SWF_HOME)s/swf-testbed
 environment=SWF_TESTBED_CONFIG="%(ENV_SWF_TESTBED_CONFIG)s"
 autostart=false
