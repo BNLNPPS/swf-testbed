@@ -21,6 +21,8 @@ AGENT_PROGRAM_MAP = {
     'processing': 'example-processing-agent',
     'fastmon': 'example-fastmon-agent',
     'fast_processing': 'fast-processing-agent',
+    'stf-data': 'stf-data-agent',
+    'stf-processing': 'stf-processing-agent',
 }
 
 AGENTS_CONF = 'agents.supervisord.conf'
