@@ -199,11 +199,11 @@ Here's a real example of what the `testbed-audit` skill produces:
 
 ## Summary
 
-| Status | Count |
-|--------|-------|
-| OK/READY | 4 |
-| EXITED | 376+ |
-| WARNING | 6+ |
+|   Status  | Count |
+|-----------|-------|
+|  OK/READY |  4    |
+|  EXITED   |  376+ |
+|  WARNING  |  6+   |
 
 **System Health**: ✅ **HEALTHY** — Core workflow agents (DAQ Simulator, Data Agent, Processing Agent, and Agent Manager) are all running and responsive.
 
@@ -268,30 +268,6 @@ Indicate when the skill is complete:
 ```
 
 This prevents the AI from continuing unnecessarily.
-
----
-
-## More Examples
-
-### Simple Status Check (Claude Code Style)
-
-```markdown
-# /testbed-status
-
-Get comprehensive testbed status for username zyang2 using the MCP tool.
-
-## MCP Call
-
-```
-{{MCP|swf-testbed|mcp__swf-testbed__swf_get_testbed_status|username=zyang2}}
-```
-
-## Parameters
-
-- `username`: zyang2 (fixed for this skill)
-```
-
-This simpler format is useful for straightforward tool invocations.
 
 ---
 
