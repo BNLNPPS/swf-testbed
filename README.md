@@ -16,9 +16,8 @@ This is the umbrella repository for the ePIC streaming workflow testbed.
 - [**Workflow Orchestration**](docs/workflows.md) - Running and managing workflows
 - [**Monitor Integration**](docs/monitor.md) - Web interface and API usage
 - [**MCP Integration**](../swf-monitor/docs/MCP.md) - Model Context Protocol for LLM interaction
-- [**EMI (ePIC Metadata Interface)**](../swf-monitor/docs/EMI.md) - Production metadata tags for MC campaigns
+- [**PCS (Physics Configuration System)**](../swf-monitor/docs/PCS.md) - Production metadata tags for MC campaigns
 - [**SSE Real-Time Streaming**](docs/sse-streaming.md) - Remote workflow event monitoring via HTTPS
-- [**EMI (ePIC Metadata Interface)**](../swf-monitor/docs/EMI.md) - Production metadata tags for MC campaigns
 - [**Production Deployment**](../swf-monitor/docs/PRODUCTION_DEPLOYMENT.md) - Apache production deployment guide
 
 ### MCP for Claude Code
