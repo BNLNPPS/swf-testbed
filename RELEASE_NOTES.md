@@ -4,7 +4,7 @@
 
 ### PCS (Physics Configuration System) — New Django App (swf-monitor)
 
-A new Django app for managing production metadata tags for ePIC Monte Carlo simulation campaigns. PCS organizes metadata as tags — named parameter sets for each stage of the MC pipeline:
+A new Django app for configuring production tasks based on physics inputs for ePIC Monte Carlo simulation campaigns. PCS organizes configurations as tags — named parameter sets for each stage of the MC pipeline:
 
 - **Physics tags (p):** process, beam energies, species, Q2 range
 - **EvGen tags (e):** event generator and version
