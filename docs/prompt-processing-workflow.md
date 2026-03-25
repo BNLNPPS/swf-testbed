@@ -78,7 +78,7 @@ stf_count = 10                   # Number of STF files to generate
 physics_period_count = 1        # Number of physics periods
 
 # Timing parameters
-realtime = ture                 # Run in real-time (1 sim second = 1 wall second)
+realtime = true                 # Run in real-time (1 sim second = 1 wall second)
 ```
 
 ## Running the Workflow
