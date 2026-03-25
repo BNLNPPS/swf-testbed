@@ -47,7 +47,7 @@ class PROCESSING(BaseAgent):
         "--inDS",   inDS,
         "--outDS",  outDS,
         "--nJobs",  "1",
-        "--vo",     "wlcg",
+        "--vo",     "epic",
         "--site",   "E1_BNL",
         "--prodSourceLabel",    "test",
         "--workingGroup",       "EIC",
@@ -161,7 +161,7 @@ class PROCESSING(BaseAgent):
         "--inDS",   f"group.daq:{self.inDS}",
         "--outDS",  f"user.{username}.{self.outDS}",
         "--nJobs", "1",
-        "--vo", "wlcg",
+        "--vo", "epic",
         "--site", "E1_BNL",
         "--prodSourceLabel", "test",
         "--workingGroup", "EIC",
@@ -178,11 +178,13 @@ class PROCESSING(BaseAgent):
 
         # to process input files as they are added to the dataset
         params['runUntilClosed'] = True
-        #params['taskType'] = "stfprocessing"
+        params['processingType'] = "stfprocessing"
 
         status, msg = self.panda_submit_task(params)
         self.panda_status[self.run_id] = {'status': status, 'message': msg}
-                
+
+        self.logger.info(f"New task submitted to PanDA. status:{status}, message:{msg}")
+
         return None
 
 

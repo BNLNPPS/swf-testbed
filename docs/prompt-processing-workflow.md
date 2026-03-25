@@ -74,11 +74,11 @@ script = "agents/prompt_processing_agent.py"
 
 [simulation]
 # STF generation parameters
-stf_count = 2                   # Number of STF files to generate
+stf_count = 10                   # Number of STF files to generate
 physics_period_count = 1        # Number of physics periods
 
 # Timing parameters
-realtime = false                # Run in real-time (1 sim second = 1 wall second)
+realtime = true                 # Run in real-time (1 sim second = 1 wall second)
 ```
 
 ## Running the Workflow
@@ -86,7 +86,7 @@ realtime = false                # Run in real-time (1 sim second = 1 wall second
 ### Prerequisites
 
 #### PanDA Setup
-- Use `--vo` option with value `"wlcg"`
+- Use `--vo` option with value `"epic"`
 - For BNL PanDA submission, you need a **valid OIDC token issued by IAM**
 
 #### Install panda-client
@@ -120,14 +120,15 @@ export PANDA_BEHIND_REAL_LB=1
 
 #### Option 1: Start Individually in CLI Mode
 ```bash
-cd swf-processing-agent
-./simulator/processing_simulator.py
+cd swf-testbed
+python agents/data_agent.py
+python agents/prompt_processing_agent.py
 ```
 - The agent subscribes to ActiveMQ `/topic/epictopic`
 - When a `stf_ready` message is broadcasted, the agent submits the task to PanDA
 
 #### Option 2: Start via Workflow Orchestrator
-Both `swf-processing-agent` and `swf-data-agent` can be started together:
+Both `prompt-processing-agent` and `data-agent` can be started together:
 ```bash
 testbed run prompt_processing
 ```
@@ -148,7 +149,7 @@ stdout_logfile=%(here)s/logs/%(program_name)s.log
 stderr_logfile=%(here)s/logs/%(program_name)s.log
 
 [program:stf-processing-agent]
-command=python -u agents/prompt_processing_agent.py
+command=python -u agents/prompt_processing_agent.py -v
 directory=%(ENV_SWF_HOME)s/swf-testbed
 environment=SWF_TESTBED_CONFIG="%(ENV_SWF_TESTBED_CONFIG)s"
 autostart=false
