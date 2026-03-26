@@ -435,7 +435,7 @@ class FastProcessingAgent(BaseAgent):
         slices_per_sample = fast_processing.get('slices_per_sample', 15)
 
         # Create TF slices from this STF sample
-        slices = self._create_tf_slices(stf_filename, slices_per_sample)
+        slices = self._create_tf_slices(tf_filename, slices_per_sample)
 
         # Push each slice to transformer queue
         for slice_data in slices:
@@ -654,7 +654,7 @@ class FastProcessingAgent(BaseAgent):
             tf_count = tf_last - tf_first + 1
 
             # Generate TF filename for this slice
-            tf_filename = f"{stf_filename.replace('.stf', '')}_slice_{i:03d}.tf"
+            tf_filename = f"{stf_filename.replace('.stf', '').replace('.tf', '')}_slice_{i:03d}.tf"
 
             slice_data = {
                 'slice_id': i,
