@@ -1,5 +1,61 @@
 # Release Notes
 
+## v33 (2026-03-29)
+
+### Dual-Mode UI: ePIC Production / ePIC Testbed (swf-monitor)
+
+The monitor now operates in two modes, selectable via a nav bar toggle (localStorage-persisted):
+
+- **ePIC Production** (`/prod/`) — PanDA production monitoring (activity, jobs, tasks, errors, diagnostics, queues) + PCS (tags, datasets, prod configs, prod tasks). Shared PCS sections template keeps PCS hub and production hub in sync.
+- **ePIC Testbed** (`/testbed/`) — Streaming workflow testbed: workflows, time frame data, agents, messaging, system state, PanDA/Rucio.
+
+Root URL redirects based on mode. About page updated for dual-mode, all access methods, tech stack.
+
+### PanDA Production Pages (swf-monitor)
+
+Full DataTables views for **Activity, Jobs, Tasks, Errors, Diagnostics**. **EIC PanDA Queues** from live schedconfig with MCP tools (`panda_list_queues`, `panda_get_queue`). **`panda_resource_usage`** for allocated vs used core-hours. **`panda_study_job`** for deep single-job analysis. **`destinationse`** (destination storage element) from filestable4 added to job listings and error summary. PanDA query modules refactored into `constants.py`, `sql.py`, `queries.py`. Monitor links point to epic-devcloud.org.
+
+### PCS Auth & Proxy Support (swf-monitor)
+
+Full PCS functionality through the swf-remote (epic-devcloud.org) proxy:
+
+- **`TunnelAuthentication`** DRF backend — authenticates localhost/tunnel requests via `X-Remote-User` header without CSRF enforcement
+- **`IsAuthenticatedOrReadOnly`** on all PCS API viewsets — anonymous GET, auth required for writes
+- **`created_by` from `request.user`** — read-only in serializers, set server-side
+- **Tag delete API** — `POST /delete/` with creator-only, draft-only enforcement
+- **All PCS templates** converted from form POST to JS fetch → REST API
+- **`/api/users/`** endpoint with password hash for devcloud account sync
+
+### Mattermost PanDA Bot (swf-monitor)
+
+- **4 MCP server types**: HTTP (PanDA, PCS), stdio (XRootD, GitHub, Zenodo)
+- **DPID (Data Provenance ID)** anti-fabrication: bot verifies LLM cited a real DPID, strips from user reply, warns if verification fails
+- **`/panda` slash commands** — status, errors, jobs/tasks with status filter and pagination, job/task detail, sites, site detail, help
+- **`bot_manage_servers`** virtual tool — list with versions, update/rebuild/restart
+- **Server-side matplotlib plots** in Mattermost
+- System prompt: data integrity rules, security rules, "never ask user to look something up"
+
+### MCP Servers
+
+- **Zenodo** (`eic/zenodo-mcp-server`) — search, inspect, download from zenodo.org
+- **XRootD** (`eic/xrootd-mcp-server`) — file browsing and reading on JLab XRootD
+- **GitHub** (`github/github-mcp-server`) — read-only repo, issue, PR, actions access
+- **StdioMCPClient** transport for managing external MCP server subprocesses
+
+### Agent Resilience (swf-common-lib, swf-testbed)
+
+- API retry with exponential backoff (swf-common-lib)
+- Agent manager: supervisord health verification, SIGUSR1 heartbeat, exit heartbeat on shutdown
+- check-testbed skill and supervisord health monitoring
+- AI memory hooks for cross-session dialogue persistence
+
+### Bug Fixes
+
+- Namespace datatable: `Count('id')` on model without `id` field
+- `list_tasks`: stale filter params misaligned with where clauses
+- Django 5+ logout requires POST
+- Workflow parameter override: auto-discover all config sections
+
 ## v32 (2026-03-02)
 
 ### PCS (Physics Configuration System) — New Django App (swf-monitor)
