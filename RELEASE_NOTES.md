@@ -2,9 +2,9 @@
 
 ## v32 (2026-03-02)
 
-### EMI (ePIC Metadata Interface) — New Django App (swf-monitor)
+### PCS (Physics Configuration System) — New Django App (swf-monitor)
 
-A new Django app for managing production metadata tags for ePIC Monte Carlo simulation campaigns. EMI organizes metadata as tags — named parameter sets for each stage of the MC pipeline:
+A new Django app for configuring production tasks based on physics inputs for ePIC Monte Carlo simulation campaigns. PCS organizes configurations as tags — named parameter sets for each stage of the MC pipeline:
 
 - **Physics tags (p):** process, beam energies, species, Q2 range
 - **EvGen tags (e):** event generator and version
@@ -17,7 +17,7 @@ Tags have a draft/locked lifecycle. Locked tags are immutable and used in produc
 
 **Seeded data:** `seed_campaign_tags` management command creates 64 tags from the 26.02.0 campaign (47 physics, 15 evgen, 1 simu, 1 reco).
 
-**MCP tools:** `emi_list_tags`, `emi_get_tag`, `emi_search_tags`.
+**MCP tools:** `pcs_list_tags`, `pcs_get_tag`, `pcs_search_tags`.
 
 ### PanDA Mattermost Bot (swf-monitor)
 
@@ -25,7 +25,7 @@ Claude-based production monitoring chatbot in Mattermost. Listens in the `#panda
 
 - Discovers tools from MCP server automatically
 - System prompt built from MCP server instructions, stays in sync with deployed tool documentation
-- Supports PanDA and EMI tools
+- Supports PanDA and PCS tools
 - Thread-aware conversations
 
 ### PanDA Web Monitor (swf-monitor)
