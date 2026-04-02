@@ -387,7 +387,7 @@ class FastProcessingAgent(BaseAgent):
             })
 
             message = {
-                'msg_type': 'run_imminent',
+                'msg_type': 'run_imminent_worker',
                 'run_id': self.current_run_id,
                 'created_at': datetime.utcnow().isoformat(),
                 'content': content
