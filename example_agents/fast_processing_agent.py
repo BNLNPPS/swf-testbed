@@ -380,6 +380,7 @@ class FastProcessingAgent(BaseAgent):
             content = dict(message_data or {})
             content.update({
                 'execution_id': self.current_execution_id,
+                'core_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 1),
                 'target_worker_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 1),
                 'slice_processing_time': self.workflow_params.get("fast_processing", {}).get('slice_processing_time', 1),
                 'worker_rampup_time': self.workflow_params.get("fast_processing", {}).get('worker_rampup_time', 1),
