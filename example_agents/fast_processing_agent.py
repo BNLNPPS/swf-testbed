@@ -424,6 +424,9 @@ class FastProcessingAgent(BaseAgent):
         """
         tf_filename = message_data.get('tf_filename')
         stf_filename = message_data.get('stf_filename')
+        tf_first = message_data.get('tf_first', 0)
+        tf_last = message_data.get('tf_last')
+        tf_count = message_data.get('tf_count')
 
         self.stats['tf_files_received'] += 1
         self.tf_files_received += 1
@@ -431,12 +434,12 @@ class FastProcessingAgent(BaseAgent):
         self.logger.info(f"TF file registered: {tf_filename} (from STF: {stf_filename})",
                          extra=self._log_extra(tf_filename=tf_filename, stf_filename=stf_filename))
 
-        # Get slices_per_sample from workflow params
+        # Get num_tfs_per_slice from workflow params
         fast_processing = self.workflow_params.get('fast_processing', {})
-        slices_per_sample = fast_processing.get('slices_per_sample', 15)
+        num_tfs_per_slice = fast_processing.get('num_tfs_per_slice', 50)
 
-        # Create TF slices from this STF sample
-        slices = self._create_tf_slices(tf_filename, slices_per_sample)
+        # Create TF slices from this TF sample
+        slices = self._create_tf_slices(tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tfs_per_slice)
 
         # Push each slice to transformer queue
         for slice_data in slices:
@@ -637,32 +640,39 @@ class FastProcessingAgent(BaseAgent):
             self.logger.error(f"Error updating RunState slices: {e}",
                               extra=self._log_extra(error=str(e)))
 
-    def _create_tf_slices(self, stf_filename, num_slices):
+    def _create_tf_slices(self, tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tfs_per_slice):
         """
-        Create TF slice records in database.
+        Create TF slice records in database, based on the TF file's range [tf_first, tf_last].
+
+        Slices divide the TF file's range into chunks of num_tfs_per_slice TFs each.
+        Slice filenames are derived from tf_filename.
 
         Returns list of slice data dictionaries for sending to queue.
         """
+        import math
         slices = []
 
-        # Assume ~1000 TFs per STF, divide into num_slices
-        tfs_per_stf = 1000
-        tfs_per_slice = tfs_per_stf // num_slices
+        if tf_last is None or tf_count is None:
+            self.logger.error(f"Missing tf_last or tf_count for {tf_filename} — cannot create slices",
+                              extra=self._log_extra(tf_filename=tf_filename))
+            return slices
+
+        num_slices = math.ceil(tf_count / num_tfs_per_slice)
+        tf_base = tf_filename.rsplit('.', 1)[0]
 
         for i in range(num_slices):
-            tf_first = i * tfs_per_slice
-            tf_last = (i + 1) * tfs_per_slice - 1 if i < num_slices - 1 else tfs_per_stf - 1
-            tf_count = tf_last - tf_first + 1
+            slice_tf_first = tf_first + i * num_tfs_per_slice
+            slice_tf_last = min(slice_tf_first + num_tfs_per_slice - 1, tf_last)
+            slice_tf_count = slice_tf_last - slice_tf_first + 1
 
-            # Generate TF filename for this slice
-            tf_filename = f"{stf_filename.replace('.stf', '').replace('.tf', '')}_slice_{i:03d}.tf"
+            slice_filename = f"{tf_base}_slice_{i:03d}.tf"
 
             slice_data = {
                 'slice_id': i,
-                'tf_first': tf_first,
-                'tf_last': tf_last,
-                'tf_count': tf_count,
-                'tf_filename': tf_filename,
+                'tf_first': slice_tf_first,
+                'tf_last': slice_tf_last,
+                'tf_count': slice_tf_count,
+                'tf_filename': slice_filename,
                 'stf_filename': stf_filename,
                 'run_number': self.current_run_id,
                 'status': 'queued',
@@ -682,14 +692,14 @@ class FastProcessingAgent(BaseAgent):
                     # Add database ID to slice data for queue message
                     slice_data['db_id'] = result.get('id')
                     slices.append(slice_data)
-                    self.logger.debug(f"TFSlice created: {tf_filename}",
-                                      extra=self._log_extra(tf_filename=tf_filename))
+                    self.logger.debug(f"TFSlice created: {slice_filename}",
+                                      extra=self._log_extra(tf_filename=slice_filename))
                 else:
-                    self.logger.warning(f"Failed to create TFSlice: {tf_filename}",
-                                        extra=self._log_extra(tf_filename=tf_filename))
+                    self.logger.warning(f"Failed to create TFSlice: {slice_filename}",
+                                        extra=self._log_extra(tf_filename=slice_filename))
             except Exception as e:
-                self.logger.error(f"Error creating TFSlice {tf_filename}: {e}",
-                                  extra=self._log_extra(tf_filename=tf_filename, error=str(e)))
+                self.logger.error(f"Error creating TFSlice {slice_filename}: {e}",
+                                  extra=self._log_extra(tf_filename=slice_filename, error=str(e)))
 
         return slices
 
