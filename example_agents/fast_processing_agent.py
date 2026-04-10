@@ -434,12 +434,12 @@ class FastProcessingAgent(BaseAgent):
         self.logger.info(f"TF file registered: {tf_filename} (from STF: {stf_filename})",
                          extra=self._log_extra(tf_filename=tf_filename, stf_filename=stf_filename))
 
-        # Get num_tfs_per_slice from workflow params
+        # Get num_tf_per_slice from workflow params
         fast_processing = self.workflow_params.get('fast_processing', {})
-        num_tfs_per_slice = fast_processing.get('num_tfs_per_slice', 50)
+        num_tf_per_slice = fast_processing.get('num_tf_per_slice', 2)
 
         # Create TF slices from this TF sample
-        slices = self._create_tf_slices(tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tfs_per_slice)
+        slices = self._create_tf_slices(tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tf_per_slice)
 
         # Push each slice to transformer queue
         for slice_data in slices:
@@ -640,11 +640,11 @@ class FastProcessingAgent(BaseAgent):
             self.logger.error(f"Error updating RunState slices: {e}",
                               extra=self._log_extra(error=str(e)))
 
-    def _create_tf_slices(self, tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tfs_per_slice):
+    def _create_tf_slices(self, tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tf_per_slice):
         """
         Create TF slice records in database, based on the TF file's range [tf_first, tf_last].
 
-        Slices divide the TF file's range into chunks of num_tfs_per_slice TFs each.
+        Slices divide the TF file's range into chunks of num_tf_per_slice TFs each.
         Slice filenames are derived from tf_filename.
 
         Returns list of slice data dictionaries for sending to queue.
@@ -657,12 +657,12 @@ class FastProcessingAgent(BaseAgent):
                               extra=self._log_extra(tf_filename=tf_filename))
             return slices
 
-        num_slices = math.ceil(tf_count / num_tfs_per_slice)
+        num_slices = math.ceil(tf_count / num_tf_per_slice)
         tf_base = tf_filename.rsplit('.', 1)[0]
 
         for i in range(num_slices):
-            slice_tf_first = tf_first + i * num_tfs_per_slice
-            slice_tf_last = min(slice_tf_first + num_tfs_per_slice - 1, tf_last)
+            slice_tf_first = tf_first + i * num_tf_per_slice
+            slice_tf_last = min(slice_tf_first + num_tf_per_slice - 1, tf_last)
             slice_tf_count = slice_tf_last - slice_tf_first + 1
 
             slice_filename = f"{tf_base}_slice_{i:03d}.tf"
