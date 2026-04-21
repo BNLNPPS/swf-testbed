@@ -1,0 +1,33 @@
+[testbed]
+namespace = "test-user"
+
+[workflow]
+name = "prompt_processing"
+version = "1.0"
+description = "Prompt processing of STF files"
+includes = ["daq_state_machine.toml"]
+
+# =============================================================================
+# Agent Configuration
+# =============================================================================
+[agents.stf-data]
+enabled = true
+script = "agents/data_agent.py"
+
+[agents.stf-processing]
+enabled = true
+script = "agents/prompt_processing_agent.py"
+
+# =============================================================================
+# Prompt Processing Parameters (used by prompt_processing.py)
+# =============================================================================
+[simulation]
+# STF generation parameters
+stf_count = 10                  # Number of STF files to generate
+physics_period_count = 1        # Number of physics periods
+
+# Timing parameters
+realtime = true                 # Run in real-time (1 sim second = 1 wall second)
+
+[prompt_processing]
+# Prompt processing parameters

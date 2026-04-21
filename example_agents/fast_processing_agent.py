@@ -26,12 +26,18 @@ class FastProcessingAgent(BaseAgent):
     """
 
     # Queue for transformer workers (from Wen's iDDS design)
-    TRANSFORMER_QUEUE = '/queue/panda.transformer.slices'
+    TRANSFORMER_QUEUE = '/topic/panda.slices'
+
+    # Queue for worker broadcasts
+    WORKER_BROADCAST_TOPIC = '/topic/panda.workers'
+
+    # Queue for transformer results
+    TRANSFORMER_RESULTS_QUEUE = '/queue/panda.results.fastprocessing'
 
     def __init__(self, debug=False, config_path=None):
         super().__init__(
             agent_type='Fast_Processing',
-            subscription_queue='/topic/epictopic',
+            subscription_queues=['/topic/epictopic', self.TRANSFORMER_RESULTS_QUEUE],
             debug=debug,
             config_path=config_path
         )
@@ -47,7 +53,10 @@ class FastProcessingAgent(BaseAgent):
         self.stats = {
             'tf_files_received': 0,
             'slices_created': 0,
-            'slices_sent': 0
+            'slices_sent': 0,
+            'results_received': 0,
+            'results_done': 0,
+            'results_failed': 0
         }
 
     def on_message(self, frame):
@@ -72,11 +81,13 @@ class FastProcessingAgent(BaseAgent):
                 self.handle_resume_run(message_data)
             elif msg_type == 'end_run':
                 self.handle_end_run(message_data)
+            elif msg_type == 'slice_result':
+                self.handle_slice_result(message_data)
             else:
                 self.logger.debug(f"Ignoring message type: {msg_type}")
         except Exception as e:
             self.logger.error(f"Error processing {msg_type}: {e}",
-                            extra=self._log_extra(error=str(e)))
+                              extra=self._log_extra(error=str(e)))
             import traceback
             self.logger.error(traceback.format_exc())
 
@@ -106,7 +117,8 @@ class FastProcessingAgent(BaseAgent):
             if not self.workflow_params:
                 self.workflow_params = self._fetch_workflow_parameters(execution_id)
                 if self.workflow_params:
-                    self.logger.info(f"Workflow parameters loaded (mid-run): {self.workflow_params}")
+                    import json
+                    self.logger.info(f"Workflow parameters loaded (mid-run): {json.dumps(self.workflow_params, indent=2, sort_keys=True)}")
 
     def handle_run_imminent(self, message_data):
         """Handle run_imminent message."""
@@ -117,15 +129,48 @@ class FastProcessingAgent(BaseAgent):
 
         self._log_system_event('run_imminent', {
             'execution_id': self.current_execution_id,
-            'target_worker_count': self.workflow_params.get('target_worker_count', 0),
-            'stf_sampling_rate': self.workflow_params.get('stf_sampling_rate', 0),
-            'slices_per_sample': self.workflow_params.get('slices_per_sample', 0)
+            'target_worker_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 0),
+            'stf_sampling_rate': self.workflow_params.get("fast_processing", {}).get('stf_sampling_rate', 0),
+            'slices_per_sample': self.workflow_params.get("fast_processing", {}).get('slices_per_sample', 0)
         })
+
+        # Build and broadcast a run_imminent message to workers
+        try:
+            # Compose message similar to _send_slice_to_queue format.
+            # Put the incoming message_data inside 'content' and add execution_id
+            # and target_worker_count so workers know how many to spin up.
+            content = dict(message_data or {})
+            content.update({
+                'execution_id': self.current_execution_id,
+                'target_worker_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 1),
+                'slice_processing_time': self.workflow_params.get("fast_processing", {}).get('slice_processing_time', 1),
+                'worker_rampup_time': self.workflow_params.get("fast_processing", {}).get('worker_rampup_time', 1),
+                'worker_rampdown_time': self.workflow_params.get("fast_processing", {}).get('worker_rampdown_time', 1)
+            })
+
+            message = {
+                'msg_type': 'run_imminent',
+                'run_id': self.current_run_id,
+                'created_at': datetime.utcnow().isoformat(),
+                'content': content
+            }
+
+            # Topic for worker broadcasts
+            worker_topic = self.WORKER_BROADCAST_TOPIC
+
+            headers = {'persistent': 'false'}
+            self.send_message(worker_topic, message, headers=headers)
+
+            self.logger.info(f"Broadcasted run_imminent to workers: {worker_topic}",
+                             extra=self._log_extra(destination=worker_topic))
+        except Exception as e:
+            self.logger.error(f"Failed to broadcast run_imminent to workers: {e}",
+                              extra=self._log_extra(error=str(e)))
 
     def handle_start_run(self, message_data):
         """Handle start_run: Update RunState phase to 'physics'."""
         self.logger.info(f"Run started: run_id={self.current_run_id}",
-                        extra=self._log_extra())
+                         extra=self._log_extra())
 
         # Agent is now actively processing this run
         self.set_processing()
@@ -147,7 +192,7 @@ class FastProcessingAgent(BaseAgent):
         self.tf_files_received += 1
 
         self.logger.info(f"TF file registered: {tf_filename} (from STF: {stf_filename})",
-                        extra=self._log_extra(tf_filename=tf_filename, stf_filename=stf_filename))
+                         extra=self._log_extra(tf_filename=tf_filename, stf_filename=stf_filename))
 
         # Get slices_per_sample from workflow params
         fast_processing = self.workflow_params.get('fast_processing', {})
@@ -173,7 +218,7 @@ class FastProcessingAgent(BaseAgent):
     def handle_pause_run(self, message_data):
         """Handle pause_run: Update RunState to standby."""
         self.logger.info(f"Run paused: run_id={self.current_run_id}",
-                        extra=self._log_extra())
+                         extra=self._log_extra())
 
         self._update_run_state(substate='standby')
 
@@ -184,7 +229,7 @@ class FastProcessingAgent(BaseAgent):
     def handle_resume_run(self, message_data):
         """Handle resume_run: Update RunState back to physics."""
         self.logger.info(f"Run resumed: run_id={self.current_run_id}",
-                        extra=self._log_extra())
+                         extra=self._log_extra())
 
         self._update_run_state(substate='physics')
 
@@ -201,8 +246,8 @@ class FastProcessingAgent(BaseAgent):
             f"tf_files_received={self.stats['tf_files_received']}, "
             f"slices_created={self.stats['slices_created']}",
             extra=self._log_extra(total_stf=total_stf,
-                                 tf_files_received=self.stats['tf_files_received'],
-                                 slices_created=self.stats['slices_created'])
+                                  tf_files_received=self.stats['tf_files_received'],
+                                  slices_created=self.stats['slices_created'])
         )
 
         self._update_run_state(phase='completed', state='ended', substate=None)
@@ -214,6 +259,34 @@ class FastProcessingAgent(BaseAgent):
             'total_slices_sent': self.stats['slices_sent']
         })
 
+        # Broadcast end_run to workers so they can perform any teardown/cleanup
+        try:
+            # Compose message similar to _send_slice_to_queue format.
+            # Put the incoming message_data inside 'content' and add execution_id
+            # and target_worker_count so workers can finalize appropriately.
+            content = dict(message_data or {})
+            content.update({
+                'execution_id': self.current_execution_id
+            })
+
+            message = {
+                'msg_type': 'end_run',
+                'run_id': self.current_run_id,
+                'created_at': datetime.utcnow().isoformat(),
+                'content': content
+            }
+
+            worker_topic = self.WORKER_BROADCAST_TOPIC
+
+            headers = {'persistent': 'false'}
+            self.send_message(worker_topic, message, headers=headers)
+
+            self.logger.info(f"Broadcasted end_run to workers: {worker_topic}",
+                             extra=self._log_extra(destination=worker_topic))
+        except Exception as e:
+            self.logger.error(f"Failed to broadcast end_run to workers: {e}",
+                              extra=self._log_extra(error=str(e)))
+
         # Clear current run state
         self.current_run_id = None
         self.current_execution_id = None
@@ -221,6 +294,48 @@ class FastProcessingAgent(BaseAgent):
 
         # Agent is now idle, waiting for next run
         self.set_ready()
+
+    def handle_slice_result(self, message_data):
+        """Process slice_result messages from transformer workers."""
+        self.stats['results_received'] += 1
+
+        content = message_data.get('content', {})
+        result = content.get('result') if isinstance(content, dict) else None
+
+        self.logger.info(
+            f"Slice result received: run={message_data.get('run_id')}, "
+            f"state={content.get('state') if isinstance(content, dict) else 'unknown'}",
+            extra=self._log_extra(run_id=message_data.get('run_id'))
+        )
+
+        # Track done/failed counts if result payload present
+        try:
+            inner_result = None
+            if result and isinstance(result, dict):
+                inner_result = result.get('result') if isinstance(result.get('result'), dict) else None
+
+            state = content.get('state') or (inner_result.get('state') if inner_result else None)
+            if state == 'done' or (inner_result and inner_result.get('processed')):
+                self.stats['results_done'] += 1
+            else:
+                self.stats['results_failed'] += 1
+        except Exception:
+            pass
+
+        # Update TFSlice record in database
+        self._update_tfslice_from_result(message_data, content, result)
+
+        # Log system event for observability
+        self._log_system_event('slice_result', {
+            'message': message_data,
+            'state': content.get('state') if isinstance(content, dict) else None,
+            'results_received': self.stats['results_received'],
+            'results_done': self.stats['results_done'],
+            'results_failed': self.stats['results_failed']
+        })
+
+        self.logger.info(f"Handled slice_result: run={message_data.get('run_id')}, msg={message_data.get('msg_type')}",
+                         extra=self._log_extra(run_id=message_data.get('run_id')))
 
     # -------------------------------------------------------------------------
     # Helper methods
@@ -238,7 +353,7 @@ class FastProcessingAgent(BaseAgent):
             return {}
         except Exception as e:
             self.logger.error(f"Failed to fetch workflow parameters: {e}",
-                            extra=self._log_extra(error=str(e)))
+                              extra=self._log_extra(error=str(e)))
             return {}
 
     def _update_run_state(self, phase=None, state=None, substate=None):
@@ -263,7 +378,7 @@ class FastProcessingAgent(BaseAgent):
                 self.logger.debug(f"RunState updated: {update_data}", extra=self._log_extra())
         except Exception as e:
             self.logger.error(f"Error updating RunState: {e}",
-                            extra=self._log_extra(error=str(e)))
+                              extra=self._log_extra(error=str(e)))
 
     def _update_run_state_slices(self, new_slices_count):
         """Update RunState with new slice counts."""
@@ -284,7 +399,7 @@ class FastProcessingAgent(BaseAgent):
                 )
         except Exception as e:
             self.logger.error(f"Error updating RunState slices: {e}",
-                            extra=self._log_extra(error=str(e)))
+                              extra=self._log_extra(error=str(e)))
 
     def _create_tf_slices(self, stf_filename, num_slices):
         """
@@ -332,13 +447,13 @@ class FastProcessingAgent(BaseAgent):
                     slice_data['db_id'] = result.get('id')
                     slices.append(slice_data)
                     self.logger.debug(f"TFSlice created: {tf_filename}",
-                                    extra=self._log_extra(tf_filename=tf_filename))
+                                      extra=self._log_extra(tf_filename=tf_filename))
                 else:
                     self.logger.warning(f"Failed to create TFSlice: {tf_filename}",
-                                       extra=self._log_extra(tf_filename=tf_filename))
+                                        extra=self._log_extra(tf_filename=tf_filename))
             except Exception as e:
                 self.logger.error(f"Error creating TFSlice {tf_filename}: {e}",
-                                extra=self._log_extra(tf_filename=tf_filename, error=str(e)))
+                                  extra=self._log_extra(tf_filename=tf_filename, error=str(e)))
 
         return slices
 
@@ -370,20 +485,12 @@ class FastProcessingAgent(BaseAgent):
 
         # Send to transformer queue with required headers
         try:
-            import json
+            # Use send_message with persistent=True and ttl for slice messages
             headers = {
                 'persistent': 'true',
-                'ttl': str(12 * 3600 * 1000),  # 12 hours in ms
-                'vo': 'eic',
-                'msg_type': 'slice',
-                'run_id': str(self.current_run_id)
+                'ttl': str(12 * 3600 * 1000)  # 12 hours in ms
             }
-
-            self.conn.send(
-                destination=self.TRANSFORMER_QUEUE,
-                body=json.dumps(message),
-                headers=headers
-            )
+            self.send_message(self.TRANSFORMER_QUEUE, message, headers=headers)
 
             self.stats['slices_sent'] += 1
             self.logger.info(
@@ -392,7 +499,7 @@ class FastProcessingAgent(BaseAgent):
             )
         except Exception as e:
             self.logger.error(f"Failed to send slice to queue: {e}",
-                            extra=self._log_extra(error=str(e)))
+                              extra=self._log_extra(error=str(e)))
 
     def _log_system_event(self, event_type, event_data):
         """Log event to SystemStateEvent table."""
@@ -409,7 +516,96 @@ class FastProcessingAgent(BaseAgent):
             self.call_monitor_api('POST', '/system-state-events/', event)
         except Exception as e:
             self.logger.debug(f"Failed to log system event: {e}",
-                            extra=self._log_extra(event_type=event_type, error=str(e)))
+                              extra=self._log_extra(event_type=event_type, error=str(e)))
+
+    def _update_tfslice_from_result(self, message_data, content, result):
+        """Update TFSlice record in database based on slice_result message."""
+        try:
+            # Extract slice information from the result
+            # The result structure is: content -> result -> result (nested)
+            inner_result = None
+            if result and isinstance(result, dict):
+                inner_result = result.get('result') if isinstance(result.get('result'), dict) else None
+
+            # Get slice_id directly from the result data
+            slice_id = None
+            tf_filename = None
+            if inner_result and isinstance(inner_result, dict):
+                slice_id = inner_result.get('slice_id')
+                tf_filename = inner_result.get('tf_filename')
+
+            if slice_id is None:
+                self.logger.debug("No slice_id in result, cannot update TFSlice record")
+                return
+
+            # Determine the final state
+            state = content.get('state') if isinstance(content, dict) else None
+            processed = inner_result.get('processed') if inner_result else None
+
+            # Map worker state to slice status
+            if state == 'done' or processed:
+                slice_status = 'completed'
+            else:
+                slice_status = 'failed'
+
+            # Build update payload
+            update_data = {
+                'status': slice_status,
+                'processed_at': content.get('processed_at') or datetime.now().isoformat(),
+                'metadata': {
+                    'worker_hostname': content.get('hostname'),
+                    'panda_task_id': content.get('panda_task_id'),
+                    'panda_id': content.get('panda_id'),
+                    'harvester_id': content.get('harvester_id'),
+                    'processing_start_at': content.get('processing_start_at'),
+                    'result': result
+                }
+            }
+
+            # Update the slice directly using slice_id from the message
+            run_id = message_data.get('run_id')
+            try:
+                # Query for the slice by run_id and slice_id to get the database ID
+                slices = self.call_monitor_api(
+                    'GET',
+                    f'/tf-slices/?run_number={run_id}&slice_id={slice_id}'
+                )
+
+                if slices and isinstance(slices, list) and len(slices) > 0:
+                    db_id = slices[0].get('id')
+                    if db_id:
+                        # Update the slice using database ID
+                        api_result = self.call_monitor_api(
+                            'PATCH',
+                            f'/tf-slices/{db_id}/',
+                            update_data
+                        )
+                        if api_result:
+                            self.logger.info(
+                                f"TFSlice updated: slice_id={slice_id}, tf_filename={tf_filename} -> {slice_status}",
+                                extra=self._log_extra(slice_id=slice_id, tf_filename=tf_filename, status=slice_status)
+                            )
+                        else:
+                            self.logger.warning(
+                                f"Failed to update TFSlice: slice_id={slice_id}",
+                                extra=self._log_extra(slice_id=slice_id)
+                            )
+                else:
+                    self.logger.debug(
+                        f"TFSlice not found for slice_id: {slice_id}, run: {run_id}",
+                        extra=self._log_extra(slice_id=slice_id, run_id=run_id)
+                    )
+            except Exception as e:
+                self.logger.error(
+                    f"Error querying/updating TFSlice slice_id={slice_id}: {e}",
+                    extra=self._log_extra(slice_id=slice_id, error=str(e))
+                )
+
+        except Exception as e:
+            self.logger.error(
+                f"Error updating TFSlice from result: {e}",
+                extra=self._log_extra(error=str(e))
+            )
 
 
 if __name__ == "__main__":

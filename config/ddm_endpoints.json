@@ -1,4 +1,243 @@
 {
+  "BNL_PROD_DISK_1": {
+    "aprotocols": {
+      "SE": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "d": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "delete_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "delete_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "pr": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "pw": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "r": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "read_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "read_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "third_party_copy": [
+        [
+          "https://dcintdoor.sdcc.bnl.gov:443",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "w": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "write_lan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ],
+      "write_wan": [
+        [
+          "root://dcintdoor.sdcc.bnl.gov:1094",
+          0,
+          "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        ]
+      ]
+    },
+    "arprotocols": {
+      "delete_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 39,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        }
+      ],
+      "delete_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 39,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        }
+      ],
+      "read_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 39,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        }
+      ],
+      "read_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 39,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        }
+      ],
+      "third_party_copy": [
+        {
+          "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+          "flavour": "HTTPS",
+          "id": 45,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        }
+      ],
+      "write_lan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 39,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        }
+      ],
+      "write_wan": [
+        {
+          "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+          "flavour": "XROOTD",
+          "id": 39,
+          "path": "/pnfs/sdcc.bnl.gov/eic/epic/disk/"
+        }
+      ]
+    },
+    "cloud": "US",
+    "country": "United States",
+    "country_code": "US",
+    "datapolicies": [
+      "AnalysisData",
+      "Nucleus",
+      "T0Disk",
+      "T0Tape",
+      "T0TaskOutput"
+    ],
+    "endpoint": "",
+    "id": 78,
+    "info_url": "",
+    "is_cache": false,
+    "is_deterministic": true,
+    "is_mkdir": false,
+    "is_staging": false,
+    "is_tape": false,
+    "is_volatile": false,
+    "last_modified": "2025-02-19T01:09:53.824788",
+    "maxpintime": 0,
+    "name": "BNL_PROD_DISK_1",
+    "params": {},
+    "phys_groups": [],
+    "quotas": {},
+    "rc": "US-T1-BNL",
+    "rc_accounting": "",
+    "rc_country": "United States",
+    "rc_country_code": "US",
+    "rc_site": "BNL-OSG",
+    "rc_site_state": "ACTIVE",
+    "rcsite": "BNL-OSG",
+    "resource": {
+      "basepath": "",
+      "endpoint": "/pnfs/sdcc.bnl.gov/eic/epic/disk/",
+      "id": 77,
+      "name": "BNLPANDADISK",
+      "service": "BNL-PANDA_SE_1"
+    },
+    "rprotocols": {
+      "39": {
+        "activities": [
+          "delete_wan",
+          "read_wan",
+          "read_lan",
+          "delete_lan",
+          "write_wan",
+          "write_lan"
+        ],
+        "basepath": "",
+        "endpoint": "root://dcintdoor.sdcc.bnl.gov:1094",
+        "flavour": "XROOTD",
+        "id": 39,
+        "settings": {}
+      },
+      "45": {
+        "activities": [
+          "third_party_copy"
+        ],
+        "basepath": "",
+        "endpoint": "https://dcintdoor.sdcc.bnl.gov:443",
+        "flavour": "HTTPS",
+        "id": 45,
+        "settings": {}
+      }
+    },
+    "se": "root://dcintdoor.sdcc.bnl.gov:1094",
+    "se_flavour": "XROOTD",
+    "servedrestfts": {
+      "MASTER": [
+        "https://fts.usatlas.bnl.gov:8446"
+      ],
+      "TESTING": ""
+    },
+    "site": "BNL-OSG",
+    "site_state": "ACTIVE",
+    "space_method": "storage",
+    "space_usage_url": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was created via WebUI",
+    "state_update": "2025-02-19T01:09:53.824390",
+    "status": "",
+    "su": "BNL-PANDA_DISK_1",
+    "tier_level": 1,
+    "token": "BNLPANDADISK",
+    "type": "DATADISK"
+  },
   "DAQ_DISK_3": {
     "aprotocols": {
       "SE": [
@@ -432,8 +671,8 @@
     "rprotocols": {
       "41": {
         "activities": [
-          "delete_wan",
           "read_wan",
+          "delete_wan",
           "write_lan",
           "read_lan",
           "write_wan",
@@ -714,6 +953,230 @@
     "su": "BNL-PANDA_DISK_1",
     "tier_level": 1,
     "token": "SWFTESTJLABDISK",
+    "type": "DATADISK"
+  },
+  "JLAB_DISK_1": {
+    "aprotocols": {
+      "SE": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "d": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "delete_lan": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "delete_wan": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "pr": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "pw": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "r": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "read_lan": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "read_wan": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "third_party_copy": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "w": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "write_lan": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ],
+      "write_wan": [
+        [
+          "https://dtn-rucio.jlab.org:1094",
+          0,
+          "//work/eic3/EPIC/LOGS"
+        ]
+      ]
+    },
+    "arprotocols": {
+      "delete_lan": [
+        {
+          "endpoint": "https://dtn-rucio.jlab.org:1094",
+          "flavour": "HTTPS",
+          "id": 40,
+          "path": "//work/eic3/EPIC/LOGS"
+        }
+      ],
+      "delete_wan": [
+        {
+          "endpoint": "https://dtn-rucio.jlab.org:1094",
+          "flavour": "HTTPS",
+          "id": 40,
+          "path": "//work/eic3/EPIC/LOGS"
+        }
+      ],
+      "read_lan": [
+        {
+          "endpoint": "https://dtn-rucio.jlab.org:1094",
+          "flavour": "HTTPS",
+          "id": 40,
+          "path": "//work/eic3/EPIC/LOGS"
+        }
+      ],
+      "read_wan": [
+        {
+          "endpoint": "https://dtn-rucio.jlab.org:1094",
+          "flavour": "HTTPS",
+          "id": 40,
+          "path": "//work/eic3/EPIC/LOGS"
+        }
+      ],
+      "third_party_copy": [
+        {
+          "endpoint": "https://dtn-rucio.jlab.org:1094",
+          "flavour": "HTTPS",
+          "id": 40,
+          "path": "//work/eic3/EPIC/LOGS"
+        }
+      ],
+      "write_lan": [
+        {
+          "endpoint": "https://dtn-rucio.jlab.org:1094",
+          "flavour": "HTTPS",
+          "id": 40,
+          "path": "//work/eic3/EPIC/LOGS"
+        }
+      ],
+      "write_wan": [
+        {
+          "endpoint": "https://dtn-rucio.jlab.org:1094",
+          "flavour": "HTTPS",
+          "id": 40,
+          "path": "//work/eic3/EPIC/LOGS"
+        }
+      ]
+    },
+    "cloud": "US",
+    "country": "United States",
+    "country_code": "US",
+    "datapolicies": [
+      "AnalysisData",
+      "Nucleus"
+    ],
+    "endpoint": "",
+    "id": 79,
+    "info_url": "",
+    "is_cache": false,
+    "is_deterministic": true,
+    "is_mkdir": false,
+    "is_staging": false,
+    "is_tape": false,
+    "is_volatile": false,
+    "last_modified": "2025-06-26T14:45:21.578637",
+    "maxpintime": 0,
+    "name": "JLAB_DISK_1",
+    "params": {},
+    "phys_groups": [],
+    "quotas": {},
+    "rc": "JLAB",
+    "rc_accounting": "",
+    "rc_country": "United States",
+    "rc_country_code": "US",
+    "rc_site": "JLAB-EIC-E1",
+    "rc_site_state": "ACTIVE",
+    "rcsite": "JLAB-EIC-E1",
+    "resource": {
+      "basepath": "",
+      "endpoint": "//work/eic3/EPIC/LOGS",
+      "id": 79,
+      "name": "JLABLOGDISK",
+      "service": "JLAB_SE_1"
+    },
+    "rprotocols": {
+      "40": {
+        "activities": [
+          "write_lan",
+          "delete_wan",
+          "read_wan",
+          "read_lan",
+          "write_wan",
+          "third_party_copy",
+          "delete_lan"
+        ],
+        "basepath": "",
+        "endpoint": "https://dtn-rucio.jlab.org:1094",
+        "flavour": "HTTPS",
+        "id": 40,
+        "settings": {}
+      }
+    },
+    "se": "https://dtn-rucio.jlab.org:1094",
+    "se_flavour": "HTTPS",
+    "servedrestfts": {
+      "TESTING": ""
+    },
+    "site": "JLAB-EIC-E1",
+    "site_state": "ACTIVE",
+    "space_method": "storage",
+    "space_usage_url": "",
+    "state": "ACTIVE",
+    "state_comment": "Object was created via WebUI",
+    "state_update": "2025-06-26T14:45:21.578372",
+    "status": "",
+    "su": "JLAB-EIC_DISK",
+    "tier_level": 1,
+    "token": "JLABLOGDISK",
     "type": "DATADISK"
   }
 }
