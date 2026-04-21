@@ -139,9 +139,37 @@ Further hardening of the BaseAgent lifecycle under unreliable infrastructure:
 - **Agent-ID registration retries indefinitely** on API failure (previously gave up after a bounded number of attempts). Agents starting into a partially-up monitor no longer silently fail to register.
 - **Improved resilience to server restarts** — agents survive transient monitor outages and resume their heartbeat loop cleanly on reconnection.
 
-### swf-testbed
+### swf-testbed — Upstream Contributions Integrated
 
-No user-facing changes in v34 — administrative commits only (CLAUDE.md branch-reference updates, v33 release notes catch-up).
+Several contributions landed direct-to-main during and just before the v34 cycle that were not acknowledged in earlier release notes. They are part of main as of this release. With thanks:
+
+**Agent code consolidation — Dmitry Kalinkin (PR #35, #36)**
+
+Unified agent code into the `swf-testbed` repository:
+
+- **PR #35 "Import SOTA agents"** — imports `agents/data_agent.py` and `agents/processing_agent.py` with full git history from the sibling repositories `BNLNPPS/swf-data-agent` and `BNLNPPS/swf-processing-agent`. Supersedes the shell of earlier example agents with BaseAgent-derived implementations (Rucio / XRootD integration, MQ handlers, dataset lifecycle).
+- **PR #36 "Delete superseded agents"** — final cleanup once the unified `agents/` package stabilized: removes `example_agents/daq_simulator_superseded.py`, `example_agents/example_daqsim_agent_superseded.py`, and `example_agents/processing_agent.py`.
+
+**Prompt-processing workflow — Zhaoyu Yang (PR #37, #38)**
+
+A new streaming workflow for prompt processing of time-frame slices, built on top of Dmitry's imported agents package:
+
+- `agents/prompt_processing_agent.py` — new agent for the prompt-processing pipeline
+- `workflows/prompt_processing.py`, `workflows/prompt_processing.toml`, `workflows/prompt_processing_default.toml` — workflow definition and default config
+- Orchestrator wiring in `workflows/orchestrator.py`; supervisord entry in `agents.supervisord.conf`
+- `scripts/dummy_stf_processing.sh` — placeholder payload for development
+- Refactor updates to `agents/data_agent.py` supporting the new flow
+- Documentation: `docs/prompt-processing-workflow.md`, architecture image `docs/images/prompt-processing-workflow.png`, `docs/skills-for-testbed.md`
+
+**CRIC endpoint / queue-config expansions — Xin Zhao (PR #34)**
+
+- `config/ddm_endpoints.json` — substantial DDM endpoint additions (+465 lines)
+- `config/panda_queues.json` — PanDA queue config additions (+1030 lines)
+- Reflects updated CRIC-sourced site/endpoint data for ePIC production
+
+### swf-testbed — Baseline Branch Work
+
+No user-facing changes on the `infra/baseline-v34` branch itself — administrative commits only (CLAUDE.md branch-reference updates, v33 release notes catch-up, v34 release notes including this acknowledgments section).
 
 ---
 
