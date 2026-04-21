@@ -27,21 +27,13 @@ swf_list_logs(execution_id='...')         # Workflow logs
 
 ## Project-Specific Rules
 
-**Branch:** All 3 repos must be on `infra/baseline-v33`
+**Branch:** All 3 repos must be on `infra/baseline-v34`
 
-**Deploy swf-monitor:** Commit and push first - deploy pulls from git, not local files.
-```bash
-git add . && git commit -m "description" && git push
-sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/baseline-v33
-```
+**First push:** `git push -u origin branch-name` sets up tracking.
 
-**Git conventions:**
-- Push immediately after commit
-- Always `git push -u origin branch-name` on first push (sets up tracking)
-- Never delete branches after PR merge
-- Never push directly to main
+**ActiveMQ destinations:** Must have prefix — use `'/topic/epictopic'` not `'epictopic'`.
 
-**ActiveMQ destinations:** Must have prefix - use `'/topic/epictopic'` not `'epictopic'`
+**MCP tool changes:** When adding/modifying MCP tools, update: (1) `swf_list_available_tools()` hardcoded list in mcp.py, (2) server instructions in settings.py, (3) docs/MCP.md.
 
 ## Gotchas
 
@@ -53,22 +45,5 @@ sudo bash /data/wenauseic/github/swf-monitor/deploy-swf-monitor.sh branch infra/
 | Relative paths `../swf-monitor` | Absolute `/data/wenauseic/github/swf-monitor` |
 
 **MCP query limits:** Always filter queries. Unbounded `swf_list_agents(status='all')` or `swf_list_logs()` can exceed context limits.
-
-**No deletions without explicit request:** Never rm, DROP TABLE, or delete files/data unless user explicitly asks.
-
-**Minimal scope:** Do only what is asked. No unrequested refactoring, no "improvements," no scope expansion.
-
-**Code style:** No comments noting removed code. No pointless comments.
-
-**MCP tool changes:** When adding/modifying MCP tools, update: (1) `swf_list_available_tools()` hardcoded list in mcp.py, (2) server instructions in settings.py, (3) docs/MCP.md.
-
-**Conserve context:** Use subagents (Task tool) for codebase exploration, multi-file searches, research. Keep main thread for user interaction, decisions, edits, commits.
-
-## Multi-Repository Structure
-
-Three sibling repos, same branch:
-- `swf-testbed` - CLI, orchestration (this repo)
-- `swf-monitor` - Django web app, REST API, MCP service
-- `swf-common-lib` - Shared code (BaseAgent, etc.)
 
 Docs: See `README.md`, `docs/` in each repo, and [MCP.md](../swf-monitor/docs/MCP.md) for tool reference.
