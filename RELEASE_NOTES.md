@@ -132,9 +132,16 @@ Environment: `SWFMON_URL` (default `https://epic-devcloud.org/prod`), optional `
 - **`PCS.md`** — MCP Tools table corrected to the tools that actually exist.
 - **JEDI design docs** added: `JEDI_INTEGRATION.md` (architecture, field mapping, implementation plan) and `JEDI_EPIC_PROPOSAL.md` (technical proposal for PanDA team review) — roadmap for direct task submission to JEDI replacing the current `prun` CLI text generation.
 
-### swf-testbed / swf-common-lib
+### Agent Resilience (swf-common-lib)
 
-No changes in v34.
+Further hardening of the BaseAgent lifecycle under unreliable infrastructure:
+
+- **Agent-ID registration retries indefinitely** on API failure (previously gave up after a bounded number of attempts). Agents starting into a partially-up monitor no longer silently fail to register.
+- **Improved resilience to server restarts** — agents survive transient monitor outages and resume their heartbeat loop cleanly on reconnection.
+
+### swf-testbed
+
+No user-facing changes in v34 — administrative commits only (CLAUDE.md branch-reference updates, v33 release notes catch-up).
 
 ---
 
