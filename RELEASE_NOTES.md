@@ -1,5 +1,143 @@
 # Release Notes
 
+## v34 (2026-04-21)
+
+### Streaming MCP Moved Off mod_wsgi (swf-monitor)
+
+The `/swf-monitor/mcp/` endpoint now runs on a dedicated ASGI worker (uvicorn, `swf-monitor-mcp-asgi.service` on `127.0.0.1:8001`) behind Apache `ProxyPass`. Everything else (`/about/`, `/api/`, `/accounts/login/`, PCS, static files) stays on mod_wsgi.
+
+**Why:** `django-mcp-server` uses Starlette's `StreamableHTTPSessionManager`. Under WSGI, each streaming MCP session holds a thread via `async_to_sync` for the full session lifetime. A handful of concurrent MCP clients (OpenCode, Claude Code CLI, Ollama-backed scripts, python-httpx — any streamable-HTTP MCP client) was enough to saturate the pool and 503 every dynamic URL on the site. Isolating `/mcp/` on an async worker removes that failure mode from the main app.
+
+**What changed operationally:**
+
+- mod_wsgi tuned for burst resilience: `threads=30`, `listen-backlog=500`, `queue-timeout=30`, `inactivity-timeout=300`, `graceful-timeout=15` — no `request-timeout` (would truncate `/api/messages/stream/` SSE long-poll).
+- Proxy tuned for streaming: `timeout=3600 keepalive=On disablereuse=On`, `proxy-sendchunked`, `no-gzip`, `CacheDisable` on `/mcp/`.
+- `swf-monitor-mcp-asgi.service` systemd unit added (`Restart=always`, 2 uvicorn workers).
+- `src/swf_monitor_project/asgi.py` cleaned up — removed dead `mcp_app.routing` import (the module was replaced by the `mcp_server` package long ago; ASGI entrypoint was quietly broken).
+
+### Apache Config Auto-Sync on Deploy (swf-monitor)
+
+`apache-swf-monitor.conf` in the repo is now the source of truth. `deploy-swf-monitor.sh` diffs it against the live `/etc/httpd/conf.d/swf-monitor.conf` on every deploy; if different, it backs up live, installs from the release, validates with `httpd -t`, and rolls back on failure. The Apache reload that happens every deploy (to recycle mod_wsgi for new Python code) picks up any conf change along with it.
+
+**Why it matters:** there was a 6-week drift — the Mar 11 `dce7abf` fix for MCP IP restriction was committed to the repo but never reached live Apache because nothing copied it. `setup-apache-deployment.sh` regenerated the conf from a hardcoded heredoc (that had drifted from the repo canonical), and `deploy-swf-monitor.sh` didn't touch Apache conf at all. Closed: setup script now `cp`s `apache-swf-monitor.conf` and splits the dynamic `LoadModule` line out to `/etc/httpd/conf.modules.d/20-swf-monitor-wsgi.conf`.
+
+**ASGI worker is also recycled on every deploy** — uvicorn loads code once at startup, so fresh Python code requires a restart. Bots already follow the same pattern (conditional on bot-specific code change).
+
+### PanDA Mattermost Bot — Multi-Server MCP with Progressive Tool Loading (swf-monitor)
+
+The PanDA bot now orchestrates across **seven external MCP servers** plus the local swf-monitor MCP, selecting tools based on the user's question. New integrations:
+
+- **LXR MCP server** (`github.com/BNLNPPS/lxr-mcp-server`, new this release) — EIC code browser cross-reference. `lxr_ident` (definitions + references), `lxr_search` (ripgrep across repos), `lxr_source` (read source with line numbers), `lxr_list` (browse directories).
+- **uproot MCP server** (`github.com/eic/uproot-mcp-server`) — inspect ROOT files: list branches, read arrays, sample contents.
+- **JLab-Rucio and BNL-Rucio MCP servers** — query Rucio for EIC datasets, replicas, and rules.
+- **GitHub MCP server** — now uses the `epic-capybara` service account with write access for bot-driven automation on EIC repos.
+- **epicdoc** — RAG search over ePIC documentation (`epic_doc_search`, `epic_doc_contents`). Runs in-process inside the bot (not as a separate MCP server, not inside WSGI — initial attempt to host it in WSGI brought the monitor down and was moved; see the debugging notes in the 2026-03-31 assessment).
+
+With that many tools, "send the whole catalog to the LLM every turn" stops working. Two new techniques address that:
+
+- **Progressive tool loading via semantic similarity.** For each user question the bot embeds the question and ranks tools by server-prefixed cosine similarity, auto-truncating at a score cliff. The LLM sees a small, relevant slice rather than all hundreds of tools — and the rank is preserved through the display so the LLM can judge relevance.
+- **3-tier tool awareness.** Every tool is visible by name + one-line catalog entry in the system prompt, so the LLM knows the full surface area exists at minimal token cost. Detailed schemas are fetched only for tools the LLM explicitly selects via `select_tools`. Server and suggestion context carries forward across thread turns, so follow-ups don't re-select from scratch.
+
+**Other bot improvements:**
+
+- **System prompt externalized** to `monitor_app/panda/system_prompt.txt` and re-read on every message — prompt iteration no longer requires a bot restart.
+- **DPID detection hardened.** For job/task questions the bot verifies that any Data Provenance ID in the reply came from actual tool output before letting it through. Detection is now line-based and format-agnostic; trigger word **AND** a matching ID must both be present.
+- **Bamboo log analysis** integrated into `panda_study_job` for failed jobs — surfaces Harvester pilot-log analysis automatically when filebrowser lookup fails. Exposed to the LLM via an explicit `log_analysis` field the bot is instructed to surface.
+- **Response style rules** in the system prompt curb overenthusiastic replies (e.g., verbose explanations when a one-line answer suffices).
+- Server-side matplotlib plot rendering, nightly cron scripts to auto-update each MCP server repo.
+
+### New swf-monitor MCP Tool: `panda_harvester_workers`
+
+Live Harvester pilot/worker counts via bamboo's `askpanda_atlas`. Useful for "what pilots are running right now?" without needing to grep through Harvester logs.
+
+```python
+panda_harvester_workers(status='running', site='NERSC', resourcetype='SCORE', days=1)
+```
+
+Returns totals plus breakdown by status, site, and resourcetype. Clean, LLM-friendly response format.
+
+### PCS — Compose UX Polish + Programmatic Submission Path (swf-monitor)
+
+**Compose pages (Physics/EvGen/Simu/Reco tags, Datasets, Prod Configs, Prod Tasks):**
+
+- Uniform button styling — all filled (solid) variants, dark-green accent on live edited values, consistent New-button placement in the left panel across all compose views.
+- Breadcrumbs and Cancel buttons point to compose views instead of the legacy list views.
+- Name-based URL params so compose views are bookmarkable and deep-linkable.
+- Owner-only edit enforcement on production configs (same discipline as tag edits).
+- Edit / Copy / New buttons no longer silently fail on prod config compose (previous type-argument mismatch fixed).
+- Compose panels for `command` and `taskParamMap` grow to fit content instead of forcing horizontal scroll.
+- Fixed type-argument mismatch in compose URL sync.
+
+**Production Tasks — submission artifacts:**
+
+A single read-only endpoint regenerates a task's submission artifact from current PCS state on every call (no DB writes):
+
+```
+GET /swf-monitor/pcs/api/prod-tasks/command/?name=<task_name>&fmt=<format>
+```
+
+| `fmt` | Contents |
+|-------|----------|
+| `condor` | env-prefixed `submit_csv.sh` command |
+| `panda` | `prun` command |
+| `jedi` | `taskParamMap` for `Client.insertTaskParams()` |
+| `dump` | Full view: task + dataset + all four tags + prod config + effective config |
+
+The parameter is `fmt` because DRF reserves `format` for its own content-negotiation.
+
+**New CLI `pcs-task-cmd`** — stdlib-only Python client over that endpoint. The recommended way for production operators and automation to fetch submission artifacts (no Django import, no DB credentials):
+
+```bash
+# Inspect a task
+pcs-task-cmd <task_name> --format dump
+
+# Submit to JEDI (requires valid PanDA auth)
+pcs-task-cmd <name> --format jedi | python -c '
+import json, sys
+from pandaclient import Client
+print(Client.insertTaskParams(json.load(sys.stdin)))
+'
+
+# Pipe Condor command into bash
+eval "$(pcs-task-cmd <name> --format condor)"
+```
+
+Environment: `SWFMON_URL` (default `https://epic-devcloud.org/prod`), optional `SWFMON_TOKEN` for non-public deployments.
+
+**JEDI taskParamMap now surfaced on task detail** — `build_task_params()` renders the full param map users will submit, viewable and copyable directly from the compose page.
+
+### Deploy-Script Improvements (swf-monitor)
+
+- **`swf-monitor-mcp-asgi.service` restart step** — always restarts on deploy (uvicorn needs it).
+- **Apache conf sync** — described above.
+- **Shared HuggingFace cache** — `deploy-swf-monitor.sh` ensures `/opt/swf-monitor/shared/hf_cache` exists with open perms and appends `HF_HOME=` to `production.env` if missing. Bamboo and epicdoc reuse the cache across processes.
+- **Bot restarts after health check, not before** — avoids killing bots mid-request if Apache comes up broken.
+- **Nightly cron** (`nightly-update-mcp-servers.sh`, `nightly-update-epicdoc.sh`) — auto-updates sibling MCP-server repos and re-ingests ePIC documentation into epicdoc's ChromaDB store.
+
+### PanDA Production Monitoring — Job Deep-Dive Enhancements (swf-monitor)
+
+- **NERSC portal log URLs** surfaced for Perlmutter jobs in `panda_study_job` — clickable links to the NERSC job portal alongside existing Harvester log URLs.
+- **Bamboo log analysis** runs on failed jobs automatically; LLM-friendly `log_analysis` field with fallback to Harvester URL when filebrowser fails.
+- **Error field rename** in `/panda job` output (source → component) — fixes a KeyError that surfaced on some job records.
+
+### Auth & API Changes (swf-monitor)
+
+- **`TunnelAuthMiddleware`** now requires an `X-Remote-User` header before auto-authenticating — anonymous proxy requests no longer get a free pass. Matches the threat model of the TunnelAuthentication DRF backend (also checks the header before acting).
+- **`/api/users/`** response now includes `email`, `first_name`, `last_name` — enables richer devcloud account sync.
+
+### Documentation
+
+- **`PRODUCTION_DEPLOYMENT.md`** refreshed for the two-backend layout, new setup-apache-deployment.sh behavior, and the full deploy step list (conf sync, ASGI worker restart).
+- **`MCP.md`** — ASGI/WSGI split documented, transport description corrected (it IS streamable HTTP), tool summary count corrected to 44, all tool categories added.
+- **`PCS.md`** — MCP Tools table corrected to the tools that actually exist.
+- **JEDI design docs** added: `JEDI_INTEGRATION.md` (architecture, field mapping, implementation plan) and `JEDI_EPIC_PROPOSAL.md` (technical proposal for PanDA team review) — roadmap for direct task submission to JEDI replacing the current `prun` CLI text generation.
+
+### swf-testbed / swf-common-lib
+
+No changes in v34.
+
+---
+
 ## v33 (2026-03-29)
 
 ### Dual-Mode UI: ePIC Production / ePIC Testbed (swf-monitor)
