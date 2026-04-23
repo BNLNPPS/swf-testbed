@@ -1,0 +1,51 @@
+# diagram1_three_contexts
+
+```mermaid
+flowchart TB
+    classDef llm fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
+    classDef human fill:#fff3e0,stroke:#e65100,color:#000
+    classDef tool fill:#f1f8e9,stroke:#33691e,color:#000
+    classDef delta fill:#fce4ec,stroke:#ad1457,stroke-dasharray:4 3,color:#000
+
+    Thesis["<b>Today</b>: LLMs inform humans &nbsp;&nbsp;━━ 6-month step ━━▶&nbsp;&nbsp; <b>Tomorrow</b>: LLMs act within workflows"]:::delta
+
+    subgraph P1["① Real-time bot — Mattermost"]
+        direction TB
+        U1["ePIC users"]:::human
+        B1["AI bot<br/>Haiku · cross-session memory<br/>context harness"]:::llm
+        O1["Q&A, diagnostics, on-the-fly analysis"]
+        U1 --> B1 --> O1 --> U1
+    end
+
+    subgraph P2["② Research orchestrator — corun-ai"]
+        direction TB
+        U2["Expert evaluators<br/>(production, user learning)"]:::human
+        S2["Scheduler<br/>model × sysprompt × MCP set<br/>config compare & annotate"]
+        B2["Long-latency worker<br/>Opus / Sonnet / Gemini / Gemma<br/>minutes–tens of minutes"]:::llm
+        O2["Deep research entry<br/>(e.g. Perlmutter performance)"]
+        U2 --> S2 --> B2 --> O2 --> U2
+    end
+
+    subgraph P3["③ Active workflow orchestrator — swf-testbed"]
+        direction TB
+        U3["Testbed users"]:::human
+        B3["LLM orchestrator<br/>launch · run · monitor<br/>assess · summarize"]:::llm
+        W3["Hybrid workflow<br/>LLM steps ⇄ deterministic agents<br/>DAQ sim → PanDA workers"]
+        O3["Completed run + summary"]
+        U3 --> B3 --> W3 --> B3
+        W3 --> O3 --> U3
+    end
+
+    subgraph MCP["Shared MCP tool ecosystem"]
+        direction LR
+        IH["<b>In-house</b><br/>AskPanDA · PanDA Monitor · Streaming Workflow"]:::tool
+        AD["<b>Adopted</b><br/>Rucio · XRootD · uproot · LXR · GitHub · Zenodo"]:::tool
+    end
+
+    Thesis -.-> P1
+    Thesis -.-> P2
+    Thesis -.-> P3
+    P1 --> MCP
+    P2 --> MCP
+    P3 --> MCP
+```

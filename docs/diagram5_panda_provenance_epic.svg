@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="Arial, Helvetica, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="720" fill="#ffffff"/>
+
+  <!-- ============ Title ============ -->
+  <text x="600" y="38" text-anchor="middle" font-size="17" font-weight="bold">ePIC AI infrastructure stack — current status</text>
+
+  <!-- ================================================================ -->
+  <!-- ============ L3 (TOP): Applications ============ -->
+  <!-- ================================================================ -->
+  <rect x="40" y="60" width="1120" height="222" rx="12" fill="#f5faff" stroke="#1565c0" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="600" y="85" text-anchor="middle" font-weight="bold" font-size="14" fill="#0d47a1">③ AI services</text>
+
+  <!-- Box 1: Mattermost bot (lists ALL MCPs) -->
+  <rect x="80" y="100" width="245" height="170" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="202" y="122" text-anchor="middle" font-weight="bold" font-size="14">Mattermost bot</text>
+  <text x="202" y="142" text-anchor="middle" font-size="11" fill="#555" font-style="italic">ePIC community Q&amp;A · prod, testbed ops</text>
+  <text x="202" y="163" text-anchor="middle" font-size="11" fill="#555">cross-session memory · lie detector</text>
+  <text x="202" y="179" text-anchor="middle" font-size="11" fill="#555">tiered MCP exposure</text>
+  <text x="202" y="202" text-anchor="middle" font-size="11" fill="#444">MCPs (all):</text>
+  <text x="202" y="219" text-anchor="middle" font-size="11" font-weight="bold">AskPanDA · PanDA Monitor · PCS</text>
+  <text x="202" y="234" text-anchor="middle" font-size="11" font-weight="bold">Streaming Workflow · VectorDB RAG</text>
+  <text x="202" y="249" text-anchor="middle" font-size="11" font-weight="bold">LXR · GitHub · Rucio · XRootD</text>
+  <text x="202" y="264" text-anchor="middle" font-size="11" font-weight="bold">uproot · Zenodo</text>
+
+  <!-- Box 2: Production operations analysis -->
+  <rect x="342" y="100" width="245" height="170" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="464" y="122" text-anchor="middle" font-weight="bold" font-size="14">Production ops analysis</text>
+  <text x="464" y="145" text-anchor="middle" font-size="11" fill="#555" font-style="italic">deep-dive PCS / task / job / site</text>
+  <text x="464" y="161" text-anchor="middle" font-size="11" fill="#555" font-style="italic">diagnostics</text>
+  <a href="https://epic-devcloud.org/prod/alarms/" target="_blank">
+    <text x="464" y="188" text-anchor="middle" font-size="11" fill="#1565c0">https://epic-devcloud.org/prod/alarms/</text>
+  </a>
+  <text x="464" y="218" text-anchor="middle" font-size="11" fill="#444">MCPs:</text>
+  <text x="464" y="236" text-anchor="middle" font-size="11" font-weight="bold">AskPanDA · PanDA Monitor</text>
+  <text x="464" y="251" text-anchor="middle" font-size="11" font-weight="bold">Streaming Workflow · Rucio</text>
+
+  <!-- Box 3: Software analysis -->
+  <rect x="604" y="100" width="245" height="170" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="726" y="122" text-anchor="middle" font-weight="bold" font-size="14">Software analysis</text>
+  <text x="726" y="145" text-anchor="middle" font-size="11" fill="#555" font-style="italic">deep-dive documentation study</text>
+  <a href="https://epic-devcloud.org/doc" target="_blank">
+    <text x="726" y="188" text-anchor="middle" font-size="11" fill="#1565c0">https://epic-devcloud.org/doc</text>
+  </a>
+  <text x="726" y="218" text-anchor="middle" font-size="11" fill="#444">MCPs:</text>
+  <text x="726" y="236" text-anchor="middle" font-size="11" font-weight="bold">LXR · GitHub · VectorDB RAG</text>
+
+  <!-- Box 4: PR review -->
+  <rect x="866" y="100" width="245" height="170" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="988" y="122" text-anchor="middle" font-weight="bold" font-size="14">PR review</text>
+  <text x="988" y="145" text-anchor="middle" font-size="11" fill="#555" font-style="italic">New: review of PRs</text>
+  <text x="988" y="161" text-anchor="middle" font-size="11" fill="#555" font-style="italic">grounded in LXR codebase knowledge</text>
+  <a href="https://epic-devcloud.org/doc/prs/" target="_blank">
+    <text x="988" y="188" text-anchor="middle" font-size="11" fill="#1565c0">https://epic-devcloud.org/doc/prs/</text>
+  </a>
+  <text x="988" y="218" text-anchor="middle" font-size="11" fill="#444">MCPs:</text>
+  <text x="988" y="236" text-anchor="middle" font-size="11" font-weight="bold">LXR · GitHub</text>
+
+  <!-- ============ Arrows L2 -> L3 (with labels) ============ -->
+  <line x1="300" y1="322" x2="300" y2="287" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="600" y1="322" x2="600" y2="287" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="900" y1="322" x2="900" y2="287" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <text x="450" y="307" text-anchor="middle" font-size="11" fill="#666" font-style="italic">built on</text>
+  <text x="750" y="307" text-anchor="middle" font-size="11" fill="#666" font-style="italic">built on</text>
+
+  <!-- ================================================================ -->
+  <!-- ============ L2 (MIDDLE): AI instrumentation (unified) ============ -->
+  <!-- ================================================================ -->
+  <rect x="40" y="332" width="1120" height="115" rx="12" fill="#f8fcf3" stroke="#33691e" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="600" y="357" text-anchor="middle" font-weight="bold" font-size="14" fill="#1b5e20">② AI instrumentation — MCP services</text>
+  <text x="600" y="393" text-anchor="middle" font-size="11"><tspan font-weight="bold">AskPanDA</tspan> (job diagnostics) · <tspan font-weight="bold">PanDA Monitor</tspan> (operational state) · <tspan font-weight="bold">PCS</tspan> (physics configuration) · <tspan font-weight="bold">Streaming Workflow</tspan> (testbed control) · <tspan font-weight="bold">VectorDB RAG</tspan> (embedded docs)</text>
+  <text x="600" y="420" text-anchor="middle" font-size="11"><tspan font-weight="bold">LXR</tspan> (code cross-reference) · <tspan font-weight="bold">GitHub</tspan> (repo inquiries) · <tspan font-weight="bold">Rucio</tspan> (data management) · <tspan font-weight="bold">XRootD</tspan> (remote I/O) · <tspan font-weight="bold">uproot</tspan> (data reading) · <tspan font-weight="bold">Zenodo</tspan> (documentation)</text>
+
+  <!-- ============ Arrows L1 -> L2 (with labels) ============ -->
+  <line x1="300" y1="500" x2="300" y2="455" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="600" y1="500" x2="600" y2="455" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="900" y1="500" x2="900" y2="455" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <text x="450" y="480" text-anchor="middle" font-size="11" fill="#666" font-style="italic">instruments</text>
+  <text x="750" y="480" text-anchor="middle" font-size="11" fill="#666" font-style="italic">instruments</text>
+
+  <!-- ================================================================ -->
+  <!-- ============ L1 (BOTTOM): ePIC Services ============ -->
+  <!-- ================================================================ -->
+  <rect x="40" y="510" width="1120" height="200" rx="12" fill="#fef8f3" stroke="#e65100" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="600" y="535" text-anchor="middle" font-weight="bold" font-size="14" fill="#bf360c">① ePIC Services</text>
+
+  <!-- Box 1: PanDA monitor -->
+  <rect x="54" y="545" width="170" height="160" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="139" y="570" text-anchor="middle" font-weight="bold">PanDA monitor</text>
+  <text x="139" y="598" text-anchor="middle" font-size="12">deep drill-down</text>
+  <text x="139" y="616" text-anchor="middle" font-size="12">task · job · site</text>
+  <text x="139" y="634" text-anchor="middle" font-size="12">errors and summaries</text>
+
+  <!-- Box 2: PCS -->
+  <rect x="238" y="545" width="170" height="160" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="323" y="570" text-anchor="middle" font-weight="bold">PCS</text>
+  <text x="323" y="598" text-anchor="middle" font-size="12">Physics Configuration</text>
+  <text x="323" y="616" text-anchor="middle" font-size="12">Service</text>
+  <text x="323" y="680" text-anchor="middle" font-size="11" fill="#555" font-style="italic">from physics need to</text>
+  <text x="323" y="695" text-anchor="middle" font-size="11" fill="#555" font-style="italic">production task</text>
+
+  <!-- Box 3: Automated production -->
+  <rect x="422" y="545" width="170" height="160" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="507" y="570" text-anchor="middle" font-weight="bold">Automated production</text>
+  <text x="507" y="605" text-anchor="middle" font-size="12">OSG · HPC</text>
+  <text x="507" y="685" text-anchor="middle" font-size="11" fill="#555" font-style="italic">under development</text>
+
+  <!-- Box 4: ePIC streaming workflow testbed (middle text, not italic subtitle) -->
+  <rect x="606" y="545" width="170" height="160" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="691" y="570" text-anchor="middle" font-weight="bold">ePIC streaming</text>
+  <text x="691" y="588" text-anchor="middle" font-weight="bold">workflow testbed</text>
+  <text x="691" y="625" text-anchor="middle" font-size="12">information and controls</text>
+
+  <!-- Box 5: Rucio (middle text, not italic subtitle) -->
+  <rect x="790" y="545" width="170" height="160" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="875" y="570" text-anchor="middle" font-weight="bold">Rucio</text>
+  <text x="875" y="600" text-anchor="middle" font-size="12">data management and</text>
+  <text x="875" y="618" text-anchor="middle" font-size="12">cataloging services</text>
+  <text x="875" y="636" text-anchor="middle" font-size="12">at JLab and BNL</text>
+
+  <!-- Box 6: LXR -->
+  <rect x="974" y="545" width="170" height="160" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1059" y="570" text-anchor="middle" font-weight="bold">LXR</text>
+  <text x="1059" y="598" text-anchor="middle" font-size="12">software cross-reference</text>
+  <text x="1059" y="616" text-anchor="middle" font-size="12">and browse system</text>
+  <a href="https://eic-code-browser.sdcc.bnl.gov/lxr/source" target="_blank">
+    <text x="1059" y="648" text-anchor="middle" font-size="10" fill="#1565c0">eic-code-browser.sdcc.bnl.gov</text>
+  </a>
+  <text x="1059" y="685" text-anchor="middle" font-size="11" fill="#555" font-style="italic">62 repositories indexed</text>
+
+</svg>

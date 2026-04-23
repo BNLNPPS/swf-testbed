@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" font-family="Arial, Helvetica, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+    <marker id="arrow-mcp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#33691e"/>
+    </marker>
+    <marker id="arrow-remote" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ad1457"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="760" fill="#ffffff"/>
+
+  <!-- ============ Title ============ -->
+  <text x="600" y="28" text-anchor="middle" font-size="16" font-weight="bold">corun-ai + codoc-ai — research orchestrator and its immediate application</text>
+  <text x="600" y="48" text-anchor="middle" font-size="11" font-style="italic" fill="#555">
+    three model providers under one scheduler; open-source bridged in via remote inference on user hardware
+  </text>
+
+  <!-- ============ User ============ -->
+  <rect x="475" y="72" width="250" height="48" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="600" y="94" text-anchor="middle" font-weight="bold">Expert evaluator</text>
+  <text x="600" y="110" text-anchor="middle" font-size="11" fill="#555">documentation questions · production examination</text>
+  <line x1="600" y1="122" x2="600" y2="142" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ codoc-ai ============ -->
+  <rect x="350" y="145" width="500" height="70" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="172" text-anchor="middle" font-weight="bold" font-size="15">codoc-ai — immediate application</text>
+  <text x="600" y="193" text-anchor="middle">documentation drafting</text>
+  <text x="600" y="208" text-anchor="middle" font-size="12" fill="#555" font-style="italic">production-examination reports</text>
+  <line x1="600" y1="217" x2="600" y2="237" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ corun-ai scheduler ============ -->
+  <rect x="320" y="240" width="560" height="90" rx="6" fill="#e8eaf6" stroke="#3949ab" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="266" text-anchor="middle" font-weight="bold" font-size="15">corun-ai scheduler</text>
+  <text x="600" y="288" text-anchor="middle" font-size="13">config = model × sysprompt × MCP set</text>
+  <text x="600" y="308" text-anchor="middle" font-size="12" fill="#555" font-style="italic">configure · dispatch · compare across configurations</text>
+
+  <!-- Fan-out arrows from scheduler to 3 model boxes -->
+  <line x1="450" y1="330" x2="190" y2="354" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="600" y1="330" x2="470" y2="354" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="750" y1="330" x2="750" y2="354" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ Model row ============ -->
+  <text x="600" y="348" text-anchor="middle" font-size="10" fill="#666" font-style="italic">model ensemble — three providers, common scheduler</text>
+
+  <!-- Anthropic -->
+  <rect x="60" y="355" width="260" height="115" rx="6" fill="#fff8e1" stroke="#f57f17" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="190" y="380" text-anchor="middle" font-weight="bold" font-size="14">Anthropic</text>
+  <text x="190" y="405" text-anchor="middle" font-size="12">Claude Opus · Sonnet · Haiku</text>
+  <text x="190" y="442" text-anchor="middle" font-size="11" fill="#555" font-style="italic">Anthropic API</text>
+  <text x="190" y="458" text-anchor="middle" font-size="11" fill="#555" font-style="italic">claude -p CLI (subscription)</text>
+
+  <!-- Google -->
+  <rect x="340" y="355" width="260" height="115" rx="6" fill="#fff8e1" stroke="#f57f17" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="470" y="380" text-anchor="middle" font-weight="bold" font-size="14">Google</text>
+  <text x="470" y="405" text-anchor="middle" font-size="12">Gemini 2.5 Pro · Flash</text>
+  <text x="470" y="442" text-anchor="middle" font-size="11" fill="#555" font-style="italic">Google API</text>
+
+  <!-- Open source -->
+  <rect x="620" y="355" width="260" height="115" rx="6" fill="#f1f8e9" stroke="#33691e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="750" y="380" text-anchor="middle" font-weight="bold" font-size="14">Open source</text>
+  <text x="750" y="405" text-anchor="middle" font-size="12">Gemma 4 via ollama</text>
+  <text x="750" y="442" text-anchor="middle" font-size="11" fill="#555" font-style="italic">needs local GPU hardware</text>
+  <text x="750" y="458" text-anchor="middle" font-size="11" fill="#555" font-style="italic">(cannot run on vendor APIs)</text>
+
+  <!-- ============ Remote inference worker ============ -->
+  <rect x="900" y="355" width="240" height="115" rx="6" fill="#fce4ec" stroke="#ad1457" stroke-width="2" stroke-dasharray="6 3" filter="url(#shadow)"/>
+  <text x="1020" y="378" text-anchor="middle" font-weight="bold" font-size="13">Remote inference</text>
+  <text x="1020" y="394" text-anchor="middle" font-weight="bold" font-size="13">worker</text>
+  <text x="1020" y="415" text-anchor="middle" font-size="11">Mac Studio · ollama</text>
+  <text x="1020" y="433" text-anchor="middle" font-size="11" fill="#555" font-style="italic">open-source models</text>
+  <text x="1020" y="449" text-anchor="middle" font-size="11" fill="#555" font-style="italic">bridged to corun-ai as</text>
+  <text x="1020" y="465" text-anchor="middle" font-size="11" fill="#555" font-style="italic">first-class dispatch target</text>
+
+  <!-- Dashed connection: Open source hosted by Remote worker -->
+  <line x1="880" y1="412" x2="897" y2="412" stroke="#ad1457" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#arrow-remote)"/>
+  <text x="890" y="402" text-anchor="middle" font-size="10" fill="#ad1457" font-style="italic">hosted by</text>
+
+  <!-- Arrows from each model down to MCP band -->
+  <line x1="190" y1="473" x2="190" y2="500" stroke="#33691e" stroke-width="1.8" marker-end="url(#arrow-mcp)"/>
+  <line x1="470" y1="473" x2="470" y2="500" stroke="#33691e" stroke-width="1.8" marker-end="url(#arrow-mcp)"/>
+  <line x1="750" y1="473" x2="750" y2="500" stroke="#33691e" stroke-width="1.8" marker-end="url(#arrow-mcp)"/>
+
+  <!-- ============ MCP band ============ -->
+  <rect x="50" y="505" width="1100" height="130" rx="10" fill="#f1f8e9" stroke="#33691e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="528" text-anchor="middle" font-weight="bold" font-size="14" fill="#1b5e20">MCP tool ecosystem — shared across all providers</text>
+
+  <rect x="80" y="545" width="500" height="75" rx="6" fill="#ffffff" stroke="#33691e" stroke-width="1.2"/>
+  <text x="330" y="566" text-anchor="middle" font-weight="bold" fill="#1b5e20">In-house</text>
+  <text x="330" y="586" text-anchor="middle" font-size="12">AskPanDA · PanDA Monitor · Streaming Workflow</text>
+  <text x="330" y="604" text-anchor="middle" font-size="11" fill="#555" font-style="italic">VectorDB RAG for embedded documentation</text>
+
+  <rect x="620" y="545" width="500" height="75" rx="6" fill="#ffffff" stroke="#33691e" stroke-width="1.2"/>
+  <text x="870" y="566" text-anchor="middle" font-weight="bold" fill="#1b5e20">3rd-party MCP (6+)</text>
+  <text x="870" y="586" text-anchor="middle" font-size="12">Rucio · XRootD · uproot · LXR · GitHub · Zenodo</text>
+  <text x="870" y="604" text-anchor="middle" font-size="11" fill="#555" font-style="italic">data catalogs · remote I/O · code XREF · repos</text>
+
+  <!-- Arrow MCP to Output -->
+  <line x1="600" y1="637" x2="600" y2="658" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ Output ============ -->
+  <rect x="300" y="660" width="600" height="75" rx="6" fill="#ffffff" stroke="#555" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="600" y="685" text-anchor="middle" font-weight="bold">codoc-ai outputs</text>
+  <text x="600" y="705" text-anchor="middle" font-size="12">documentation drafts · production-examination reports</text>
+  <text x="600" y="723" text-anchor="middle" font-size="11" fill="#555" font-style="italic">cross-model comparison threads (user annotations)</text>
+</svg>

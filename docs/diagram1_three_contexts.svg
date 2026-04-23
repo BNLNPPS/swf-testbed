@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 840" font-family="Arial, Helvetica, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+    <marker id="arrow-mcp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#33691e"/>
+    </marker>
+    <marker id="arrow-thin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#888"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="840" fill="#ffffff"/>
+
+  <!-- ============ Thesis banner ============ -->
+  <rect x="50" y="20" width="1100" height="62" rx="12" fill="#fce4ec" stroke="#ad1457" stroke-width="2" stroke-dasharray="8 5"/>
+  <text x="600" y="47" text-anchor="middle" font-size="15">
+    <tspan font-weight="bold" fill="#0d47a1">Today</tspan><tspan fill="#333">: LLMs inform humans</tspan>
+    <tspan dx="22" font-weight="bold" fill="#ad1457">━━ 6-month step ━━▶</tspan>
+    <tspan dx="18" font-weight="bold" fill="#1b5e20">Tomorrow</tspan><tspan fill="#333">: LLMs act within workflows</tspan>
+  </text>
+  <text x="600" y="68" text-anchor="middle" font-size="11" font-style="italic" fill="#555">three systems in operation today, ordered left → right by increasing LLM autonomy</text>
+
+  <!-- ============ PILLAR 1: Mattermost ============ -->
+  <rect x="30" y="100" width="360" height="490" rx="14" fill="#fafafa" stroke="#bbb" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="210" y="125" text-anchor="middle" font-weight="bold" font-size="15">① Real-time bot — Mattermost</text>
+  <text x="210" y="143" text-anchor="middle" font-size="11" fill="#666" font-style="italic">human-facing · quick turnaround</text>
+
+  <rect x="60" y="160" width="300" height="55" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="210" y="193" text-anchor="middle" font-weight="bold">ePIC users</text>
+  <line x1="210" y1="217" x2="210" y2="237" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="60" y="240" width="300" height="140" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="210" y="265" text-anchor="middle" font-weight="bold" font-size="14">AI bot (Haiku)</text>
+  <text x="210" y="288" text-anchor="middle">cross-session memory</text>
+  <text x="210" y="308" text-anchor="middle">context harness for</text>
+  <text x="210" y="326" text-anchor="middle">O(100) MCP tools</text>
+  <text x="210" y="357" text-anchor="middle" font-size="11" fill="#555" font-style="italic">deployed to ePIC community</text>
+  <line x1="210" y1="382" x2="210" y2="402" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="60" y="405" width="300" height="55" rx="6" fill="#ffffff" stroke="#555" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="210" y="430" text-anchor="middle" font-weight="bold">Q&amp;A · diagnostics · analysis</text>
+  <text x="210" y="450" text-anchor="middle" font-size="11" fill="#666">on-the-fly insights to users</text>
+
+  <!-- Loop back -->
+  <path d="M 60,432 Q 16,432 16,188 Q 16,158 58,158" fill="none" stroke="#888" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-thin)"/>
+
+  <text x="210" y="505" text-anchor="middle" font-size="11" fill="#1b5e20" font-style="italic">draws on MCP ↓</text>
+  <line x1="210" y1="515" x2="210" y2="625" stroke="#33691e" stroke-width="1.8" marker-end="url(#arrow-mcp)"/>
+
+  <!-- ============ PILLAR 2: corun-ai ============ -->
+  <rect x="420" y="100" width="360" height="490" rx="14" fill="#fafafa" stroke="#bbb" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="600" y="125" text-anchor="middle" font-weight="bold" font-size="15">② Research orchestrator — corun-ai</text>
+  <text x="600" y="143" text-anchor="middle" font-size="11" fill="#666" font-style="italic">long-latency · configurable · R&amp;D testbed</text>
+
+  <rect x="450" y="160" width="300" height="55" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="600" y="183" text-anchor="middle" font-weight="bold">Expert evaluators</text>
+  <text x="600" y="201" text-anchor="middle" font-size="11" fill="#555">production · user learning</text>
+  <line x1="600" y1="217" x2="600" y2="237" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="450" y="240" width="300" height="70" rx="6" fill="#e8eaf6" stroke="#3949ab" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="600" y="262" text-anchor="middle" font-weight="bold">Scheduler</text>
+  <text x="600" y="282" text-anchor="middle">model × sysprompt × MCP set</text>
+  <text x="600" y="299" text-anchor="middle" font-size="11" fill="#555">compare &amp; annotate configs</text>
+  <line x1="600" y1="312" x2="600" y2="332" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="450" y="335" width="300" height="80" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="358" text-anchor="middle" font-weight="bold" font-size="14">Long-latency worker</text>
+  <text x="600" y="378" text-anchor="middle">Opus · Sonnet · Gemini · Gemma</text>
+  <text x="600" y="397" text-anchor="middle" font-size="11" fill="#555">minutes – tens of minutes per study</text>
+  <line x1="600" y1="417" x2="600" y2="437" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="450" y="440" width="300" height="55" rx="6" fill="#ffffff" stroke="#555" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="600" y="465" text-anchor="middle" font-weight="bold">Deep research entry</text>
+  <text x="600" y="483" text-anchor="middle" font-size="11" fill="#666">e.g. Perlmutter production performance</text>
+
+  <path d="M 450,467 Q 406,467 406,188 Q 406,158 448,158" fill="none" stroke="#888" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-thin)"/>
+
+  <text x="600" y="520" text-anchor="middle" font-size="11" fill="#1b5e20" font-style="italic">draws on MCP ↓</text>
+  <line x1="600" y1="530" x2="600" y2="625" stroke="#33691e" stroke-width="1.8" marker-end="url(#arrow-mcp)"/>
+
+  <!-- ============ PILLAR 3: swf-testbed ============ -->
+  <rect x="810" y="100" width="360" height="490" rx="14" fill="#fafafa" stroke="#bbb" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="990" y="125" text-anchor="middle" font-weight="bold" font-size="15">③ Active workflow orchestrator</text>
+  <text x="990" y="143" text-anchor="middle" font-size="12" font-style="italic" fill="#555">swf-testbed · LLM-driven</text>
+
+  <rect x="840" y="160" width="300" height="55" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="990" y="193" text-anchor="middle" font-weight="bold">Testbed users</text>
+  <line x1="990" y1="217" x2="990" y2="237" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="840" y="240" width="300" height="80" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="990" y="263" text-anchor="middle" font-weight="bold" font-size="14">LLM orchestrator</text>
+  <text x="990" y="284" text-anchor="middle">launch · run · monitor</text>
+  <text x="990" y="303" text-anchor="middle">assess · summarize</text>
+  <line x1="990" y1="322" x2="990" y2="342" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="840" y="345" width="300" height="90" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="990" y="368" text-anchor="middle" font-weight="bold">Hybrid workflow</text>
+  <text x="990" y="388" text-anchor="middle">LLM steps ⇄ deterministic agents</text>
+  <text x="990" y="406" text-anchor="middle">DAQ sim → PanDA workers</text>
+  <text x="990" y="424" text-anchor="middle" font-size="11" fill="#555" font-style="italic">ePIC streaming workflow testbed</text>
+  <line x1="990" y1="437" x2="990" y2="457" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="840" y="460" width="300" height="55" rx="6" fill="#ffffff" stroke="#555" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="990" y="485" text-anchor="middle" font-weight="bold">Completed run + summary</text>
+  <text x="990" y="503" text-anchor="middle" font-size="11" fill="#666">narrative report · anomaly notes</text>
+
+  <path d="M 840,487 Q 796,487 796,188 Q 796,158 838,158" fill="none" stroke="#888" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-thin)"/>
+
+  <text x="990" y="540" text-anchor="middle" font-size="11" fill="#1b5e20" font-style="italic">draws on MCP ↓</text>
+  <line x1="990" y1="550" x2="990" y2="625" stroke="#33691e" stroke-width="1.8" marker-end="url(#arrow-mcp)"/>
+
+  <!-- ============ MCP BAND ============ -->
+  <rect x="50" y="630" width="1100" height="175" rx="12" fill="#f1f8e9" stroke="#33691e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="654" text-anchor="middle" font-weight="bold" font-size="15" fill="#1b5e20">Shared MCP tool ecosystem</text>
+  <text x="600" y="672" text-anchor="middle" font-size="11" fill="#555" font-style="italic">all three systems draw from the same instrumentation layer</text>
+
+  <rect x="80" y="690" width="500" height="100" rx="8" fill="#ffffff" stroke="#33691e" stroke-width="1.2"/>
+  <text x="330" y="713" text-anchor="middle" font-weight="bold" fill="#1b5e20">In-house</text>
+  <text x="330" y="736" text-anchor="middle" font-size="13">AskPanDA · PanDA Monitor · Streaming Workflow</text>
+  <text x="330" y="756" text-anchor="middle" font-size="11" fill="#555" font-style="italic">purpose-built against our production WFMS</text>
+  <text x="330" y="774" text-anchor="middle" font-size="11" fill="#555">(PanDA DB, monitor, testbed control)</text>
+
+  <rect x="620" y="690" width="500" height="100" rx="8" fill="#ffffff" stroke="#33691e" stroke-width="1.2"/>
+  <text x="870" y="713" text-anchor="middle" font-weight="bold" fill="#1b5e20">Adopted</text>
+  <text x="870" y="736" text-anchor="middle" font-size="13">Rucio · XRootD · uproot · LXR · GitHub · Zenodo</text>
+  <text x="870" y="756" text-anchor="middle" font-size="11" fill="#555" font-style="italic">data catalogs · remote I/O · code XREF · repos</text>
+  <text x="870" y="774" text-anchor="middle" font-size="11" fill="#555">(data products, code base, documentation)</text>
+
+  <text x="600" y="828" text-anchor="middle" font-size="11" fill="#666" font-style="italic">legend: blue = LLM · orange = human · purple = hybrid (LLM + deterministic) · green = MCP tool surface</text>
+</svg>
