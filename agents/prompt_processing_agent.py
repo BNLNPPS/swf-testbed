@@ -183,7 +183,10 @@ class PROCESSING(BaseAgent):
         status, msg = self.panda_submit_task(params)
         self.panda_status[self.run_id] = {'status': status, 'message': msg}
 
-        self.logger.info(f"New task submitted to PanDA. status:{status}, message:{msg}")
+        self.logger.info(
+            f"New task submitted to PanDA. status:{status}, message:{msg}",
+            extra=self._log_extra(run_id=self.run_id)
+        )
 
         return None
 
