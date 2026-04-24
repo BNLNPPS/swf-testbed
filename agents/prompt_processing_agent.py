@@ -153,7 +153,7 @@ class PROCESSING(BaseAgent):
         
         self.run_id = str(run_id)
         self.name_current_datasets()
-        username = os.getenv('USER', 'unknown')
+        username = os.getenv('PANDA_NICKNAME', os.getenv('USER', 'unknown'))
 
         #  Construct the full list of arguments for PrunScript.main
         prun_args = [
