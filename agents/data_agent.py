@@ -31,12 +31,14 @@ xrd_folder = '/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/'
 # Generic imports
 import os, sys, time, json
 import requests, urllib3
+import uuid
 from datetime import datetime
 
 # Rucio imports
-from rucio.client.client        import Client
+from rucio.client               import Client as RucioClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.didclient     import DIDClient
+from rucio.client.uploadclient  import UploadClient
 from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 
 # Common lib imports
@@ -49,7 +51,7 @@ except KeyError:
     print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
 print(f'''*** Set the Python path: {sys.path} ***''')
 
-from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse, RucioUtils
+from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.api_utils import ensure_namespace
 
@@ -129,15 +131,7 @@ class DATA(BaseAgent):
         ''' Initialize the Rucio module.
         '''
  
-        from rucio_comms import DatasetManager, RucioClient, UploadClient, FileManager
-        # ---
-        try:
-            from rucio_comms import DatasetManager, RucioClient, UploadClient, FileManager
-            if self.verbose: print(f'''*** Successfully imported classes from rucio_comms ***''')
-        except:
-            print('*** Failed to import the classes from rucio_comms, exiting...***')
-            exit(-1)
-
+        from rucio_comms import DatasetManager, FileManager
 
         # A Rucio client will be needed for any operation with Rucio
         if self.verbose: print(f'''*** Instantiating the RucioClient and UploadClient ***''')
@@ -363,10 +357,8 @@ class DATA(BaseAgent):
         # N.B. Rucio does not accept large integers so mind the run ID
         self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
 
-        guid = RucioUtils.generate_guid()
-        formatted_guid = RucioUtils.format_guid(guid)
-        print(f'''*** Generated GUID: {guid}, formatted GUID for Rucio: {formatted_guid} ***''')
-        self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='guid', value=formatted_guid)
+        guid = uuid.uuid4()
+        self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='guid', value=guid)
 
         # Attach the file to the open dataset
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
