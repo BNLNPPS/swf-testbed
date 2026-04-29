@@ -5,6 +5,7 @@ namespace = "test-user"
 name = "prompt_processing"
 version = "1.0"
 description = "Prompt processing of STF files"
+config = "prompt_processing_default"
 includes = ["daq_state_machine.toml"]
 
 # =============================================================================
