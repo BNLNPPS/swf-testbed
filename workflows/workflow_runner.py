@@ -509,8 +509,9 @@ class WorkflowRunner(BaseAgent):
                 return
             workflow_definition_id = results[0]['id']
 
-        # Get namespace from testbed config and ensure it exists in database
-        namespace = config.get('testbed', {}).get('namespace')
+        # Get namespace from workflow config and ensure it exists in database
+        workflow_config = self._load_workflow_config(workflow_name)
+        namespace = workflow_config.get('testbed', {}).get('namespace') or config.get('testbed', {}).get('namespace')
         if namespace:
             try:
                 ensure_namespace(self.monitor_url, self.api_session, namespace, logger=self.logger)
