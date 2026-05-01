@@ -1,15 +1,17 @@
 # =============================================================================
-# Docker Compose for swf-monitor
+# Docker Compose for swf-monitor + swf-testbed
 # =============================================================================
-# Starts the Django application together with the infrastructure it needs:
+# Starts the full testbed stack:
 #   - PostgreSQL 16  (primary database)
 #   - Redis 7        (Django Channels layer for SSE relay)
-#   - ActiveMQ Artemis (message broker — optional but included for completeness)
+#   - ActiveMQ Artemis (message broker)
+#   - swf-monitor    (Django web application)
+#   - swf-testbed    (CLI: agents + workflow orchestration)
 #
 # Usage:
-#   cp ../swf-monitor/.env.example ../swf-monitor/.env   # then edit ../swf-monitor/.env (at minimum set SECRET_KEY)
+#   cp ../swf-monitor/.env.example ../swf-monitor/.env   # then edit (at minimum set SECRET_KEY)
 #   docker compose up -d --build
-#   docker compose logs -f web
+#   docker compose logs -f testbed
 # =============================================================================
 
 networks:
@@ -100,10 +102,48 @@ services:
       REDIS_URL:   redis://redis:6379/0
       ACTIVEMQ_HOST: activemq
       ACTIVEMQ_PORT: "61613"
+      # Allow inter-container requests (testbed agents connect via service name)
+      SWF_ALLOWED_HOSTS: localhost,127.0.0.1,web,testserver
       # Django superuser (created automatically on first start)
       DJANGO_SUPERUSER_USERNAME:  ${DJANGO_SUPERUSER_USERNAME:-admin}
       DJANGO_SUPERUSER_EMAIL:     ${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
       DJANGO_SUPERUSER_PASSWORD:  ${DJANGO_SUPERUSER_PASSWORD:-changeme}
+    networks:
+      - swf-network
+
+  testbed:
+    build:
+      context: ../               # monorepo root (needs swf-common-lib, swf-monitor, swf-testbed)
+      dockerfile: swf-testbed/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      activemq:
+        condition: service_healthy
+      web:
+        condition: service_started
+    env_file:
+      - ../swf-monitor/.env
+    environment:
+      # /app is the swf-testbed source root; workflows/ lives there
+      PYTHONPATH: /app
+      # Database (for migrations run by the entrypoint)
+      DB_HOST:     db
+      DB_PORT:     "5432"
+      DB_NAME:     ${DB_NAME:-swfdb}
+      DB_USER:     ${DB_USER:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-your_db_password}
+      # Broker
+      ACTIVEMQ_HOST: activemq
+      ACTIVEMQ_PORT: "61613"
+      ACTIVEMQ_WEB_PORT: "8161"
+      # Monitor URL (agents report back here)
+      SWF_MONITOR_URL: http://web:8000
+      SWF_MONITOR_HTTP_URL: http://web:8000
+      # Redis
+      REDIS_URL: redis://redis:6379/0
     networks:
       - swf-network
 
