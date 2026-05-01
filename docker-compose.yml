@@ -1,93 +1,153 @@
-# Docker Compose configuration for SWF Testbed infrastructure services
-# Requires Docker Compose v2.x+
-#
-# This provides PostgreSQL, ActiveMQ Artemis, and Redis for development.
-# For production deployment, use system-managed services instead.
+# =============================================================================
+# Docker Compose for swf-monitor + swf-testbed
+# =============================================================================
+# Starts the full testbed stack:
+#   - PostgreSQL 16  (primary database)
+#   - Redis 7        (Django Channels layer for SSE relay)
+#   - ActiveMQ Artemis (message broker)
+#   - swf-monitor    (Django web application)
+#   - swf-testbed    (CLI: agents + workflow orchestration)
 #
 # Usage:
-#   docker-compose up -d          # Start all services
-#   docker-compose down           # Stop all services
-#   docker-compose ps             # Check service status
-#   docker-compose logs -f        # Follow logs
+#   cp ../swf-monitor/.env.example ../swf-monitor/.env   # then edit (at minimum set SECRET_KEY)
+#   docker compose up -d --build
+#   docker compose logs -f testbed
+# =============================================================================
 
 networks:
   swf-network:
     driver: bridge
-    name: swf-network
 
 services:
-  # PostgreSQL database for swf-monitor
-  postgres:
+  # ---------- infrastructure --------------------------------------------------
+  db:
     image: postgres:16-alpine
-    container_name: swf-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: swfdb
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: your_db_password
+      POSTGRES_DB:       ${DB_NAME:-swfdb}
+      POSTGRES_USER:     ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_db_password}
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     networks:
       - swf-network
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d swfdb"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      interval: 5s
+      timeout: 5s
+      retries: 10
       start_period: 10s
 
-  # Apache ActiveMQ Artemis message broker
-  activemq:
-    image: apache/activemq-artemis:latest-alpine
-    container_name: swf-activemq
-    ports:
-      - "8161:8161"   # Web console (admin:admin)
-      - "61616:61616" # Core protocol port
-      - "61612:61613" # STOMP protocol port - mapped to 61612 for production compatibility
-    environment:
-      - ARTEMIS_USER=admin
-      - ARTEMIS_PASSWORD=admin
-    volumes:
-      - activemq_data:/var/lib/artemis-instance
-    networks:
-      - swf-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8161/console/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    # depends_on removed; ActiveMQ does not require PostgreSQL to be healthy
-
-  # Redis for Django Channels (SSE streaming multi-process relay)
   redis:
     image: redis:7-alpine
-    container_name: swf-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redisdata:/data
     networks:
       - swf-network
-    restart: unless-stopped
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  activemq:
+    image: apache/activemq-artemis:latest-alpine
+    restart: unless-stopped
+    ports:
+      - "8161:8161"    # Web console (admin/admin)
+      - "61616:61616"  # Core protocol
+      - "61613:61613"  # STOMP
+    environment:
+      ARTEMIS_USER:     admin
+      ARTEMIS_PASSWORD: admin
+    volumes:
+      - amqdata:/var/lib/artemis-instance
+    networks:
+      - swf-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8161/console/ || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 5s
+      retries: 10
+      start_period: 10s
+
+  # ---------- application -----------------------------------------------------
+  web:
+    build:
+      context: ../swf-monitor/
+      dockerfile: ../swf-monitor/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../swf-monitor/.env
+    environment:
+      # Override connection hosts to point at Docker service names.
+      DB_HOST:     db
+      DB_PORT:     "5432"
+      DB_NAME:     ${DB_NAME:-swfdb}
+      DB_USER:     ${DB_USER:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-your_db_password}
+      REDIS_URL:   redis://redis:6379/0
+      ACTIVEMQ_HOST: activemq
+      ACTIVEMQ_PORT: "61613"
+      # Allow inter-container requests (testbed agents connect via service name)
+      SWF_ALLOWED_HOSTS: localhost,127.0.0.1,web,testserver
+      # Django superuser (created automatically on first start)
+      DJANGO_SUPERUSER_USERNAME:  ${DJANGO_SUPERUSER_USERNAME:-admin}
+      DJANGO_SUPERUSER_EMAIL:     ${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+      DJANGO_SUPERUSER_PASSWORD:  ${DJANGO_SUPERUSER_PASSWORD:-changeme}
+    networks:
+      - swf-network
+
+  testbed:
+    build:
+      context: ../               # monorepo root (needs swf-common-lib, swf-monitor, swf-testbed)
+      dockerfile: swf-testbed/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      activemq:
+        condition: service_healthy
+      web:
+        condition: service_started
+    env_file:
+      - ../swf-monitor/.env
+    environment:
+      # /app is the swf-testbed source root; workflows/ lives there
+      PYTHONPATH: /app
+      # Database (for migrations run by the entrypoint)
+      DB_HOST:     db
+      DB_PORT:     "5432"
+      DB_NAME:     ${DB_NAME:-swfdb}
+      DB_USER:     ${DB_USER:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-your_db_password}
+      # Broker
+      ACTIVEMQ_HOST: activemq
+      ACTIVEMQ_PORT: "61613"
+      ACTIVEMQ_WEB_PORT: "8161"
+      # Monitor URL (agents report back here)
+      SWF_MONITOR_URL: http://web:8000
+      SWF_MONITOR_HTTP_URL: http://web:8000
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+    networks:
+      - swf-network
 
 volumes:
-  postgres_data:
-    driver: local
-    name: swf-postgres-data
-  activemq_data:
-    driver: local
-    name: swf-activemq-data
-  redis_data:
-    driver: local
-    name: swf-redis-data
+  pgdata:
+  redisdata:
+  amqdata:
