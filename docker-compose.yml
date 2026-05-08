@@ -135,7 +135,7 @@ services:
     environment:
       # /app is the swf-testbed source root; workflows/ lives there
       PYTHONPATH: /app
-      # Database (for migrations run by the entrypoint)
+      # Database (used by manage.py get_token in the entrypoint)
       DB_HOST:     db
       DB_PORT:     "5432"
       DB_NAME:     ${DB_NAME:-swfdb}

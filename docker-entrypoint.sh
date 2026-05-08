@@ -14,9 +14,6 @@ export VIRTUAL_ENV=${VIRTUAL_ENV:-/usr/local}
 # PostgreSQL and ActiveMQ readiness is guaranteed by docker-compose healthchecks
 # (depends_on with condition: service_healthy), so no wait loops needed here.
 
-echo "==> Running database migrations …"
-python /opt/swf-monitor/src/manage.py migrate --noinput
-
 echo "==> Generating API token for agents …"
 # get_token outputs: '... token for user "admin": <hex>'  — extract the 40-char hex token
 SWF_API_TOKEN=$(python /opt/swf-monitor/src/manage.py get_token admin 2>/dev/null | grep -oP '[0-9a-f]{40}')
