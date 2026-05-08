@@ -110,6 +110,12 @@ services:
       DJANGO_SUPERUSER_PASSWORD:  ${DJANGO_SUPERUSER_PASSWORD:-changeme}
     networks:
       - swf-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   testbed:
     build:
@@ -123,7 +129,7 @@ services:
       activemq:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ../swf-monitor/.env
     environment:
