@@ -1,0 +1,150 @@
+# =============================================================================
+# Integration test: bring up the full Docker Compose stack and verify that
+# the stf_datataking workflow runs to completion.
+# =============================================================================
+name: Integration Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DB_NAME:     swfdb
+  DB_USER:     admin
+  DB_PASSWORD: testpassword
+  DJANGO_SUPERUSER_USERNAME:  admin
+  DJANGO_SUPERUSER_EMAIL:     admin@example.com
+  DJANGO_SUPERUSER_PASSWORD:  changeme
+  # Maximum time (seconds) to wait for the success message
+  TIMEOUT: 600
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # ---- 1. Check out all three sibling repos ----
+      #
+      # The docker-compose.yml and Dockerfile expect:
+      #   <workspace>/
+      #     swf-common-lib/
+      #     swf-monitor/
+      #     swf-testbed/          ← docker-compose.yml lives here
+      #
+      - name: Checkout swf-testbed
+        uses: actions/checkout@v4
+        with:
+          path: swf-testbed
+
+      - name: Checkout swf-monitor
+        uses: actions/checkout@v4
+        with:
+          repository: BNLNPPS/swf-monitor
+          path: swf-monitor
+
+      - name: Checkout swf-common-lib
+        uses: actions/checkout@v4
+        with:
+          repository: BNLNPPS/swf-common-lib
+          path: swf-common-lib
+
+      # ---- 2. Create the .env file that web & testbed containers need ----
+      #
+      # Both services declare  env_file: ../swf-monitor/.env  in compose.
+      # The environment: block in compose already overrides most values, so
+      # only SECRET_KEY and DEBUG are strictly needed here.
+      - name: Create swf-monitor .env
+        run: |
+          cat > swf-monitor/.env <<EOF
+          SECRET_KEY=ci-test-secret-key-not-for-production
+          DEBUG=True
+          DB_HOST=db
+          DB_PORT=5432
+          DB_NAME=swfdb
+          DB_USER=admin
+          DB_PASSWORD=testpassword
+          REDIS_URL=redis://redis:6379/0
+          ACTIVEMQ_HOST=activemq
+          ACTIVEMQ_PORT=61613
+          EOF
+          # Strip leading whitespace that YAML block-scalar indentation adds
+          sed -i 's/^[[:space:]]*//' swf-monitor/.env
+
+      # ---- 3. Build and start the full stack ----
+      - name: Docker Compose up
+        working-directory: swf-testbed
+        run: docker compose up -d --build
+
+      # ---- 4. Wait for the success marker in testbed logs ----
+      - name: Wait for workflow completion
+        working-directory: swf-testbed
+        run: |
+          SUCCESS_MARKER="Workflow completed: stf_datataking"
+
+          # Stream testbed logs to a temp file in the background
+          LOG_FILE="$(mktemp)"
+          docker compose logs -f testbed > "$LOG_FILE" 2>&1 &
+          LOGS_PID=$!
+
+          ELAPSED=0
+          INTERVAL=5
+          while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
+            if grep -qF "$SUCCESS_MARKER" "$LOG_FILE" 2>/dev/null; then
+              echo ""
+              echo "=========================================="
+              echo "✅  SUCCESS — Found '$SUCCESS_MARKER'"
+              echo "=========================================="
+              kill $LOGS_PID 2>/dev/null || true
+              rm -f "$LOG_FILE"
+              exit 0
+            fi
+
+            # Bail early if the container died
+            if ! docker compose ps testbed --format '{{.State}}' 2>/dev/null | grep -qi running; then
+              echo ""
+              echo "=========================================="
+              echo "❌  FAILURE — testbed container stopped unexpectedly"
+              echo "=========================================="
+              docker compose logs --tail=100 testbed || true
+              kill $LOGS_PID 2>/dev/null || true
+              rm -f "$LOG_FILE"
+              exit 1
+            fi
+
+            sleep "$INTERVAL"
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          # Timeout
+          echo ""
+          echo "=========================================="
+          echo "❌  TIMEOUT — '$SUCCESS_MARKER' not seen within ${TIMEOUT}s"
+          echo "=========================================="
+          docker compose logs --tail=200 testbed || true
+          kill $LOGS_PID 2>/dev/null || true
+          rm -f "$LOG_FILE"
+          exit 1
+
+      # ---- 5. Always dump logs for post-mortem debugging ----
+      - name: Dump all service logs
+        if: always()
+        working-directory: swf-testbed
+        run: |
+          echo "::group::All service logs"
+          docker compose logs --tail=500
+          echo "::endgroup::"
+
+      # ---- 6. Tear everything down ----
+      - name: Docker Compose down
+        if: always()
+        working-directory: swf-testbed
+        run: docker compose down -v --remove-orphans
