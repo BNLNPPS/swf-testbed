@@ -1,15 +1,23 @@
 class WorkflowExecutor:
     def __init__(self, config, runner, execution_id, container=None):
+        import os
+
         self.config = config
         self.runner = runner
         self.execution_id = execution_id
         self.stf_sequence = 0
         self.run_id = None
-        # container folder for the output data folders, if empty do not write
-        self.container = (
+        # Resolve the shared output root from highest to lowest priority:
+        # explicit argument, per-user config override, environment, then /tmp.
+        configured_container = config.get('prompt_processing', {}).get('container')
+        resolved_container = (
             container
-            or config.get('prompt_processing', {}).get('container')
+            or configured_container
+            or os.getenv('SWF_PROMPT_PROCESSING_CONTAINER')
             or '/tmp'
+        )
+        self.container = os.path.abspath(
+            os.path.expanduser(os.path.expandvars(resolved_container))
         )
         self.folder = ''                # the actual folder for the current run, to be created later
         self.dataset = ''               # to be filled later, based on the run number
