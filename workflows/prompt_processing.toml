@@ -31,4 +31,4 @@ physics_period_count = 1        # Number of physics periods
 realtime = true                 # Run in real-time (1 sim second = 1 wall second)
 
 [prompt_processing]
-# Prompt processing parameters
+# container = "/data/zyang2/STFfiles"

@@ -118,11 +118,18 @@ class PROCESSING(BaseAgent):
 
         try:
             message_data = json.loads(msg.body)
-            self.current_execution_id = message_data.get('execution_id')
-            self.current_run_id = message_data.get('run_id')
-            
-            msg_type = message_data.get('msg_type')
-            msg_namespace = message_data.get('namespace')
+
+            # Capture execution and run IDs if provided, preserving existing context
+            exec_id = message_data.get("execution_id")
+            if exec_id:
+                self.current_execution_id = exec_id
+
+            run_id = message_data.get("run_id")
+            if run_id:
+                self.current_run_id = run_id
+
+            msg_type = message_data.get("msg_type")
+            msg_namespace = message_data.get("namespace")
              
             if msg_namespace == self.namespace:
                 if msg_type == 'stf_ready':

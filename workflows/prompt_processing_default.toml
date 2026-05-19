@@ -30,4 +30,6 @@ physics_period_count = 1        # Number of physics periods
 realtime = true                 # Run in real-time (1 sim second = 1 wall second)
 
 [prompt_processing]
-# Prompt processing parameters
+# Shared local directory for generated STF files and data-agent dataset uploads.
+# If unset, both components fall back to /tmp.
+#container = "/data/zyang2/STFfiles"

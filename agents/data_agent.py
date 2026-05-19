@@ -185,8 +185,11 @@ class DATA(BaseAgent):
         msg['msg_type']     = 'stf_ready'
         msg['run_id']       = self.run_id
         
+        # Include execution_id if available to maintain workflow context
+        if hasattr(self, 'current_execution_id') and self.current_execution_id:
+            msg['execution_id'] = self.current_execution_id
+
         return msg
-        #return json.dumps(msg)
  
 
     # ---
@@ -198,6 +201,11 @@ class DATA(BaseAgent):
         try:
             message_data = json.loads(msg.body)
             
+            # Capture execution_id if provided for logging and propagation
+            exec_id = message_data.get('execution_id')
+            if exec_id:         
+                self.current_execution_id = exec_id
+
             msg_type = message_data.get('msg_type')
             msg_namespace = message_data.get('namespace')
             # Debug only: print(f'===================================> {msg_type}')
@@ -242,6 +250,9 @@ class DATA(BaseAgent):
         
         self.run_id     = run_id
         self.dataset    = message_data.get('dataset')
+        container       = message_data.get('container')
+        if container:
+            self.data_folder = container
         self.folder     = f"{self.data_folder}/{self.dataset}"
 
         if self.verbose: print(f'''*** Current dataset set to {self.dataset}, folder set to {self.folder} ***''')
@@ -540,6 +551,14 @@ if __name__ == "__main__":
         print(f'''*** {'RSE for upload          ':<20} {rse:>20} ***''')
     # ---
 
-    data = DATA(verbose=verbose, mqxmit=mqxmit, xrdup=xrdup, rucio_scope=scope, data_folder=datadir, rse=rse)
+    data = DATA(
+        config_path=os.getenv('SWF_TESTBED_CONFIG'),
+        verbose=verbose,
+        mqxmit=mqxmit,
+        xrdup=xrdup,
+        rucio_scope=scope,
+        data_folder=datadir,
+        rse=rse
+    )
 
     data.run()
