@@ -1,11 +1,24 @@
 class WorkflowExecutor:
-    def __init__(self, config, runner, execution_id, container='/tmp'):
+    def __init__(self, config, runner, execution_id, container=None):
+        import os
+
         self.config = config
         self.runner = runner
         self.execution_id = execution_id
         self.stf_sequence = 0
         self.run_id = None
-        self.container = container      # container folder for the output data folders, if empty do not write
+        # Resolve the shared output root from highest to lowest priority:
+        # explicit argument, per-user config override, environment, then /tmp.
+        configured_container = config.get('prompt_processing', {}).get('container')
+        resolved_container = (
+            container
+            or configured_container
+            or os.getenv('SWF_PROMPT_PROCESSING_CONTAINER')
+            or '/tmp'
+        )
+        self.container = os.path.abspath(
+            os.path.expanduser(os.path.expandvars(resolved_container))
+        )
         self.folder = ''                # the actual folder for the current run, to be created later
         self.dataset = ''               # to be filled later, based on the run number
 
@@ -24,6 +37,9 @@ class WorkflowExecutor:
                 and isinstance(section_values, dict)):
                 # Merge this parameter section (later sections override earlier ones)
                 self.daq = {**self.daq, **section_values}
+
+        self.runner.logger.info(f"Prompt processing container: {self.container}")
+
 
     def execute(self, env):
         # Generate run ID for this execution
@@ -87,6 +103,7 @@ class WorkflowExecutor:
 
         # State 8: no_beam / not_ready (final) - no delay needed
 
+
     def generate_stfs_during_physics(self, env, duration_seconds):
         interval = self.daq['stf_interval']
         stf_count = self.daq.get('stf_count')
@@ -105,6 +122,7 @@ class WorkflowExecutor:
                 if (env.now - start_time) < duration_seconds:
                     yield env.timeout(interval)
 
+
     def generate_single_stf(self, env):
         self.stf_sequence += 1
         stf_filename = f"swf.{self.run_id}.{self.stf_sequence:06d}.stf"
@@ -114,6 +132,7 @@ class WorkflowExecutor:
 
         generation_time = self.daq['stf_generation_time']
         yield env.timeout(generation_time)
+
 
     def broadcast_run_imminent(self, env):
         """Broadcast run imminent message - triggers dataset creation and worker preparation."""
@@ -129,7 +148,8 @@ class WorkflowExecutor:
             "simulation_tick": env.now,
             "state": "beam",
             "substate": "not_ready",
-            'dataset': self.dataset
+            'dataset': self.dataset,
+            'container': self.container
         }
 
         destination = '/topic/epictopic'
@@ -144,6 +164,7 @@ class WorkflowExecutor:
             }
         )
         yield env.timeout(0.1)
+
 
     def broadcast_run_start(self, env):
         """Broadcast run start message - triggers PanDA task creation."""
@@ -173,6 +194,7 @@ class WorkflowExecutor:
             }
         )
         yield env.timeout(0.1)
+
 
     def broadcast_pause_run(self, env):
         """Broadcast run pause message - entering standby."""
@@ -204,6 +226,7 @@ class WorkflowExecutor:
         )
         yield env.timeout(0.1)
 
+
     def broadcast_resume_run(self, env):
         """Broadcast run resume message - returning to physics."""
         from datetime import datetime
@@ -233,6 +256,7 @@ class WorkflowExecutor:
         )
         yield env.timeout(0.1)
 
+
     def broadcast_run_end(self, env):
         """Broadcast run end message."""
         from datetime import datetime
@@ -261,6 +285,7 @@ class WorkflowExecutor:
             }
         )
         yield env.timeout(0.1)
+
 
     def broadcast_stf_gen(self, env, stf_filename):
         """Broadcast STF generation."""

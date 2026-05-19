@@ -79,7 +79,36 @@ physics_period_count = 1        # Number of physics periods
 
 # Timing parameters
 realtime = true                 # Run in real-time (1 sim second = 1 wall second)
+
+[prompt_processing]
+# Optional shared output root for STF files. Leave empty in shared configs and
+# override per user via SWF_TESTBED_CONFIG or SWF_PROMPT_PROCESSING_CONTAINER.
+container = ""
 ```
+
+### Per-user output directory
+
+Do not hard-code a personal path such as `/data/user_name/STFfiles` in the shared workflow config.
+
+Use one of these per-user override mechanisms instead:
+
+```bash
+export SWF_PROMPT_PROCESSING_CONTAINER=/data/user_name/datafolder
+testbed run prompt_processing
+```
+
+Or create a personal testbed config and point `SWF_TESTBED_CONFIG` at it:
+
+```toml
+[prompt_processing]
+container = "/data/user_name/datafolder"
+```
+
+The workflow resolves the STF output directory in this order:
+1. Explicit workflow argument
+2. `[prompt_processing].container` from the merged config
+3. `SWF_PROMPT_PROCESSING_CONTAINER`
+4. `/tmp`
 
 ## Running the Workflow
 

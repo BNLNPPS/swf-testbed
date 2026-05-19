@@ -31,4 +31,8 @@ physics_period_count = 1        # Number of physics periods
 realtime = true                 # Run in real-time (1 sim second = 1 wall second)
 
 [prompt_processing]
-# Prompt processing parameters
+# Optional shared output root for generated STF files.
+# Leave empty in the shared config. Users can override via:
+# 1. SWF_TESTBED_CONFIG with [prompt_processing].container
+# 2. SWF_PROMPT_PROCESSING_CONTAINER=/data/<user>/<folder>
+container = ""
