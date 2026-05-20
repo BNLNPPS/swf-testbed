@@ -604,7 +604,8 @@ class WorkflowRunner(BaseAgent):
         }
 
         # Execute workflow code to get WorkflowExecutor class
-        exec(workflow_code, namespace)
+        code = compile(workflow_code, 'workflow_runner.py', 'exec')
+        exec(code, namespace)
 
         # Instantiate and run workflow
         if 'WorkflowExecutor' in namespace:

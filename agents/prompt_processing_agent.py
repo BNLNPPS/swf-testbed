@@ -118,11 +118,18 @@ class PROCESSING(BaseAgent):
 
         try:
             message_data = json.loads(msg.body)
-            self.current_execution_id = message_data.get('execution_id')
-            self.current_run_id = message_data.get('run_id')
-            
-            msg_type = message_data.get('msg_type')
-            msg_namespace = message_data.get('namespace')
+
+            # Capture execution and run IDs if provided, preserving existing context
+            exec_id = message_data.get("execution_id")
+            if exec_id:
+                self.current_execution_id = exec_id
+
+            run_id = message_data.get("run_id")
+            if run_id:
+                self.current_run_id = run_id
+
+            msg_type = message_data.get("msg_type")
+            msg_namespace = message_data.get("namespace")
              
             if msg_namespace == self.namespace:
                 if msg_type == 'stf_ready':
@@ -153,7 +160,7 @@ class PROCESSING(BaseAgent):
         
         self.run_id = str(run_id)
         self.name_current_datasets()
-        username = os.getenv('USER', 'unknown')
+        username = os.getenv('PANDA_NICKNAME', os.getenv('USER', 'unknown'))
 
         #  Construct the full list of arguments for PrunScript.main
         prun_args = [
@@ -183,7 +190,10 @@ class PROCESSING(BaseAgent):
         status, msg = self.panda_submit_task(params)
         self.panda_status[self.run_id] = {'status': status, 'message': msg}
 
-        self.logger.info(f"New task submitted to PanDA. status:{status}, message:{msg}")
+        self.logger.info(
+            f"New task submitted to PanDA. status:{status}, message:{msg}",
+            extra=self._log_extra(run_id=self.run_id)
+        )
 
         return None
 

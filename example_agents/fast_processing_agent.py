@@ -12,8 +12,14 @@ Pipeline: FastMon Agent [tf_file_registered] -> Fast Processing Agent [TF slices
 Message format specification: https://github.com/wguanicedew/iDDS/blob/dev/main/prompt.md
 """
 
+import signal
+import time
+import logging
+import traceback
+import json
 import uuid
 from datetime import datetime
+import stomp
 from swf_common_lib.base_agent import BaseAgent
 
 
@@ -37,10 +43,12 @@ class FastProcessingAgent(BaseAgent):
     def __init__(self, debug=False, config_path=None):
         super().__init__(
             agent_type='Fast_Processing',
-            subscription_queues=['/topic/epictopic', self.TRANSFORMER_RESULTS_QUEUE],
+            subscription_queue='/topic/epictopic',
             debug=debug,
             config_path=config_path
         )
+        # Additional subscriptions beyond the primary queue (subscribed in run())
+        self._extra_subscription_queues = [self.TRANSFORMER_RESULTS_QUEUE]
 
         # Workflow parameters (populated on run_imminent)
         self.workflow_params = {}
@@ -58,6 +66,235 @@ class FastProcessingAgent(BaseAgent):
             'results_done': 0,
             'results_failed': 0
         }
+
+    def run(self):
+        """
+        Override run() to subscribe to both the workflow topic and the
+        transformer results queue before entering the main loop.
+        """
+        def signal_handler(signum, frame):
+            sig_name = signal.Signals(signum).name
+            logging.info(f"Received {sig_name}, initiating graceful shutdown...")
+            raise KeyboardInterrupt(f"Received {sig_name}")
+
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGQUIT, signal_handler)
+
+        logging.info(f"Starting {self.agent_name}...")
+
+        # Connect to ActiveMQ
+        if not getattr(self, 'mq_connected', False):
+            max_retries = 3
+            retry_delay = 5
+            for attempt in range(1, max_retries + 1):
+                logging.info(f"Connecting to ActiveMQ at {self.mq_host}:{self.mq_port} (attempt {attempt}/{max_retries})")
+                try:
+                    self.conn.connect(
+                        self.mq_user,
+                        self.mq_password,
+                        wait=True,
+                        version='1.1',
+                        headers={
+                            'client-id': self.agent_name,
+                            'heart-beat': '30000,30000'
+                        }
+                    )
+                    self.mq_connected = True
+                    break
+                except Exception as e:
+                    logging.warning(f"Connection attempt {attempt} failed: {e}")
+                    if attempt < max_retries:
+                        logging.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        logging.error(f"Failed to connect after {max_retries} attempts")
+                        raise
+
+        try:
+            # Subscribe to primary workflow topic
+            self.conn.subscribe(destination=self.subscription_queue, id=1, ack='auto')
+            logging.info(f"Subscribed to queue: '{self.subscription_queue}'")
+
+            # Subscribe to all extra queues (e.g. transformer results)
+            for idx, queue in enumerate(self._extra_subscription_queues, start=2):
+                self.conn.subscribe(destination=queue, id=idx, ack='auto')
+                logging.info(f"Subscribed to queue: '{queue}'")
+
+            # Register all subscriptions in monitor
+            self._register_subscribers()
+
+            # Agent is now ready and waiting for work
+            self.set_ready()
+
+            self.send_heartbeat()
+
+            logging.info(f"{self.agent_name} is running. Press Ctrl+C to stop.")
+            while True:
+                time.sleep(60)
+                if not self.mq_connected:
+                    self._attempt_reconnect()
+                self.send_heartbeat()
+
+        except KeyboardInterrupt:
+            logging.info(f"Stopping {self.agent_name}...")
+        except stomp.exception.ConnectFailedException as e:
+            self.mq_connected = False
+            logging.error(f"Failed to connect to ActiveMQ: {e}")
+            logging.error("Please check the connection details and ensure ActiveMQ is running.")
+        except Exception as e:
+            self.mq_connected = False
+            logging.error(f"An unexpected error occurred: {e}")
+            traceback.print_exc()
+        finally:
+            try:
+                self.operational_state = 'EXITED'
+                self.send_heartbeat()
+            except Exception:
+                pass
+            try:
+                if self.mq_connected:
+                    self.conn.disconnect()
+            except Exception:
+                pass
+
+    def _attempt_reconnect(self):
+        """
+        Override _attempt_reconnect to resubscribe to all queues
+        (primary + extra) after reconnection.
+        """
+        if self.mq_connected:
+            return True
+
+        try:
+            logging.info("Attempting to reconnect to ActiveMQ...")
+            if self.conn.is_connected():
+                self.conn.disconnect()
+
+            self.conn.connect(
+                self.mq_user,
+                self.mq_password,
+                wait=True,
+                version='1.1',
+                headers={
+                    'client-id': self.agent_name,
+                    'heart-beat': '30000,30000'
+                }
+            )
+
+            # Resubscribe to primary queue
+            self.conn.subscribe(destination=self.subscription_queue, id=1, ack='auto')
+            logging.info(f"Resubscribed to queue: '{self.subscription_queue}'")
+
+            # Resubscribe to all extra queues
+            for idx, queue in enumerate(self._extra_subscription_queues, start=2):
+                self.conn.subscribe(destination=queue, id=idx, ack='auto')
+                logging.info(f"Resubscribed to queue: '{queue}'")
+
+            self.mq_connected = True
+            logging.info("Successfully reconnected to ActiveMQ")
+            return True
+
+        except Exception as e:
+            logging.warning(f"Reconnection attempt failed: {e}")
+            self.mq_connected = False
+            return False
+
+    def _register_subscribers(self):
+        """Register all subscriptions (primary + extra) in the monitor."""
+        all_queues = [self.subscription_queue] + self._extra_subscription_queues
+        for queue in all_queues:
+            self._register_single_subscriber(queue)
+
+    def _register_single_subscriber(self, queue):
+        """Register a single subscription in the monitor API."""
+        subscriber_data = {
+            'subscriber_name': f"{self.agent_name}-{queue}",
+            'description': f"{self.agent_type} agent subscribing to {queue}",
+            'is_active': True,
+            'fraction': 1.0
+        }
+        try:
+            result = self._api_request('post', '/subscribers/', subscriber_data)
+            if result:
+                if result.get('status') == 'already_exists':
+                    logging.info(f"Subscriber already registered: {subscriber_data['subscriber_name']}")
+                else:
+                    logging.info(f"Subscriber registered: {subscriber_data['subscriber_name']}")
+        except Exception as e:
+            logging.error(f"Failed to register subscriber for {queue}: {e}")
+
+    def send_message(self, destination, message_body, headers=None):
+        """
+        Override BaseAgent.send_message to add optional STOMP headers support.
+
+        The base agent calls conn.send(body, destination) with no headers.
+        This override merges caller-supplied headers with sensible defaults and
+        passes them through to the broker.
+
+        Args:
+            destination: ActiveMQ destination ('/queue/...' or '/topic/...')
+            message_body: Dict to send as JSON. 'sender'/'namespace' auto-injected
+                          by the base class logic replicated here.
+            headers: Optional dict of additional STOMP headers, e.g.
+                     {'persistent': 'true', 'ttl': '43200000'}
+        """
+        if not destination.startswith('/queue/') and not destination.startswith('/topic/'):
+            raise ValueError(
+                f"destination must start with '/queue/' or '/topic/', got: '{destination}'. "
+                f"Use '/queue/{destination}' for anycast or '/topic/{destination}' for multicast."
+            )
+
+        # Mirror base agent: auto-inject sender and namespace
+        message_body['sender'] = self.agent_name
+        if self.namespace:
+            message_body['namespace'] = self.namespace
+        else:
+            logging.warning(
+                f"Sending message without namespace (msg_type={message_body.get('msg_type', 'unknown')}). "
+                "Configure namespace in testbed.toml to enable namespace filtering."
+            )
+
+        # Auto-inject created_at if not already set by the caller
+        if 'created_at' not in message_body:
+            message_body['created_at'] = datetime.utcnow().isoformat()
+
+        # Build STOMP headers: start with defaults, merge caller overrides on top
+        run_id = message_body.get('run_id') or self.current_run_id
+        stomp_headers = {
+            'persistent': 'false',
+            'vo': 'eic',
+            'msg_type': message_body.get('msg_type', 'unknown'),
+            'namespace': message_body.get('namespace', 'default'),
+            'run_id': str(run_id) if run_id else 'none',
+        }
+        if headers:
+            stomp_headers.update(headers)
+
+        try:
+            self.conn.send(
+                body=json.dumps(message_body),
+                destination=destination,
+                headers=stomp_headers
+            )
+            logging.info(f"Sent message to '{destination}' | headers={stomp_headers} | body={message_body}")
+        except Exception as e:
+            logging.error(f"Failed to send message to '{destination}': {e}")
+            if any(t in str(e).lower() for t in ['ssl', 'eof', 'connection', 'broken pipe']):
+                logging.warning("Connection error detected - attempting recovery")
+                self.mq_connected = False
+                time.sleep(1)
+                if self._attempt_reconnect():
+                    try:
+                        self.conn.send(
+                            body=json.dumps(message_body),
+                            destination=destination,
+                            headers=stomp_headers
+                        )
+                        logging.info(f"Message sent after reconnection to '{destination}' | headers={stomp_headers} | body={message_body}")
+                    except Exception as retry_e:
+                        logging.error(f"Retry failed after reconnection: {retry_e}")
+                else:
+                    logging.error("Reconnection failed - message lost")
 
     def on_message(self, frame):
         """Handle incoming workflow messages."""
@@ -88,7 +325,6 @@ class FastProcessingAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Error processing {msg_type}: {e}",
                               extra=self._log_extra(error=str(e)))
-            import traceback
             self.logger.error(traceback.format_exc())
 
     def _update_run_context(self, message_data):
@@ -108,7 +344,10 @@ class FastProcessingAgent(BaseAgent):
             self.stats = {
                 'tf_files_received': 0,
                 'slices_created': 0,
-                'slices_sent': 0
+                'slices_sent': 0,
+                'results_received': 0,
+                'results_done': 0,
+                'results_failed': 0
             }
 
         if execution_id and execution_id != self.current_execution_id:
@@ -117,7 +356,6 @@ class FastProcessingAgent(BaseAgent):
             if not self.workflow_params:
                 self.workflow_params = self._fetch_workflow_parameters(execution_id)
                 if self.workflow_params:
-                    import json
                     self.logger.info(f"Workflow parameters loaded (mid-run): {json.dumps(self.workflow_params, indent=2, sort_keys=True)}")
 
     def handle_run_imminent(self, message_data):
@@ -142,6 +380,7 @@ class FastProcessingAgent(BaseAgent):
             content = dict(message_data or {})
             content.update({
                 'execution_id': self.current_execution_id,
+                'core_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 1),
                 'target_worker_count': self.workflow_params.get("fast_processing", {}).get('target_worker_count', 1),
                 'slice_processing_time': self.workflow_params.get("fast_processing", {}).get('slice_processing_time', 1),
                 'worker_rampup_time': self.workflow_params.get("fast_processing", {}).get('worker_rampup_time', 1),
@@ -149,7 +388,7 @@ class FastProcessingAgent(BaseAgent):
             })
 
             message = {
-                'msg_type': 'run_imminent',
+                'msg_type': 'run_imminent_worker',
                 'run_id': self.current_run_id,
                 'created_at': datetime.utcnow().isoformat(),
                 'content': content
@@ -157,9 +396,7 @@ class FastProcessingAgent(BaseAgent):
 
             # Topic for worker broadcasts
             worker_topic = self.WORKER_BROADCAST_TOPIC
-
-            headers = {'persistent': 'false'}
-            self.send_message(worker_topic, message, headers=headers)
+            self.send_message(worker_topic, message)
 
             self.logger.info(f"Broadcasted run_imminent to workers: {worker_topic}",
                              extra=self._log_extra(destination=worker_topic))
@@ -187,6 +424,9 @@ class FastProcessingAgent(BaseAgent):
         """
         tf_filename = message_data.get('tf_filename')
         stf_filename = message_data.get('stf_filename')
+        tf_first = message_data.get('tf_first', 0)
+        tf_last = message_data.get('tf_last')
+        tf_count = message_data.get('tf_count')
 
         self.stats['tf_files_received'] += 1
         self.tf_files_received += 1
@@ -194,12 +434,12 @@ class FastProcessingAgent(BaseAgent):
         self.logger.info(f"TF file registered: {tf_filename} (from STF: {stf_filename})",
                          extra=self._log_extra(tf_filename=tf_filename, stf_filename=stf_filename))
 
-        # Get slices_per_sample from workflow params
+        # Get num_tf_per_slice from workflow params
         fast_processing = self.workflow_params.get('fast_processing', {})
-        slices_per_sample = fast_processing.get('slices_per_sample', 15)
+        num_tf_per_slice = fast_processing.get('num_tf_per_slice', 2)
 
-        # Create TF slices from this STF sample
-        slices = self._create_tf_slices(stf_filename, slices_per_sample)
+        # Create TF slices from this TF sample
+        slices = self._create_tf_slices(tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tf_per_slice)
 
         # Push each slice to transformer queue
         for slice_data in slices:
@@ -277,9 +517,7 @@ class FastProcessingAgent(BaseAgent):
             }
 
             worker_topic = self.WORKER_BROADCAST_TOPIC
-
-            headers = {'persistent': 'false'}
-            self.send_message(worker_topic, message, headers=headers)
+            self.send_message(worker_topic, message)
 
             self.logger.info(f"Broadcasted end_run to workers: {worker_topic}",
                              extra=self._log_extra(destination=worker_topic))
@@ -297,6 +535,7 @@ class FastProcessingAgent(BaseAgent):
 
     def handle_slice_result(self, message_data):
         """Process slice_result messages from transformer workers."""
+        logging.info(f"Received slice_result message: {message_data}")
         self.stats['results_received'] += 1
 
         content = message_data.get('content', {})
@@ -401,32 +640,39 @@ class FastProcessingAgent(BaseAgent):
             self.logger.error(f"Error updating RunState slices: {e}",
                               extra=self._log_extra(error=str(e)))
 
-    def _create_tf_slices(self, stf_filename, num_slices):
+    def _create_tf_slices(self, tf_filename, stf_filename, tf_first, tf_last, tf_count, num_tf_per_slice):
         """
-        Create TF slice records in database.
+        Create TF slice records in database, based on the TF file's range [tf_first, tf_last].
+
+        Slices divide the TF file's range into chunks of num_tf_per_slice TFs each.
+        Slice filenames are derived from tf_filename.
 
         Returns list of slice data dictionaries for sending to queue.
         """
+        import math
         slices = []
 
-        # Assume ~1000 TFs per STF, divide into num_slices
-        tfs_per_stf = 1000
-        tfs_per_slice = tfs_per_stf // num_slices
+        if tf_last is None or tf_count is None:
+            self.logger.error(f"Missing tf_last or tf_count for {tf_filename} — cannot create slices",
+                              extra=self._log_extra(tf_filename=tf_filename))
+            return slices
+
+        num_slices = math.ceil(tf_count / num_tf_per_slice)
+        tf_base = tf_filename.rsplit('.', 1)[0]
 
         for i in range(num_slices):
-            tf_first = i * tfs_per_slice
-            tf_last = (i + 1) * tfs_per_slice - 1 if i < num_slices - 1 else tfs_per_stf - 1
-            tf_count = tf_last - tf_first + 1
+            slice_tf_first = tf_first + i * num_tf_per_slice
+            slice_tf_last = min(slice_tf_first + num_tf_per_slice - 1, tf_last)
+            slice_tf_count = slice_tf_last - slice_tf_first + 1
 
-            # Generate TF filename for this slice
-            tf_filename = f"{stf_filename.replace('.stf', '')}_slice_{i:03d}.tf"
+            slice_filename = f"{tf_base}_slice_{i:03d}.tf"
 
             slice_data = {
                 'slice_id': i,
-                'tf_first': tf_first,
-                'tf_last': tf_last,
-                'tf_count': tf_count,
-                'tf_filename': tf_filename,
+                'tf_first': slice_tf_first,
+                'tf_last': slice_tf_last,
+                'tf_count': slice_tf_count,
+                'tf_filename': slice_filename,
                 'stf_filename': stf_filename,
                 'run_number': self.current_run_id,
                 'status': 'queued',
@@ -446,14 +692,14 @@ class FastProcessingAgent(BaseAgent):
                     # Add database ID to slice data for queue message
                     slice_data['db_id'] = result.get('id')
                     slices.append(slice_data)
-                    self.logger.debug(f"TFSlice created: {tf_filename}",
-                                      extra=self._log_extra(tf_filename=tf_filename))
+                    self.logger.debug(f"TFSlice created: {slice_filename}",
+                                      extra=self._log_extra(tf_filename=slice_filename))
                 else:
-                    self.logger.warning(f"Failed to create TFSlice: {tf_filename}",
-                                        extra=self._log_extra(tf_filename=tf_filename))
+                    self.logger.warning(f"Failed to create TFSlice: {slice_filename}",
+                                        extra=self._log_extra(tf_filename=slice_filename))
             except Exception as e:
-                self.logger.error(f"Error creating TFSlice {tf_filename}: {e}",
-                                  extra=self._log_extra(tf_filename=tf_filename, error=str(e)))
+                self.logger.error(f"Error creating TFSlice {slice_filename}: {e}",
+                                  extra=self._log_extra(tf_filename=slice_filename, error=str(e)))
 
         return slices
 
@@ -483,14 +729,17 @@ class FastProcessingAgent(BaseAgent):
             }
         }
 
-        # Send to transformer queue with required headers
+        # Send to transformer queue — persistent so slices survive broker restart,
+        # ttl of 12 hours so unprocessed slices are eventually discarded
         try:
-            # Use send_message with persistent=True and ttl for slice messages
-            headers = {
-                'persistent': 'true',
-                'ttl': str(12 * 3600 * 1000)  # 12 hours in ms
-            }
-            self.send_message(self.TRANSFORMER_QUEUE, message, headers=headers)
+            self.send_message(
+                self.TRANSFORMER_QUEUE,
+                message,
+                headers={
+                    'persistent': 'true',
+                    'ttl': str(12 * 3600 * 1000)  # 12 hours in ms
+                }
+            )
 
             self.stats['slices_sent'] += 1
             self.logger.info(
