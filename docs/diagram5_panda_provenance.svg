@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 880" font-family="Arial, Helvetica, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="880" fill="#ffffff"/>
+
+  <!-- ============ Title ============ -->
+  <text x="600" y="38" text-anchor="middle" font-size="17" font-weight="bold">PanDA scale provenance</text>
+  <text x="600" y="60" text-anchor="middle" font-size="12" font-style="italic" fill="#555">
+    the 6-month claim rests on a decade-old production foundation — not greenfield work
+  </text>
+
+  <!-- ================================================================ -->
+  <!-- ============ L3 (TOP): New application layer ============ -->
+  <!-- ================================================================ -->
+  <rect x="40" y="85" width="1120" height="175" rx="12" fill="#f5faff" stroke="#1565c0" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="600" y="110" text-anchor="middle" font-weight="bold" font-size="14" fill="#0d47a1">③ New application layer</text>
+  <text x="600" y="128" text-anchor="middle" font-size="11" font-style="italic" fill="#555">LLM-driven orchestration — proposed, 6 months</text>
+
+  <!-- L3 boxes (4) -->
+  <rect x="80" y="140" width="245" height="100" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="202" y="168" text-anchor="middle" font-weight="bold">LLM workflow</text>
+  <text x="202" y="186" text-anchor="middle" font-weight="bold">orchestrator</text>
+  <text x="202" y="210" text-anchor="middle" font-size="11" fill="#555">launch · run · monitor</text>
+  <text x="202" y="226" text-anchor="middle" font-size="11" fill="#555">assess · summarize</text>
+
+  <rect x="342" y="140" width="245" height="100" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="464" y="168" text-anchor="middle" font-weight="bold">Hybrid workflows</text>
+  <text x="464" y="192" text-anchor="middle" font-size="12">LLM steps ⇄</text>
+  <text x="464" y="210" text-anchor="middle" font-size="12">deterministic agents</text>
+  <text x="464" y="228" text-anchor="middle" font-size="11" fill="#555" font-style="italic">extending present testbed</text>
+
+  <rect x="604" y="140" width="245" height="100" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="726" y="168" text-anchor="middle" font-weight="bold">Harnessed autonomous</text>
+  <text x="726" y="186" text-anchor="middle" font-weight="bold">LLM action</text>
+  <text x="726" y="210" text-anchor="middle" font-size="11" fill="#555">bounded, auditable,</text>
+  <text x="726" y="226" text-anchor="middle" font-size="11" fill="#555">reversible decisions</text>
+
+  <rect x="866" y="140" width="245" height="100" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="988" y="168" text-anchor="middle" font-weight="bold">LLM research</text>
+  <text x="988" y="186" text-anchor="middle" font-weight="bold">assistant</text>
+  <text x="988" y="210" text-anchor="middle" font-size="11" fill="#555" font-style="italic">evolution of Mattermost</text>
+  <text x="988" y="226" text-anchor="middle" font-size="11" fill="#555" font-style="italic">bot + codoc-ai</text>
+
+  <!-- ============ Arrows L2 -> L3 (upward) ============ -->
+  <line x1="300" y1="330" x2="300" y2="272" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="600" y1="330" x2="600" y2="272" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="900" y1="330" x2="900" y2="272" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <text x="450" y="290" text-anchor="middle" font-size="11" fill="#666" font-style="italic">built on</text>
+  <text x="750" y="290" text-anchor="middle" font-size="11" fill="#666" font-style="italic">built on</text>
+
+  <!-- ================================================================ -->
+  <!-- ============ L2 (MIDDLE): AI instrumentation today ============ -->
+  <!-- ================================================================ -->
+  <rect x="40" y="340" width="1120" height="130" rx="12" fill="#f8fcf3" stroke="#33691e" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="600" y="365" text-anchor="middle" font-weight="bold" font-size="14" fill="#1b5e20">② AI instrumentation today</text>
+  <text x="600" y="383" text-anchor="middle" font-size="11" font-style="italic" fill="#555">this team · 2024–</text>
+
+  <!-- L2 boxes (5) -->
+  <rect x="70" y="395" width="210" height="60" rx="6" fill="#f1f8e9" stroke="#33691e" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="175" y="422" text-anchor="middle" font-weight="bold">AskPanDA MCP</text>
+  <text x="175" y="440" text-anchor="middle" font-size="11" fill="#555" font-style="italic">job diagnostics</text>
+
+  <rect x="292" y="395" width="210" height="60" rx="6" fill="#f1f8e9" stroke="#33691e" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="397" y="422" text-anchor="middle" font-weight="bold">PanDA Monitor MCP</text>
+  <text x="397" y="440" text-anchor="middle" font-size="11" fill="#555" font-style="italic">operational state</text>
+
+  <rect x="514" y="395" width="210" height="60" rx="6" fill="#f1f8e9" stroke="#33691e" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="619" y="422" text-anchor="middle" font-weight="bold">VectorDB RAG</text>
+  <text x="619" y="440" text-anchor="middle" font-size="11" fill="#555" font-style="italic">embedded documentation</text>
+
+  <rect x="736" y="395" width="210" height="60" rx="6" fill="#f1f8e9" stroke="#33691e" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="841" y="422" text-anchor="middle" font-weight="bold">Streaming Workflow MCP</text>
+  <text x="841" y="440" text-anchor="middle" font-size="11" fill="#555" font-style="italic">active testbed control</text>
+
+  <rect x="958" y="395" width="210" height="60" rx="6" fill="#f1f8e9" stroke="#33691e" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="1063" y="422" text-anchor="middle" font-weight="bold">3rd-party MCP (6+)</text>
+  <text x="1063" y="440" text-anchor="middle" font-size="11" fill="#555" font-style="italic">Rucio · XRootD · LXR · …</text>
+
+  <!-- ============ Arrows L1 -> L2 (upward) ============ -->
+  <line x1="300" y1="555" x2="300" y2="482" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="600" y1="555" x2="600" y2="482" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <line x1="900" y1="555" x2="900" y2="482" stroke="#444" stroke-width="1.8" marker-end="url(#arrow-up)"/>
+  <text x="450" y="520" text-anchor="middle" font-size="11" fill="#666" font-style="italic">instruments</text>
+  <text x="750" y="520" text-anchor="middle" font-size="11" fill="#666" font-style="italic">instruments</text>
+
+  <!-- ================================================================ -->
+  <!-- ============ L1 (BOTTOM): Foundation ============ -->
+  <!-- ================================================================ -->
+  <rect x="40" y="565" width="1120" height="220" rx="12" fill="#fef8f3" stroke="#e65100" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="600" y="592" text-anchor="middle" font-weight="bold" font-size="14" fill="#bf360c">① Foundation — PanDA production WFMS</text>
+  <text x="600" y="611" text-anchor="middle" font-size="11" font-style="italic" fill="#555">operational since 2005</text>
+
+  <!-- L1 boxes (4) -->
+  <rect x="80" y="625" width="245" height="140" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="202" y="652" text-anchor="middle" font-weight="bold">ATLAS @ LHC</text>
+  <text x="202" y="680" text-anchor="middle">O(million) jobs/day</text>
+  <text x="202" y="700" text-anchor="middle">200+ institutions</text>
+  <text x="202" y="735" text-anchor="middle" font-size="11" fill="#555" font-style="italic">production scale</text>
+  <text x="202" y="751" text-anchor="middle" font-size="11" fill="#555" font-style="italic">provenance</text>
+
+  <rect x="342" y="625" width="245" height="140" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="464" y="652" text-anchor="middle" font-weight="bold">PanDA monitor</text>
+  <text x="464" y="680" text-anchor="middle">deep drill-down</text>
+  <text x="464" y="700" text-anchor="middle">refined 15+ years</text>
+  <text x="464" y="735" text-anchor="middle" font-size="11" fill="#555" font-style="italic">operational</text>
+  <text x="464" y="751" text-anchor="middle" font-size="11" fill="#555" font-style="italic">diagnostics base</text>
+
+  <rect x="604" y="625" width="245" height="140" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="726" y="652" text-anchor="middle" font-weight="bold">ePIC production</text>
+  <text x="726" y="680" text-anchor="middle">monthly campaigns</text>
+  <text x="726" y="700" text-anchor="middle">OSG · HPC</text>
+  <text x="726" y="735" text-anchor="middle" font-size="11" fill="#555" font-style="italic">live production</text>
+  <text x="726" y="751" text-anchor="middle" font-size="11" fill="#555" font-style="italic">workload</text>
+
+  <rect x="866" y="625" width="245" height="140" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2" filter="url(#shadow)"/>
+  <text x="988" y="652" text-anchor="middle" font-weight="bold">ePIC streaming</text>
+  <text x="988" y="672" text-anchor="middle" font-weight="bold">workflow testbed</text>
+  <text x="988" y="698" text-anchor="middle" font-size="12">(this team, 2025+)</text>
+  <text x="988" y="735" text-anchor="middle" font-size="11" fill="#555" font-style="italic">hybrid workflow</text>
+  <text x="988" y="751" text-anchor="middle" font-size="11" fill="#555" font-style="italic">platform</text>
+
+  <!-- ============ Footer ============ -->
+  <text x="600" y="825" text-anchor="middle" font-size="12" fill="#444">
+    <tspan font-weight="bold" fill="#bf360c">Foundation</tspan>
+    <tspan fill="#444"> (decades) →</tspan>
+    <tspan font-weight="bold" fill="#1b5e20" dx="4">Instrumentation</tspan>
+    <tspan fill="#444"> (this team, recent) →</tspan>
+    <tspan font-weight="bold" fill="#0d47a1" dx="4">New application</tspan>
+    <tspan fill="#444"> (6-month delta)</tspan>
+  </text>
+  <text x="600" y="855" text-anchor="middle" font-size="11" fill="#666" font-style="italic">
+    each layer is a bounded, incremental extension of the one below it
+  </text>
+</svg>
