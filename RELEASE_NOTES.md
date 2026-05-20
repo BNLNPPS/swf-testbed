@@ -1,5 +1,84 @@
 # Release Notes
 
+## v35 (2026-05-20)
+
+### ePIC Production Task Catalog (swf-monitor)
+
+A new dynamic catalog of ePIC production tasks under PCS. The catalog imports the canonical `epic-prod/datasets.csv` request manifest, joins it against live Rucio output, and presents the campaigns through three lifecycle tabs:
+
+- **Past** — completed campaigns, year-grouped Release navigation with All 2026 at the front, Stage column and Stage filter, faceted filters derived from the DID path (Geometry / Beam / Physics / Q² / Species / Energy), unit-aware Energy sort, NC/CC folded into the Physics facet.
+- **Current** — the active 26.x release. Faceted filters on Geometry / Beam / Physics / Q² / Species / Energy / Priority / Nevents / Generator, with a Rucio arrivals timeline at the top of the page in two stacked panes (datasets and output TB) on 12 h bins. A one-click **Make current** button promotes the requested release. **Update from Rucio** refreshes the live JLab snapshot of current-campaign output in ~12 s (parallelized down from ~80 s).
+- **Last** — a clean, frozen Past variant that pairs a release selector with the matching Rucio timeline. Suitable for quick "what landed in the last cycle" inspection without filter state.
+
+Each catalog row carries the full request line in the Dataset cell: Campaign, Input dataset path, Sample (Generator / version), Description with the issue link, an Output rollup that summarises Simu / Reco file counts and bytes by RSE with an **Incomplete file counts** indicator, plus Nev (M), Backgd / New / pTDR / early flags and Priority. Filters are live (no Apply button). The "Past output mode" surfaces subsequent request↔Rucio matching with a disclosure pane for unmatched requests so it is obvious which requested datasets have not yet been produced.
+
+`https://epic-devcloud.org/prod/pcs/tasks/catalog/`
+
+### Two-Panel Compose View (swf-monitor)
+
+`/swf-monitor/pcs/tasks/compose/?tab=tasks` opens a workbench-style two-panel sibling of the catalog: a concise left list of the current campaign's tasks, and a right pane with full detail and (for owners) Edit / Copy / Delete actions. The two views are interchangeable siblings — the catalog is for bulk inspection, compose for detail and editing — and a task can be opened in either from anywhere it appears.
+
+- **Left rows.** PWG chip, dataset path with the standard `/volatile/eic/EPIC/` prefix elided (full path on hover), status, priority, sample, Nev, and Bg / New / pTDR / ES / Other flag pills. The title row never wraps, so row height is predictable as the list is scrolled.
+- **Collapsed filter bar.** Fourteen facet titles — Status, Requestor, Sample, Submission, Priority, Nev, Geom, Beam, Physics, Q², Species, Energy, Output, Flags — wrap into one row at the top; clicking a title expands only that facet's values. Filter state is mirrored in the URL so a filtered view is bookmarkable.
+- **Right pane.** For CSV-imported tasks the dataset's auto-generated Physics / EvGen / Simu / Reco tags are placeholders and are no longer rendered — the panel instead lists the real physics characterization carried in `overrides.csv_import` (Sample, Geom, Beam, Physics, Q², Species, Energy, Nev, Background, Detector). Non-CSV tasks retain the original tag table. The panel title is the dataset path (matching the workbench row), never the internal `csv_import.<slug>` key.
+- **Cross-linking.** Catalog Input links and the dataset-detail "Used by Production Tasks" lists now land in compose with the row preselected, so navigation between bulk and detail views is one click in either direction.
+
+### PCS — Submission Path, Intake, MCP Wrappers (swf-monitor)
+
+PCS now owns the full path from a CSV request to a submitted PanDA task.
+
+- **Submission artifact endpoint.** `GET /swf-monitor/pcs/api/prod-tasks/command/?name=<task>&fmt=<format>` regenerates the submission artifact from current PCS state on every call (no DB writes), with `fmt` in `condor | panda | jedi | dump`. The companion `pcs-task-cmd` CLI (introduced in v34) drives JEDI submission with no Django imports or DB credentials.
+- **External EVGEN dataset support.** Register an external generator-level dataset and link it to a task as an input; `ProdConfig.workflow_mode` distinguishes `external_evgen` and `internal_evgen` flows.
+- **Task-dataset relations** (input / output / intermediate) are schema-free lists on the task, with a one-shot backfill script linking legacy `csv_file` records to their input Dataset rows.
+- **REST intake endpoints** (`datasets/intake/`, `prod-tasks/intake/`, `link-input/`, `set-status/`, `record-submission/`) carry lifecycle gates and double-submit guards; each is exposed as a peer MCP tool so PanDAbot and other clients can drive intake without constructing REST queries.
+- **Catalog backend** acquires `Campaign` and `ProdRequest` models, a `services` layer, an admin surface, and doc cross-refs.
+
+### Catalog Documentation and Roles
+
+Two design documents under `swf-monitor/docs/`:
+
+- **`EPICPROD_TASK_CATALOG.md`** — data model and view conventions for the catalog.
+- **`PCS_DATASET_REQUEST_WORKFLOW.md`** — planning workflow from a PWG/DSC physics request through Compose to running tasks, including the dynamic public catalog direction.
+
+A new short section, **Roles and Approval**, captures the design intent that once PCS is integrated with the ePIC phonebook and COmanage, role assertions will gate authoring vs publication: PWG members author Physics Configs within PCS-enforced templates, and production managers approve before propagation to automated production.
+
+### MCP Server Migrated to FastMCP (swf-monitor)
+
+The streaming `/swf-monitor/mcp/` endpoint (isolated on its own ASGI worker in v34) is migrated from `django-mcp-server` to a standalone FastMCP ASGI entrypoint. The cutover was staged behind parity smoke probes against the live django-mcp service so tool semantics did not change. Worker count is raised from 2 to 20 so dozens of concurrent MCP clients fit cleanly on a single host. POST-only enforcement and Bearer-token authentication are in place; the pandabot and testbed-bot now thread `MCP_BEARER_TOKEN` through to the new mount.
+
+### PanDA / BigMon Polish (swf-monitor)
+
+- **Task aggregates.** `nrunning`, `nretries`, `nfinalfailed`, and a derived `computed_finalfailurerate` are joined in by every PanDA task query and surfaced on the task list and detail views. `panda_list_tasks` default limit raised from 25 to 500.
+- **Cell-fill state colors** applied consistently across BigMon-equivalent pages. Copy-ID buttons on identifier cells. Near-zero-latency Bootstrap tooltips. Uniform Eastern-time clock across all timestamp columns.
+- **Read-only REST API for tasks / activity** with per-task job counts — drives the UI and is also available to external scripts.
+
+### PanDAbot (swf-monitor)
+
+- **Corun completion notifications** integrated; bot commentary on a job routes to the originating Mattermost thread rather than the channel.
+- **DID-specific Rucio rule lookup** so a question about a specific dataset finds its replication rules without an LLM tool-search round trip.
+- **Reply discipline.** Direct `@PanDAbot` mentions now require a substantive reply (silence-only variants are flagged). Plain channel chatter no longer reaches Haiku. ePIC campaign Rucio scope handling fixed.
+
+### Workflow Runner — Script Logs Identified Correctly (swf-testbed)
+
+Logs emitted from inside workflow scripts (`stf_datataking.py`, `prompt_processing.py`) now record their source under `module=workflow_runner` rather than the Python sentinel `<string>` (which arose because the runner used `exec()` on a code string with no synthetic filename). Filtering and searching workflow logs by module works as expected. *Thanks to Zhaoyu Yang for the diagnosis and fix.*
+
+### Agents and Testbed Infrastructure (swf-testbed)
+
+- **New `fast_processing` agent** with operator-facing documentation (`docs/fast-processing-workflow.md`); a companion `docs/prompt-processing-workflow.md` is also added. *Thanks to Wen Guan.*
+- **Configurable STF folder** for the prompt-processing workflow via `prompt_processing.toml`; **run number in the logger** so testbed log lines can be associated with the corresponding PanDA task id. *Thanks to Zhaoyu Yang.*
+- **Per-run isolation of supervisord control sockets** — multiple users can now run testbeds concurrently on the same host without `/tmp` collisions. `prompt_processing_agent.py` respects `PANDA_NICKNAME`. The earlier namespace hack is reverted in favour of the proper workflow-namespace fix. *Thanks to Dmitry Kalinkin.*
+- Several Wen Guan fixes: TF-slice handling, core count, run-imminent worker deduplication, message-header conventions, fastmon default filesize, workflow-namespace correction, and the supporting `define headers for sending messages` series.
+
+### Containerization and CI
+
+- **Dockerfiles** for both `swf-testbed` and `swf-monitor`, plus a reworked `docker-compose.yml` covering the full local-development stack. *Thanks to Dmitry Kalinkin (`swf-testbed#46`, `swf-monitor#32`).*
+- **GitHub Actions integration-test workflow** for `swf-testbed`. *Thanks to Dmitry Kalinkin (`swf-testbed#48`).*
+- **swf-monitor connects only to PanDA / iDDS databases when credentials are present** — clean out-of-the-box install for users who don't need the PanDA join. *Thanks to Dmitry Kalinkin.*
+
+### swf-common-lib
+
+- STOMP declared as an explicit dependency in `pyproject.toml`. *Thanks to Dmitry Kalinkin.*
+
 ## v34 (2026-04-21)
 
 ### Streaming MCP Moved Off mod_wsgi (swf-monitor)
