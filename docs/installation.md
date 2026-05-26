@@ -132,6 +132,20 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
    export SECRET_KEY='django-insecure-dev-key-for-testing-only-change-for-production-12345678901234567890'
    ```
 
+### swf-testbed MCP Server Authentication
+
+The `.mcp.json` at the swf-testbed repo root configures Claude Code to use
+the swf-monitor MCP server at
+`https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/`, which requires a
+bearer token (env var `SWF_MONITOR_MCP_TOKEN`).
+
+On the swf-testbed host (pandaserver02), a shared token file is provided
+for logged-in users. Add this line to your `~/.bashrc`:
+
+```bash
+[ -r /data/wenauseic/swf-environment ] && source /data/wenauseic/swf-environment
+```
+
 ## Step 5: Set Up Python Environment and Install Dependencies
 
 You can either use **uv** or plain **pip** to set up the Python environment.
