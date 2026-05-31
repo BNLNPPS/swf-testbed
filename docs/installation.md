@@ -182,6 +182,31 @@ source .venv/bin/activate
    pip install -e .
    ```
 
+### Changing dependencies (reqmts ⇒ dev-update ⇒ prod)
+
+The shared `.venv` is the source of truth for what runs in production: the
+swf-monitor deploy **copies this venv verbatim** — it does not `pip install`
+from `requirements.txt`. A dependency change therefore reaches production only
+if it is applied to this venv:
+
+1. **reqmts** — edit the declarations (`swf-monitor/requirements.txt` and/or
+   `swf-monitor/pyproject.toml`). Use `>=` floors, never `==` hard pins.
+2. **dev-update** — re-run the editable install so the venv, and the editable
+   package metadata that `pip check` reads, reflect the change:
+   ```bash
+   pip install -e ../swf-common-lib ../swf-monitor .
+   ```
+   Removing a dependency? `pip install` never uninstalls — `pip uninstall` the
+   orphan explicitly.
+3. **prod** — deploy swf-monitor, which copies the now-synced venv:
+   ```bash
+   sudo deploy-swf-monitor.sh branch infra/baseline-vNN
+   ```
+
+The deploy refuses to ship a venv that has drifted from the declared
+requirements (a `pip install -r requirements.txt --dry-run` + `pip check`
+gate), so a skipped dev-update fails loudly instead of shipping stale code.
+
 ## Step 6: Initialize and Run the Testbed
 
 1. **Initialize the testbed:**
