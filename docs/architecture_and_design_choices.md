@@ -59,6 +59,31 @@ contributors and for future architectural reviews.
   operations, but if issues arise, splitting into separate connections is the
   recommended fix.
 
+### Blocking Handlers and Background Execution
+
+*Decision from ePIC production ops, June 2026.*
+
+- **The Choice:** Long-running handler work runs in a bounded **thread pool**, not
+  on the receiver thread and not via an asyncio rewrite. `BaseAgent` exposes
+  `run_in_background(fn, *args, dedup_key=…, label=…)`; handlers opt in.
+
+- **Rationale:** stomp.py delivers messages on a single receiver thread,
+  sequentially, so a handler that blocks on a subprocess or a long REST / Rucio /
+  xrootd call stalls every later message — including liveness pings, which gets
+  the agent watchdog-restarted mid-work. The work is blocking subprocess/socket
+  I/O and the stack (stomp.py, subprocess) is thread-based, so threads fit and
+  asyncio would buy nothing while forcing every agent off the shared base.
+
+- **Opt-in, so it stays safe:** an agent that never calls `run_in_background` is
+  unchanged. The wrapper drives reentrant PROCESSING state (PROCESSING while any
+  background work is in flight), catches and logs every exception, and dedups on
+  `dedup_key` to avoid the duplicate-work race concurrency introduces; a send
+  lock makes worker-thread sends safe and shutdown drains the pool.
+
+- **API and consumers:** the API is documented in the `swf-common-lib` README;
+  the first consumer is the epicprod ops agent
+  (`swf-monitor/docs/EPICPROD_OPS_AGENT.md`).
+
 ### Messaging Semantics: Topic vs Queue vs Durable Subscription
 
 | Pattern | Persistence | Consumers | Use Case |
