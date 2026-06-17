@@ -16,11 +16,11 @@ Each catalog row carries the full request line in the Dataset cell: Campaign, In
 
 ### Two-Panel Compose View (swf-monitor)
 
-`/swf-monitor/pcs/tasks/compose/?tab=tasks` opens a workbench-style two-panel sibling of the catalog: a concise left list of the current campaign's tasks, and a right pane with full detail and (for owners) Edit / Copy / Delete actions. The two views are interchangeable siblings — the catalog is for bulk inspection, compose for detail and editing — and a task can be opened in either from anywhere it appears.
+`/swf-monitor/pcs/tasks/compose/?tab=tasks` opens a two-panel sibling of the catalog: a concise left list of the current campaign's tasks, and a right pane with full detail and (for owners) Edit / Copy / Delete actions. The two views are interchangeable siblings — the catalog is for bulk inspection, compose for detail and editing — and a task can be opened in either from anywhere it appears.
 
 - **Left rows.** PWG chip, dataset path with the standard `/volatile/eic/EPIC/` prefix elided (full path on hover), status, priority, sample, Nev, and Bg / New / pTDR / ES / Other flag pills. The title row never wraps, so row height is predictable as the list is scrolled.
 - **Collapsed filter bar.** Fourteen facet titles — Status, Requestor, Sample, Submission, Priority, Nev, Geom, Beam, Physics, Q², Species, Energy, Output, Flags — wrap into one row at the top; clicking a title expands only that facet's values. Filter state is mirrored in the URL so a filtered view is bookmarkable.
-- **Right pane.** For CSV-imported tasks the dataset's auto-generated Physics / EvGen / Simu / Reco tags are placeholders and are no longer rendered — the panel instead lists the real physics characterization carried in `overrides.csv_import` (Sample, Geom, Beam, Physics, Q², Species, Energy, Nev, Background, Detector). Non-CSV tasks retain the original tag table. The panel title is the dataset path (matching the workbench row), never the internal `csv_import.<slug>` key.
+- **Right pane.** For CSV-imported tasks the dataset's auto-generated Physics / EvGen / Simu / Reco tags are placeholders and are no longer rendered — the panel instead lists the real physics characterization carried in `overrides.csv_import` (Sample, Geom, Beam, Physics, Q², Species, Energy, Nev, Background, Detector). Non-CSV tasks retain the original tag table. The panel title is the dataset path (matching the compose-list row), never the internal `csv_import.<slug>` key.
 - **Cross-linking.** Catalog Input links and the dataset-detail "Used by Production Tasks" lists now land in compose with the row preselected, so navigation between bulk and detail views is one click in either direction.
 
 ### PCS — Submission Path, Intake, MCP Wrappers (swf-monitor)
