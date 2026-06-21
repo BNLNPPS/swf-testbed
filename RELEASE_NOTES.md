@@ -44,6 +44,8 @@ The production operations agent is now the execution boundary for EpicProd write
 - EVGEN submission is routed through the agent rather than fragile page POSTs.
 - Submit buttons in PCS produce the production task envelope, call an external-safe API trigger, and report outcomes through SSE completion events.
 - Task submission metadata is carried through task JSON so submitted tasks can show actions and submission state.
+- Submission artifacts now use the true Rucio DID for `outDS` and `taskName`, with tag-based LFN templates carrying `$PANDAID` for per-file uniqueness.
+- Command previews and task submission specs are server-authoritative, regenerated from current PCS state rather than hand-maintained client text.
 - `record-submission` is idempotent and the submit-readiness gate is visible before lock/submission.
 - Payload-log retrieval and caching were hardened, with live page updates via SSE instead of reload loops.
 - Cleaner-killer cron runs standalone with explicit prod environment parsing and a bounded restart policy.
@@ -84,6 +86,12 @@ The production alarm system moved from `swf-remote` to `swf-monitor`:
 - Login preserves `?next=` so users land on the requested page after authentication.
 - Apache config and deployment docs were updated for the current production shape.
 - New and revised docs cover EpicProd operations, the ops agent, SSE push, validation planning, questionnaire ingest, background tags, external access, Postgres MCP, system status, and alarms.
+
+### MCP Runtime Stability (swf-monitor)
+
+The monitor completed the move away from `django-mcp-server` for the streaming MCP runtime. The FastMCP/Starlette path replaces the freeze-prone Django integration that had been causing monitor stalls under MCP client load; the v36 branch also pins the relevant Starlette dependency and removes the old migration-smoke cruft.
+
+The practical result is operational: MCP remains available without tying up the main Django request path, and the freezes seen before the migration have not recurred in production use.
 
 ### Agent Background Execution (swf-common-lib, swf-testbed)
 
