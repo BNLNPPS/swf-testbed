@@ -85,11 +85,16 @@ The production alarm system moved from `swf-remote` to `swf-monitor`:
 - Apache config and deployment docs were updated for the current production shape.
 - New and revised docs cover EpicProd operations, the ops agent, SSE push, validation planning, questionnaire ingest, background tags, external access, Postgres MCP, system status, and alarms.
 
+### Agent Background Execution (swf-common-lib, swf-testbed)
+
+`BaseAgent` now has opt-in background execution for long-running handlers. Agents that block on subprocesses or slow REST / Rucio / xrootd calls can offload that work to a bounded thread pool with `run_in_background(...)`, keeping the STOMP receiver thread responsive for later messages and liveness traffic.
+
+The behavior is deliberately opt-in: existing agents that do not call it behave as before. For consumers that do opt in, the wrapper keeps PROCESSING/READY state correct while background work is in flight, logs worker exceptions, supports deduplication by work key, serializes bus sends from worker threads, and drains workers during shutdown. The first production consumer is the EpicProd operations agent; the design rationale is documented in `swf-testbed`.
+
 ### swf-testbed Notes
 
 - MCP local configuration now carries bearer-auth configuration for the shared token path.
 - Installation docs record the requirements-to-dev-update-to-production dependency chain.
-- Architecture notes document the BaseAgent background-execution design choice.
 - Release-note terminology was cleaned up to use Compose rather than the retired Workbench name.
 
 ## v35 (2026-05-20)
