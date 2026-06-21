@@ -1,5 +1,97 @@
 # Release Notes
 
+## v36 (2026-06-21)
+
+### EpicProd Production Workflow Shell (swf-monitor)
+
+The production landing page and header navigation were rebuilt around the actual EpicProd workflow boundaries:
+
+- **Production Requests** — questionnaire/request intake, explicitly separated from PCS.
+- **Physics Configuration System** — physics tags, physics category numbering, generator configurations, simulation/reconstruction/background tags, datasets, submission templates, and submit-ready tasks.
+- **Production Campaigns** — campaign catalogs spanning current, past, and future campaigns.
+- **PanDA Execution** — live task/job browsing, diagnostics, queues, error summaries, and Alarms.
+- **Validation** — placeholder workflow column reserved for the next integration.
+
+The header now keeps active items as normal links while using intensity to show the current section, avoiding layout shifts from bold text. PCS highlighting is constrained to real PCS pages, requests no longer light up PCS, and the System menu consolidates System Status, Admin where appropriate, and About while preserving status color both in the top bar and dropdown.
+
+Page chrome was tightened across the production UI: compact title spacing, consistent title font sizes, standard Eastern build-time display, cleaned queue formatting, and clearer filled action buttons for PanDA activity error/diagnostic actions.
+
+### Production Request Questionnaire Intake (swf-monitor)
+
+Production request questionnaire import became first-class request intake, not part of PCS:
+
+- Questionnaire list/detail pages with request-id links, contact metadata, generator/event filters, raw metadata inspection, and support for long event requests.
+- Import script and REST API for loading questionnaire responses.
+- Match-management support so questionnaire requests can be connected to downstream production planning.
+- Devcloud import controls are hidden on the external face where they are not operationally valid.
+
+### PCS Identity, Tags, and Compose Workflow (swf-monitor)
+
+PCS advanced from tag/catalog browsing toward a coherent configuration system with stable composed identities:
+
+- Dataset and task identity now uses composed names rather than transient internal IDs; MCP wrappers, URLs, detail links, and task action buttons were aligned around that identity.
+- Background tags were added as a real tag axis, with import/backfill support and compose UI integration.
+- Physics schema coverage was expanded so imported catalog rows can map cleanly onto physics tags, including background, detector/version, beam, species, Q2, and related axes.
+- Imported catalog rows are adopted into the editable draft lifecycle instead of remaining as legacy import records.
+- Draft-by-default tag/task lifecycle: objects can be composed and iterated in draft form, then locked at submission.
+- The compose views were renamed and polished, with two-panel lists, sort toggles, identity-keyed navigation, used-by lists, and consistent action visibility.
+- PCS catalogs now classify future/current/past releases correctly, display tags more consistently, and surface EVGEN input matched/unmatched populations.
+
+### Automated Production Submission Path (swf-monitor)
+
+The EVGEN submission path is now routed through the production operations agent rather than fragile page POSTs:
+
+- The production operations agent provides the BNL-side execution boundary for write actions.
+- Submit buttons in PCS produce the production task envelope, call an external-safe API trigger, and report outcomes through SSE completion events.
+- Task submission metadata is carried through task JSON so submitted tasks can show actions and submission state.
+- `record-submission` is idempotent and the submit-readiness gate is visible before lock/submission.
+- Payload-log retrieval and caching were hardened, with live page updates via SSE instead of reload loops.
+- Cleaner-killer cron runs standalone with explicit prod environment parsing and a bounded restart policy.
+
+### Rucio, Catalog, and Data-Lineage Integration (swf-monitor)
+
+The production catalog can now assimilate and reconcile external EVGEN inputs and produced outputs:
+
+- JLab Rucio EVGEN input snapshots are imported into the PCS catalog and matched against requested datasets.
+- A self-hosted Rucio DID detail page links catalog output DIDs to local inspection.
+- Rucio snapshot writes use the configured temporary path, preserving the agent write-path boundary.
+- Documentation now records the data-lineage model and the external-face write-action contract.
+
+### PanDA Monitoring and System Status (swf-monitor)
+
+PanDA monitoring pages received focused operational upgrades:
+
+- Task and job detail pages now prioritize payload logs, owner information, monitor links, composed task names, and expanded context.
+- PanDA activity grouping, filter behavior, query counts, time windows, and transformation-viewer rendering were refined.
+- Error, diagnostic, queue, job, and task pages were brought into the streamlined production page layout.
+- System Status was added as a first-class monitor page and production nav item, with stale-threshold documentation and refresh tooling.
+- ePIC production job-file inventory was added, including model, sync command, and supporting docs.
+
+### Production Alarms Moved to swf-monitor
+
+The production alarm system moved from `swf-remote` to `swf-monitor`:
+
+- Alarm dashboard, editor, event detail, run reports, team editor, and standalone runner now live in `swf-monitor`.
+- Alarm configuration, events, engine runs, teams, and history now use monitor-side state rather than the remote instance.
+- Existing alarm state was imported from the remote instance: 2 contexts, 17,554 entries, and 38 versions.
+- The runner installs as a standalone venv under the monitor deployment, writes state to monitor Postgres, and sends email through AWS SES using `boto3` until BNL mail delivery replaces it.
+- Alarm helper packaging was cleaned up and install permissions were hardened.
+- `swf-remote` now proxies `/prod/alarms/...` from monitor; its old alarm code is retained only for rollback/reference, with old cron disabled.
+
+### Access, Deployment, and Documentation (swf-monitor)
+
+- Read-only production pages are open by default; writes and sensitive actions remain gated.
+- Login preserves `?next=` so users land on the requested page after authentication.
+- Apache config and deployment docs were updated for the current production shape.
+- New and revised docs cover EpicProd operations, the ops agent, SSE push, validation planning, questionnaire ingest, background tags, external access, Postgres MCP, system status, and alarms.
+
+### swf-testbed Notes
+
+- MCP local configuration now carries bearer-auth configuration for the shared token path.
+- Installation docs record the requirements-to-dev-update-to-production dependency chain.
+- Architecture notes document the BaseAgent background-execution design choice.
+- Release-note terminology was cleaned up to use Compose rather than the retired Workbench name.
+
 ## v35 (2026-05-20)
 
 ### ePIC Production Task Catalog (swf-monitor)
