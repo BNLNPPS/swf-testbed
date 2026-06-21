@@ -37,11 +37,11 @@ PCS advanced from tag/catalog browsing toward a coherent configuration system wi
 - The compose views were renamed and polished, with two-panel lists, sort toggles, identity-keyed navigation, used-by lists, and consistent action visibility.
 - PCS catalogs now classify future/current/past releases correctly, display tags more consistently, and surface EVGEN input matched/unmatched populations.
 
-### Automated Production Submission Path (swf-monitor)
+### Production Operations Agent and Automated Submission (swf-monitor)
 
-The EVGEN submission path is now routed through the production operations agent rather than fragile page POSTs:
+The production operations agent is now the execution boundary for EpicProd write actions on the BNL side. Browser-facing pages request work through external-safe API triggers; the agent performs the privileged or long-running operation in the production environment and reports completion back to the UI.
 
-- The production operations agent provides the BNL-side execution boundary for write actions.
+- EVGEN submission is routed through the agent rather than fragile page POSTs.
 - Submit buttons in PCS produce the production task envelope, call an external-safe API trigger, and report outcomes through SSE completion events.
 - Task submission metadata is carried through task JSON so submitted tasks can show actions and submission state.
 - `record-submission` is idempotent and the submit-readiness gate is visible before lock/submission.
