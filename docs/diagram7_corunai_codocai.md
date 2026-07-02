@@ -22,7 +22,7 @@ flowchart TB
 
     CODOC["<b>codoc-ai</b> — immediate application<br/>documentation drafting · production analysis"]:::codoc
 
-    CORUN["<b>corun-ai</b> scheduler<br/>config = model × sysprompt × MCP set<br/>configure · dispatch · compare"]:::orch
+    corun-ai["<b>corun-ai</b> scheduler<br/>config = model × sysprompt × MCP set<br/>configure · dispatch · compare"]:::orch
 
     subgraph MODELS["Model ensemble — three providers, common scheduler"]
         direction LR
@@ -38,10 +38,10 @@ flowchart TB
     OUT["<b>codoc-ai outputs</b><br/>documentation drafts · production-examination reports ·<br/>cross-model comparison threads (user annotations)"]:::out
 
     U --> CODOC
-    CODOC --> CORUN
-    CORUN --> M1
-    CORUN --> M2
-    CORUN --> M3
+    CODOC --> corun-ai
+    corun-ai --> M1
+    corun-ai --> M2
+    corun-ai --> M3
     M3 -. hosted by .-> REMOTE
     M1 --> MCP
     M2 --> MCP
