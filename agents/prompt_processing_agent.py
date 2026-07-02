@@ -336,6 +336,7 @@ class PROCESSING(BaseAgent):
 
 
     def mark_run_stfs_processing(self, run_number, panda_task_id=None, execution_id=None):
+        """Claim all eligible monitor STF rows for this run/task."""
         if not panda_task_id:
             self.logger.warning(
                 f"Not marking STF files processing for run {run_number}: missing PanDA task ID",
@@ -358,6 +359,7 @@ class PROCESSING(BaseAgent):
 
 
     def mark_stf_processing_by_filename(self, filename, run_number, panda_task_id=None, execution_id=None):
+        """Claim one STF row when its stf_gen message arrives."""
         if not execution_id:
             return False
         stf_file = self._monitor_stf_file_by_filename(filename)
@@ -377,7 +379,7 @@ class PROCESSING(BaseAgent):
 
 
     def poll_processed_stf_files_once(self, run_number, panda_task_id=None, execution_id=None):
-        """Poll PanDA jobs once and update monitor StfFile rows for this run."""
+        """Run one PanDA status poll and patch matching swf-monitor STF rows."""
         if not panda_task_id:
             self.logger.warning(
                 f"Skipping PanDA polling for run {run_number}: missing PanDA task ID",
@@ -399,6 +401,7 @@ class PROCESSING(BaseAgent):
         task_status = self._task_status(panda_task_id) if panda_task_id else None
         job_records = self._job_status_records(panda_task_id)
 
+        # Each poll re-scans the run so late-registered STF rows are claimed.
         self.mark_run_stfs_processing(run_number, panda_task_id, execution_id=execution_id)
 
         stf_files = [
@@ -510,7 +513,7 @@ class PROCESSING(BaseAgent):
 
 
     def start_processed_stf_polling(self, run_number, panda_task_id=None, execution_id=None):
-        """Register a run/task with the bounded background polling scheduler."""
+        """Add a run/task to the polling scheduler."""
         if not panda_task_id:
             self.logger.warning(
                 f"Not registering PanDA polling for run {run_number}: missing PanDA task ID",
@@ -542,6 +545,7 @@ class PROCESSING(BaseAgent):
 
 
     def _ensure_polling_scheduler_locked(self):
+        """Start the scheduler thread if no live one exists."""
         if self.polling_thread and self.polling_thread.is_alive():
             return
         self.polling_stop_event.clear()
@@ -554,6 +558,7 @@ class PROCESSING(BaseAgent):
 
 
     def _polling_scheduler_loop(self):
+        """Poll registered run/task entries until all are complete or stopped."""
         interval_seconds = int(os.getenv("SWF_PANDA_POLL_INTERVAL", "30"))
         timeout_seconds = int(os.getenv("SWF_PANDA_POLL_TIMEOUT", "0"))
         while not self.polling_stop_event.is_set():
@@ -600,7 +605,7 @@ class PROCESSING(BaseAgent):
 
 
     def stop_processed_stf_polling(self, wait_seconds=5):
-        """Ask the background polling scheduler to stop without blocking task submission."""
+        """Stop the scheduler thread during agent shutdown."""
         self.polling_stop_event.set()
         thread = self.polling_thread
         if thread and thread.is_alive():
@@ -611,7 +616,7 @@ class PROCESSING(BaseAgent):
 
 
     def recover_active_panda_polling(self):
-        """Restart polling for monitor STF rows left in processing state."""
+        """Restart polling for processing STF rows left by an earlier agent."""
         stf_files = self._api_records(self.call_monitor_api("GET", "/stf-files/"))
         runs_to_poll = {}
         for stf_file in stf_files:
