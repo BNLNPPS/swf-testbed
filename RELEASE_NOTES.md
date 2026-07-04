@@ -159,7 +159,7 @@ The streaming `/swf-monitor/mcp/` endpoint (isolated on its own ASGI worker in v
 
 ### PanDAbot (swf-monitor)
 
-- **Corun completion notifications** integrated; bot commentary on a job routes to the originating Mattermost thread rather than the channel.
+- **corun-ai completion notifications** integrated; bot commentary on a job routes to the originating Mattermost thread rather than the channel.
 - **DID-specific Rucio rule lookup** so a question about a specific dataset finds its replication rules without an LLM tool-search round trip.
 - **Reply discipline.** Direct `@PanDAbot` mentions now require a substantive reply (silence-only variants are flagged). Plain channel chatter no longer reaches Haiku. ePIC campaign Rucio scope handling fixed.
 
