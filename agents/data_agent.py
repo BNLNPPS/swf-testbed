@@ -357,7 +357,7 @@ class DATA(BaseAgent):
         # N.B. Rucio does not accept large integers so mind the run ID
         self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='run_number', value=self.run_id)
 
-        guid = uuid.uuid4()
+        guid = str(uuid.uuid4())
         self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='guid', value=guid)
 
         # Attach the file to the open dataset
