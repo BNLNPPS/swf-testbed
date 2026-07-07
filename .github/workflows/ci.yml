@@ -10,5 +10,8 @@ jobs:
   integration-test:
     uses: ./.github/workflows/integration-test.yml
     with:
+      # Use the exact commit that triggered this run so PRs test their own code.
       swf_testbed_ref: ${{ github.sha }}
-      swf_monitor_ref: main
+      # Needed for https://github.com/BNLNPPS/swf-monitor/commit/00e14c514efd0a54f9b0b89e92886d277643f60f
+      # change to main when merged
+      swf_monitor_ref: infra/baseline-v37
