@@ -5,11 +5,28 @@
 name: Integration Test
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_call:
+    inputs:
+      swf_testbed_ref:
+        description: 'Git ref (branch, tag, or SHA) of swf-testbed to check out'
+        required: true
+        type: string
+      swf_monitor_ref:
+        description: 'Git ref (branch, tag, or SHA) of swf-monitor to check out'
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      swf_testbed_ref:
+        description: 'Git ref of swf-testbed to check out'
+        required: true
+        type: string
+        default: main
+      swf_monitor_ref:
+        description: 'Git ref of swf-monitor to check out'
+        required: true
+        type: string
+        default: main
 
 # Cancel in-progress runs for the same branch/PR
 concurrency:
@@ -43,12 +60,14 @@ jobs:
       - name: Checkout swf-testbed
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.swf_testbed_ref }}
           path: swf-testbed
 
       - name: Checkout swf-monitor
         uses: actions/checkout@v4
         with:
           repository: BNLNPPS/swf-monitor
+          ref: ${{ inputs.swf_monitor_ref }}
           path: swf-monitor
 
       - name: Checkout swf-common-lib
