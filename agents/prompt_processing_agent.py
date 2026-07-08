@@ -1,4 +1,4 @@
-import os, time, json, re, threading
+import os, time, json, re, threading, tomllib
 from datetime import datetime
 from pandaclient import PrunScript, panda_api
 from pandaclient.Client import getTaskStatus, getPandaIDsWithTaskID, getFullJobStatus
@@ -28,8 +28,59 @@ class PROCESSING(BaseAgent):
         self.polling_thread = None
         self.polling_lock = threading.Lock()
         self.polling_stop_event = threading.Event()
+        prompt_config = self._load_prompt_processing_config()
+        self.panda_poll_interval_seconds = self._config_int(
+            prompt_config,
+            "panda_poll_interval_seconds",
+            "SWF_PANDA_POLL_INTERVAL",
+            30,
+        )
+        self.panda_poll_timeout_seconds = self._config_int(
+            prompt_config,
+            "panda_poll_timeout_seconds",
+            "SWF_PANDA_POLL_TIMEOUT",
+            0,
+        )
 
         if self.verbose: print(f'''*** Initialized the PROCESSING class, test mode is {self.test} ***''')
+
+
+    def _prompt_processing_config_path(self):
+        return os.path.join(os.path.dirname(os.path.dirname(__file__)), "workflows", "prompt_processing.toml")
+
+
+    def _load_prompt_processing_section(self, config_path, warn=False):
+        try:
+            with open(config_path, "rb") as config_file:
+                return tomllib.load(config_file).get("prompt_processing", {})
+        except (OSError, tomllib.TOMLDecodeError) as e:
+            if warn:
+                self.logger.warning(
+                    f"Could not load prompt_processing config from {config_path}: {e}",
+                    extra=self._log_extra()
+                )
+            return {}
+
+
+    def _load_prompt_processing_config(self):
+        """Load prompt-processing settings, with workflow defaults plus active config overrides."""
+        prompt_config = self._load_prompt_processing_section(self._prompt_processing_config_path(), warn=True)
+        active_config = self._load_prompt_processing_section(self.config_path, warn=True)
+        prompt_config.update(active_config)
+        return prompt_config
+
+
+    def _config_int(self, config, key, env_var, default):
+        """Read an integer setting from config, with an environment override."""
+        value = os.getenv(env_var, config.get(key, default))
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            self.logger.warning(
+                f"Invalid {key} value {value!r}; using default {default}",
+                extra=self._log_extra()
+            )
+            return default
 
 
     # ---
@@ -578,8 +629,8 @@ class PROCESSING(BaseAgent):
 
     def _polling_scheduler_loop(self):
         """Poll registered run/task entries until all are complete or stopped."""
-        interval_seconds = int(os.getenv("SWF_PANDA_POLL_INTERVAL", "30"))
-        timeout_seconds = int(os.getenv("SWF_PANDA_POLL_TIMEOUT", "0"))
+        interval_seconds = self.panda_poll_interval_seconds
+        timeout_seconds = self.panda_poll_timeout_seconds
         while not self.polling_stop_event.is_set():
             with self.polling_lock:
                 tasks = list(self.polling_tasks.items())

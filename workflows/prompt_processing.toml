@@ -36,3 +36,8 @@ realtime = true                 # Run in real-time (1 sim second = 1 wall second
 # 1. SWF_TESTBED_CONFIG with [prompt_processing].container
 # 2. SWF_PROMPT_PROCESSING_CONTAINER=/data/<user>/<folder>
 container = ""
+
+# Environment variables SWF_PANDA_POLL_INTERVAL and SWF_PANDA_POLL_TIMEOUT
+# remain supported as operational overrides.
+panda_poll_interval_seconds = 60
+panda_poll_timeout_seconds = 0
