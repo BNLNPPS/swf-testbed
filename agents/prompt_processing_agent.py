@@ -309,6 +309,23 @@ class PROCESSING(BaseAgent):
         return self._tracked_by_this_agent(stf_file, execution_id=execution_id)
 
 
+    def _needs_processing_claim(self, stf_file, panda_task_id=None, execution_id=None):
+        """Return True when the monitor row needs a processing claim PATCH."""
+        metadata = stf_file.get("metadata") or {}
+
+        if stf_file.get("status") != "processing":
+            return True
+        if metadata.get("panda_tracking_agent") != self.agent_name:
+            return True
+        if metadata.get("panda_tracking_namespace") != self.namespace:
+            return True
+        if execution_id and metadata.get("workflow_execution_id") != execution_id:
+            return True
+        if panda_task_id and str(metadata.get("panda_task_id")) != str(panda_task_id):
+            return True
+        return False
+
+
     def _patch_stf_file(self, stf_file, status, panda_task_id=None, matched_input_files=None, reason=None, run_number=None, execution_id=None, extra_metadata=None):
         metadata = stf_file.get("metadata") or {}
         metadata.update({
@@ -348,6 +365,8 @@ class PROCESSING(BaseAgent):
             if stf_file.get("status") not in {"registered", "processing"}:
                 continue
             if not self._claimable_by_this_agent(stf_file, execution_id=execution_id, allow_unclaimed=True):
+                continue
+            if not self._needs_processing_claim(stf_file, panda_task_id=panda_task_id, execution_id=execution_id):
                 continue
             if self._patch_stf_file(stf_file, "processing", panda_task_id=panda_task_id, run_number=run_number, execution_id=execution_id):
                 updated += 1
