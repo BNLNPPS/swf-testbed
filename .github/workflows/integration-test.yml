@@ -5,11 +5,68 @@
 name: Integration Test
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_call:
+    inputs:
+      swf_testbed_repo:
+        description: 'owner/repo of swf-testbed to check out'
+        required: false
+        type: string
+        default: BNLNPPS/swf-testbed
+      swf_testbed_ref:
+        description: 'Git ref (branch, tag, or SHA) of swf-testbed to check out'
+        required: true
+        type: string
+      swf_monitor_repo:
+        description: 'owner/repo of swf-monitor to check out'
+        required: false
+        type: string
+        default: BNLNPPS/swf-monitor
+      swf_monitor_ref:
+        description: 'Git ref (branch, tag, or SHA) of swf-monitor to check out'
+        required: true
+        type: string
+      swf_common_lib_repo:
+        description: 'owner/repo of swf-common-lib to check out'
+        required: false
+        type: string
+        default: BNLNPPS/swf-common-lib
+      swf_common_lib_ref:
+        description: 'Git ref of swf-common-lib to check out'
+        required: false
+        type: string
+        default: main
   workflow_dispatch:
+    inputs:
+      swf_testbed_repo:
+        description: 'owner/repo of swf-testbed'
+        required: false
+        type: string
+        default: BNLNPPS/swf-testbed
+      swf_testbed_ref:
+        description: 'Git ref of swf-testbed to check out'
+        required: true
+        type: string
+        default: main
+      swf_monitor_repo:
+        description: 'owner/repo of swf-monitor'
+        required: false
+        type: string
+        default: BNLNPPS/swf-monitor
+      swf_monitor_ref:
+        description: 'Git ref of swf-monitor to check out'
+        required: true
+        type: string
+        default: main
+      swf_common_lib_repo:
+        description: 'owner/repo of swf-common-lib'
+        required: false
+        type: string
+        default: BNLNPPS/swf-common-lib
+      swf_common_lib_ref:
+        description: 'Git ref of swf-common-lib to check out'
+        required: false
+        type: string
+        default: main
 
 # Cancel in-progress runs for the same branch/PR
 concurrency:
@@ -43,18 +100,22 @@ jobs:
       - name: Checkout swf-testbed
         uses: actions/checkout@v4
         with:
+          repository: ${{ inputs.swf_testbed_repo }}
+          ref: ${{ inputs.swf_testbed_ref }}
           path: swf-testbed
 
       - name: Checkout swf-monitor
         uses: actions/checkout@v4
         with:
-          repository: BNLNPPS/swf-monitor
+          repository: ${{ inputs.swf_monitor_repo }}
+          ref: ${{ inputs.swf_monitor_ref }}
           path: swf-monitor
 
       - name: Checkout swf-common-lib
         uses: actions/checkout@v4
         with:
-          repository: BNLNPPS/swf-common-lib
+          repository: ${{ inputs.swf_common_lib_repo }}
+          ref: ${{ inputs.swf_common_lib_ref }}
           path: swf-common-lib
 
       # ---- 2. Create the .env file that web & testbed containers need ----
