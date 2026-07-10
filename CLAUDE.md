@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Official system-level documentation for the ePIC WFMS (the testbed is its streaming front):
+<https://epic-wfms-docs.readthedocs.io> (workspace repo `epic-wfms-docs/`).
+
 ## Essential Commands
 
 ```bash
@@ -27,7 +30,7 @@ swf_list_logs(execution_id='...')         # Workflow logs
 
 ## Project-Specific Rules
 
-**Branch:** All 3 repos must be on `infra/baseline-v34`
+**Branch:** All 3 repos must be on the latest `infra/baseline-vNN` — the current baseline branch is always the working branch
 
 **First push:** `git push -u origin branch-name` sets up tracking.
 

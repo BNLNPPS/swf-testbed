@@ -7,7 +7,7 @@ System design and components of the SWF Testbed.
 The testbed plan is based on ePIC streaming computing model WG discussions
 in the streaming computing model meeting[^1], guided by the ePIC streaming
 computing model report[^2], and the ePIC workflow management system
-requirements draft[^3].
+requirements[^3].
 
 ## Testbed plan
 
@@ -259,7 +259,7 @@ graph LR
 
 [^2]: [ePIC streaming computing model report](https://zenodo.org/records/14675920)
 
-[^3]: [ePIC workflow management system requirements draft](https://docs.google.com/document/d/1OmAGzFgZgEP6ntuRkP51kiOqF_0uh_RPjq8wgdTwb2A/edit?tab=t.0#heading=h.g1vlz8vqp7ht)
+[^3]: [ePIC workflow management system requirements](https://www.overleaf.com/project/67bdf89a3d44a138da503dea)
 
 [^4]: [ePIC streaming workflow testbed planning document](https://docs.google.com/document/d/1mPqMsjHiymkeAB7uih_8TjFIluwM8MENIWZF3EDwNrU/edit?tab=t.0)
 

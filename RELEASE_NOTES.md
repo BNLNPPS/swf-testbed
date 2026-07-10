@@ -1,5 +1,90 @@
 # Release Notes
 
+## v37 (2026-07-10)
+
+This baseline completes the first end-to-end pass of ePIC automated production. A production request enters through deterministic intake — the new request composer (part of this release) or automated import from the existing questionnaire — rather than a hand-tended spreadsheet; PCS composes it into configured tasks; a continuum of campaign catalogs map to ePIC's monthly cadence; the production operations agent submits to PanDA and records each physical attempt; produced data is reconciled from Rucio back onto the campaign catalog; and campaign succession runs as a reviewed AI proposal set — an LLM digests the production meeting record and drafts the disposition set that seeds the next campaign, with an operator approving every disposition. The connective tissue — structured action logging, live policy, alarms, narratives — is also here.
+
+### The Campaign Continuum (swf-monitor)
+
+One curated catalog now spans every campaign, with lifecycle as an attribute rather than separate views:
+
+- **Physics configurations and editions**: the campaign-invariant identity behind dataset editions (physics tag + evgen identity + background + sample variant) is resolved by a dedicated module with a never-guess policy — where a bound tag and the observed path conflict, the path wins and the edition is flagged; unresolved configurations can never falsely merge.
+- **Campaign instancing**: a plan/execute step mints the next campaign's editions from the current catalog, honoring per-configuration dispositions, with a review panel on the producing tab and truthful post-run reporting. Disposition resolution is configuration-wide, not per-row.
+- **Propagation dispositions**: continue / hold / final per physics configuration, recommendations by AI based on plan analysis but flipped only by humans, each flip carrying a required comment into an append-only history; bulk catalog action with badges on non-continue rows.
+- **Requests over physics configurations**: production requests bind to the configuration identity and project onto campaign editions, imported and composed requests alike.
+- **Lifecycle surfaces**: a symmetric tab strip over past / last / current / producing / future; producing is derived from live Rucio arrivals, never stored; one-click promote rotation; the future tab detects the coming campaign from pending disposition batches (as determined from e.g. the LLM analyzing presentations at Physics, S&C planning meetings, as in the case of the July 8 meeting) and applies the instancing treatment on detection.
+- **Firsthand Rucio reconciliation**: a producing campaign's records track Rucio directly — known DIDs refresh counts and replica status, unknown DIDs resolve to physics configurations before any row is created; the arrivals sweep watches all campaigns with one shallow query per root, and the past-campaign ingest runs as a nightly chain step.
+- **Edition data pages**: every physics configuration navigates to its per-campaign Rucio data — real DIDs, files, volume, per-RSE replica status — linked from the catalog, the compose view, and the physics-configuration view.
+
+### AI Proposals (swf-monitor)
+
+The AI proposal subsystem is v1-complete and campaign succession is its first production use: the LLM proposes, a human decides, execution is deterministic.
+
+- `src/ai/` is a first-class Django app with a canonical proposal ledger, queue page, and stable references (`cp-N`) usable from the bot MCP surface.
+- The catalog is a first-class decision site: proposal blocks on the compose detail, left-panel badges, decision quality recorded on approval, and an undo verb that returns a row to pending with an unwind-complete record.
+- AI presence follows one visual convention — bordered lavender blocks, purple titles only on AI pages — and the AI marker follows the voice of the artifact, not its authorship.
+
+### Campaign Narratives (swf-monitor)
+
+Campaign narratives are the human record of each campaign's intent and outcome: a collapsible narratives page with detail pages, comments, expert editing in the house style, a publish control, and a version lifecycle replacing draft/locked. Conventions are documented in `EPICPROD_NARRATIVES.md`. These may be created by LLMs, as in July, when an LLM analyzed presentations at the July 8 PS&C meeting and produced general and 26.07 specific campaign narratives which will guide automated daily and weekly assessments of the campaign.
+
+### The epicprod Action Stream (swf-monitor)
+
+Every substantive epicprod action — agent handler, MCP tool, web-tier operation — now records one structured record with outcome, duration, requesting user, and failure reason, giving the system a single operational memory:
+
+- **Sublevel and live axes**: each action declares its importance and live-stream recommendation; the effective live policy is a SysConfig override editable on the live-policy page; the Logs page carries the live stream view, importance thresholds, and user/instance/module filters.
+- **SysConfig**: database-backed system configuration with a System-page editor; reads are read-or-seed, so every key is visible at its default — no hidden knobs.
+- **Nightly catalog sync**: a cron-enqueued chain — CSV import, questionnaire import, association sweep with auto-intake of direct `group.EIC` submissions (adopted tasks, the standing born-vs-adopted migration metric), Rucio output snapshot, EVGEN assimilation, questionnaire automatch, match cache, progress refresh — each step logged with measured durations.
+- **Questionnaire automatch**: standing LLM matching of requests to tasks with batched calls, an exact-beam rule enforced in code, and event-driven rescans.
+- **Alarms on the stream**: catalog-sync freshness and payload-fetch-rate alarms; alarm email moved to the BNL SMTP relay.
+- **epicprod-live Mattermost publisher** posting as a dedicated bot account, and the PanDA bot renamed to DISpatcher (the ePIC-chosen name) with an expanded MCP tool admission list.
+
+### Production Request Composer (swf-monitor)
+
+`/pcs/request/` is the native production-request intake on the path to replacing the Google Form. A requester describes the physics in plain terms and the page shows, live, the matching configurations the system already has — adopting one records the same configuration anchor the CSV import writes. PWG and DSC are distinct fields carrying the official collaboration lists (the five physics working groups; the fifteen detector subsystem collaborations, grouped by region) with an Other escape; contact fields prefill from real user data; submission is external-safe through the devcloud proxy and gated by login. The composer is also the first "my epicprod" surface: a signed-in user's previous requests are the starting point for the next one.
+
+### PanDA Task Operations and Job Diagnosis (swf-monitor)
+
+- Physical PanDA attempts are first-class: `PandaTasks` records every submission, `.tryN` names give each whole-task rerun its own PanDA task and Rucio namespace, and the compose page exposes the three native operations — add another retry, restart-and-retry failures, rerun entire task — gated by PanDA task state.
+- Job pages gained a study action with cached diagnosis; ePIC production job diagnosis surfaces in the task job list; payload logs are fetched before study and `.tryN` propagates to payload outputs.
+- Task and job parameter rendering was cleaned throughout: linked URL parameters, text-view transpath links, content-sized tables, zero counts without state color.
+
+### AI Assessments (swf-monitor)
+
+Append-only AI assessments extend to production campaigns as a subject type, are stored as corun-ai artifacts with the local mechanism retained for migration, and carry review comments and quality metadata with standard retrieval through MCP.
+
+### Platform and Operations (swf-monitor)
+
+- **SSE serves from the ASGI worker** — the durable fix for the pinned-worker 503 outages; long-held streams no longer occupy mod_wsgi workers.
+- **Nightly swfdb backup** with built-in integrity verification.
+- **Catalog page-load containment**: the current-campaign table, campaign progress, and questionnaire matches are cached with nightly rebuild and activity-triggered refresh; page-load work is instrumented and bounded.
+- **Deployment**: the lightweight deploy covers the ai app; the full deploy restarts the prod-ops agent; a pre-commit checks script encodes the compile/system-check/template-lint gate.
+
+### UI Standards (swf-monitor)
+
+- One button-role convention everywhere: solid variants act, outlines are reserved for stateful toggles.
+- Operator actions are visible but inactive for non-operator viewers — every viewer sees what operators can do.
+- Timestamps display in Eastern time throughout; editors fit the visible window; dropdown group headers render high-contrast in any browser theme.
+- Generators display in their authors' spelling (BeAGLE, EpIC); Q² range labels parse in both the `1to10` and `1_10` spellings by value.
+
+### Documentation and Diagrams (swf-monitor)
+
+- New diagrams: the epicprod system overview, the operations automation loop, and the action stream.
+- README, CLAUDE.md, and PCS.md point to the official ePIC WFMS documentation (<https://epic-wfms-docs.readthedocs.io>); the external-access contract now states the proxy catch-all reality; corun-ai naming is used throughout.
+
+### swf-testbed
+
+- Documentation points to the official WFMS documentation; the baseline branch reference is version-free; an E0–E1 workflow schematic was added.
+- Folded in from main (merged during the cycle): integration-test refactor into a `workflow_call` with explicit per-repo checkout and CI on the baseline branch, `data_agent` rucio_comms cleanup, STF-file status polling in the prompt-processing workflow with configurable interval and timeout, processing STF files no longer reclaimed, and user-testbed start for prompt processing via MCP.
+
+### swf-common-lib
+
+- README points to the official WFMS documentation.
+
+### Acknowledgments
+
+Direct-to-main contributions folded into this baseline: **Dmitry Kalinkin** (integration-test `workflow_call` refactor, explicit checkout repos, `data_agent` cleanup, CI on the baseline branch) and **Zhaoyu Yang** (STF-status polling in prompt processing, processing-file reclaim fix, MCP user-testbed start).
+
 ## v36 (2026-06-21)
 
 ### EpicProd Production Workflow Shell (swf-monitor)
@@ -159,7 +244,7 @@ The streaming `/swf-monitor/mcp/` endpoint (isolated on its own ASGI worker in v
 
 ### PanDAbot (swf-monitor)
 
-- **Corun completion notifications** integrated; bot commentary on a job routes to the originating Mattermost thread rather than the channel.
+- **corun-ai completion notifications** integrated; bot commentary on a job routes to the originating Mattermost thread rather than the channel.
 - **DID-specific Rucio rule lookup** so a question about a specific dataset finds its replication rules without an LLM tool-search round trip.
 - **Reply discipline.** Direct `@PanDAbot` mentions now require a substantive reply (silence-only variants are flagged). Plain channel chatter no longer reaches Haiku. ePIC campaign Rucio scope handling fixed.
 

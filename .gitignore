@@ -210,3 +210,5 @@ daq_events/
 .Trashes
 ehthumbs.db
 Thumbs.db
+# Rendered SVG->PNG diagram artifacts (curated images live in docs/images/ and images/)
+docs/*.png

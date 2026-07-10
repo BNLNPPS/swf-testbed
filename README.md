@@ -4,6 +4,8 @@ This is the umbrella repository for the ePIC streaming workflow testbed.
 
 ## Documentation
 
+- [**ePIC WFMS Documentation**](https://epic-wfms-docs.readthedocs.io) - Official system-level documentation for the ePIC Workflow Management System, of which the testbed is the streaming implementation front
+
 ### Release Notes
 - [**Release Notes**](RELEASE_NOTES.md) - What's new in each version
 
