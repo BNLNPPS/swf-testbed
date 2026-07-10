@@ -19,6 +19,7 @@ SWF_PARENT_DIR=$(dirname "$(pwd)")
 export SWF_PARENT_DIR
 SWF_COMMON_LIB="$SWF_PARENT_DIR/swf-common-lib"
 SWF_MONITOR="$SWF_PARENT_DIR/swf-monitor"
+SWF_EPICPROD="$SWF_PARENT_DIR/swf-epicprod"
 
 echo "📁 Checking for required repositories..."
 if [[ ! -d "$SWF_COMMON_LIB" ]]; then
@@ -31,6 +32,13 @@ if [[ ! -d "$SWF_MONITOR" ]]; then
     echo "❌ Error: swf-monitor not found at $SWF_MONITOR"
     echo "   swf-monitor is REQUIRED (contains core Django infrastructure and database models)"
     echo "   Please clone: git clone https://github.com/BNLNPPS/swf-monitor.git"
+    exit 1
+fi
+
+if [[ ! -d "$SWF_EPICPROD" ]]; then
+    echo "❌ Error: swf-epicprod not found at $SWF_EPICPROD"
+    echo "   swf-epicprod is REQUIRED (production applications installed into the monitor runtime)"
+    echo "   Please clone: git clone https://github.com/BNLNPPS/swf-epicprod.git"
     exit 1
 fi
 
@@ -56,20 +64,23 @@ python -m pip install --upgrade pip
 # Install dependencies in correct order
 echo "📦 Installing Python packages in dependency order..."
 
-echo "  1/4 Installing swf-common-lib (shared utilities)..."
+echo "  1/5 Installing swf-common-lib (shared utilities)..."
 pip install -e "$SWF_COMMON_LIB"
 
-echo "  2/4 Installing swf-monitor dependencies..."
+echo "  2/5 Installing swf-monitor dependencies..."
 if [[ -f "$SWF_MONITOR/requirements.txt" ]]; then
     pip install -r "$SWF_MONITOR/requirements.txt"
 else
     echo "    No requirements.txt found in swf-monitor"
 fi
 
-echo "  3/4 Installing swf-monitor (core Django infrastructure)..."
+echo "  3/5 Installing swf-monitor (core Django infrastructure)..."
 pip install -e "$SWF_MONITOR"
 
-echo "  4/4 Installing swf-testbed CLI and core dependencies..."
+echo "  4/5 Installing swf-epicprod (production applications)..."
+pip install -e "$SWF_EPICPROD"
+
+echo "  5/5 Installing swf-testbed CLI and core dependencies..."
 # Install core dependencies first
 pip install typer[all] supervisor psutil
 # Install testbed without trying to resolve the swf-* dependencies from PyPI

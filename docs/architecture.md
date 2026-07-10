@@ -62,9 +62,9 @@ The repositories mapping to testbed components are:
 
 ### [swf-monitor](https://github.com/BNLNPPS/swf-monitor)
 
-A web service providing system monitoring and comprehensive information about the testbed's state, both via browser-based dashboards and a json based REST API.
+The common monitor, web, and database services of the swf platform, serving the testbed and the epicprod production system: browser-based dashboards, a JSON REST API, and the database-backed state beneath them.
 
-This module manages the databases used by the testbed, and offers a REST API for other agents in the system to report status and retrieve information. It acts as a listener for the ActiveMQ message broker, receiving messages from other agents, storing relevant data in the database and presenting message histories in the monitor. It hosts a Model Context Protocol (MCP) server for the agents to share information with LLM clients to create an intelligent assistant for the testbed.
+This module manages the databases used by the testbed, and offers a REST API for other agents in the system to report status and retrieve information. It acts as a listener for the ActiveMQ message broker, receiving messages from other agents, storing relevant data in the database and presenting message histories in the monitor. It hosts a Model Context Protocol (MCP) server for the agents to share information with LLM clients to create an intelligent assistant for the testbed. Production applications ship from [swf-epicprod](https://github.com/BNLNPPS/swf-epicprod) and run installed within the monitor's runtime.
 
 ### [swf-daqsim-agent](https://github.com/BNLNPPS/swf-daqsim-agent)
 

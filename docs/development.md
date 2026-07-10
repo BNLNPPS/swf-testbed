@@ -15,7 +15,7 @@ coordination to maintain system stability and integration.
 The testbed is composed of three core repositories that must be kept as siblings:
 
 - **swf-testbed**: Core testbed infrastructure, CLI, and orchestration
-- **swf-monitor**: Django web application for monitoring and data management
+- **swf-monitor**: the platform's common monitor, web, and database services (Django)
 - **swf-common-lib**: Shared utilities and common code
 
 Additional repositories will be added as the testbed expands with new agents,
