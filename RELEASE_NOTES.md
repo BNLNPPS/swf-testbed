@@ -1,5 +1,54 @@
 # Release Notes
 
+## v38 (2026-07-10)
+
+This release factors (part of) the production domain into its own repository. the PCS application and the epicprod documentation now
+live in [swf-epicprod](https://github.com/BNLNPPS/swf-epicprod), a peer application of swf-testbed, and the core
+repositories consistently express the framing: swf is the brand, swf-testbed and swf-epicprod are its applications,
+and swf-monitor and swf-common-lib are the common platform they ride on. Nothing changes for users — all pages,
+URLs, APIs, and tools are unchanged.
+
+### swf-epicprod — the Production Domain Repository
+
+- `docs/ARCHITECTURE_MAP.md` is the plan of record for the code organization: each platform and production
+  component's home, destination, and consumption interface, with the placement test, the mechanism/policy split for
+  borderline components, and the migration order. Existing components migrate case by case, when the alternative is
+  substantial new work landing in swf-monitor.
+- The PCS application moved in with its identity preserved — import path, app label, and database tables are
+  unchanged — so settings, URLs, cross-app imports, and migration history required no changes. PCS ships as an
+  installable Django application consumed by the swf-monitor runtime, editable in the shared development venv and
+  frozen non-editable into the deployed venv at deploy time.
+- The epicprod documentation set (the PCS docs, the EPICPROD set, JEDI integration, campaign continuum,
+  commissioning relaxations) moved in with its figures. Every moved document leaves a permanent stub at its old
+  path, so existing bookmarks and references resolve. The repository is solo-maintained on `main`, outside the
+  coordinated baseline branch set.
+
+### Platform (swf-monitor, swf-common-lib, swf-testbed)
+
+- swf-monitor's README, guidelines, and doc index state its platform role — the common monitor, web, and database
+  services, serving the testbed and epicprod, hosting production applications installed from swf-epicprod — and its
+  documentation now covers the platform services alone. The action stream documentation is renamed
+  `ACTION_STREAM.md`: the stream machinery is platform, with epicprod its principal user.
+- swf-common-lib's README describes the library of the swf platform, serving both applications.
+- swf-testbed's installer and installation guide carry the four-repository layout; a fresh environment now installs
+  swf-epicprod alongside the core three. The testbed README places the testbed in the swf application family.
+- The swf-monitor deploy freezes swf-epicprod into the deployed venv (invoking pip as `python -m pip`, since a
+  copied venv's pip script operates on its source venv), and the lightweight deploy syncs PCS from the swf-epicprod
+  tree onto the deployed venv's installed copy.
+
+### Campaign Assessments Design (swf-epicprod docs)
+
+`EPICPROD_ASSESSMENTS.md` is the design for scheduled nightly and weekly LLM assessments of producing campaigns:
+corun-ai executes under its own credentials and configuration; a campaign analytics library carries the
+deterministic computation and serves the dashboard, the assessor, and a campaign-status MCP tool; assessments
+follow a versioned artifact schema with a structured block, bounded prose, and a standalone narration for thin
+delivery channels; the harness enforces the schema and resolves every scheduled slot to a visible outcome. This is
+the charter for the next cycle's work.
+
+### Acknowledgments
+
+Folded in from main: **Dmitry Kalinkin** — a GitHub Action verifying agent operability against swf-monitor (#36).
+
 ## v37 (2026-07-10)
 
 This baseline completes the first end-to-end pass of ePIC automated production. A production request enters through deterministic intake — the new request composer (part of this release) or automated import from the existing questionnaire — rather than a hand-tended spreadsheet; PCS composes it into configured tasks; a continuum of campaign catalogs map to ePIC's monthly cadence; the production operations agent submits to PanDA and records each physical attempt; produced data is reconciled from Rucio back onto the campaign catalog; and campaign succession runs as a reviewed AI proposal set — an LLM digests the production meeting record and drafts the disposition set that seeds the next campaign, with an operator approving every disposition. The connective tissue — structured action logging, live policy, alarms, narratives — is also here.
