@@ -30,7 +30,16 @@ RUN pip install --no-cache-dir -r /build/swf-monitor/requirements.txt \
     && pip install --no-cache-dir django-mcp-server django-oauth-toolkit uvicorn \
     && pip install --no-cache-dir /build/swf-monitor
 
-# 3. swf-testbed itself (typer CLI, supervisor, psutil, simpy, etc.)
+# 3. swf-epicprod (production applications installed into the monitor runtime;
+#    provides the pcs package in swf-monitor's INSTALLED_APPS). Cloned from
+#    GitHub so the build context stays the three-repo checkout; override with
+#    --build-arg SWF_EPICPROD_REF=<branch|tag> if needed.
+ARG SWF_EPICPROD_REF=main
+RUN git clone --depth 1 --branch "${SWF_EPICPROD_REF}" \
+        https://github.com/BNLNPPS/swf-epicprod.git /build/swf-epicprod \
+    && pip install --no-cache-dir /build/swf-epicprod
+
+# 4. swf-testbed itself (typer CLI, supervisor, psutil, simpy, etc.)
 RUN pip install --no-cache-dir /build/swf-testbed
 
 # --------------- runtime stage: slim image -----------------------------------
