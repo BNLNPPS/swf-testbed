@@ -30,7 +30,7 @@ swf_list_logs(execution_id='...')         # Workflow logs
 
 ## Project-Specific Rules
 
-**Branch:** All 3 repos must be on the latest `infra/baseline-vNN` — the current baseline branch is always the working branch
+**Branch:** All 3 repos must be on the latest `infra/baseline-vNN` — the current baseline branch is always the working branch (`swf-epicprod` is outside the coordinated set and rides `main`)
 
 **First push:** `git push -u origin branch-name` sets up tracking.
 

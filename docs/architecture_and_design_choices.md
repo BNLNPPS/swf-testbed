@@ -82,7 +82,7 @@ contributors and for future architectural reviews.
 
 - **API and consumers:** the API is documented in the `swf-common-lib` README;
   the first consumer is the epicprod ops agent
-  (`swf-monitor/docs/EPICPROD_OPS_AGENT.md`).
+  (`swf-epicprod/docs/EPICPROD_OPS_AGENT.md`).
 
 ### Messaging Semantics: Topic vs Queue vs Durable Subscription
 
