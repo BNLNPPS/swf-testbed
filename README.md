@@ -1,6 +1,10 @@
 # swf-testbed
 
-This is the umbrella repository for the ePIC streaming workflow testbed.
+This is the umbrella repository for the ePIC streaming workflow testbed: the streaming workflow
+application of the swf platform. Its production peer is
+[swf-epicprod](https://github.com/BNLNPPS/swf-epicprod); both ride the common platform in
+[swf-monitor](https://github.com/BNLNPPS/swf-monitor) and
+[swf-common-lib](https://github.com/BNLNPPS/swf-common-lib).
 
 ## Documentation
 
