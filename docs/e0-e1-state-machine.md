@@ -162,6 +162,8 @@ write path belongs to E0.
 
 ## References
 
+- Source extracts from the July 2026 interface and DAQ talks:
+  [E0-E1 interface source notes](e0-e1-interface-source-notes.md).
 - State machine definition and implementation status:
   [ePIC streaming workflow testbed, January 2026 collaboration meeting talk](https://docs.google.com/presentation/d/1YhWL6icswO5Dcy2dB5oFdKHXZ22o6Y3mdA9-lj6gtfk/)
   (state machine implementation slide).
