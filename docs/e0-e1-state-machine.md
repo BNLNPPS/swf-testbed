@@ -130,9 +130,15 @@ E0 run-control elements are the additions:
   data remains in E0-side systems, referenced rather than mirrored.
 
 The DAQ model's continuously running components — scalers, some
-calibration flows — exemplify that some systems operate both in and out
-of datataking independently of the run lifecycle, carrying state
-alongside the run-scoped state.
+calibration flows — are steady state components: systems operating both
+in and out of datataking independently of the run lifecycle, carrying
+state alongside the run-scoped state.
+
+The global state across a datataking arc — concurrent components
+alongside the exclusive core state, where a vertical cut is the state at
+an instant:
+
+[![The E0-E1 global state](images/e0-e1-global-state-v1.svg)](images/e0-e1-global-state-v1.svg)
 
 An early realization route for detector scope is the testbed's
 namespace mechanism: namespaces already isolate and organize workflows

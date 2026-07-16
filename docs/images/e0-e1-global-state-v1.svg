@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="600" viewBox="0 0 1500 600" font-family="Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="1500" height="600" fill="#ffffff"/>
+
+  <text x="20" y="38" font-size="22" font-weight="bold" fill="#0f2f52">The ePIC E0-E1 global state across a datataking arc</text>
+
+  <!-- state boundary dashed verticals -->
+  <g stroke="#94a3b8" stroke-width="1" stroke-dasharray="5,5">
+    <line x1="320" y1="80" x2="320" y2="524"/>
+    <line x1="500" y1="80" x2="500" y2="524"/>
+    <line x1="720" y1="80" x2="720" y2="524"/>
+    <line x1="1100" y1="80" x2="1100" y2="524"/>
+    <line x1="1200" y1="80" x2="1200" y2="524"/>
+    <line x1="1330" y1="80" x2="1330" y2="524"/>
+  </g>
+
+  <!-- ===== core state lane ===== -->
+  <text x="205" y="115" font-size="16" font-weight="bold" fill="#0f2f52" text-anchor="end">Core state</text>
+  <g stroke="#1e5a96" stroke-width="1">
+    <rect x="220" y="86" width="100" height="48" fill="#e2e8f0"/>
+    <rect x="320" y="86" width="180" height="48" fill="#bfdbfe"/>
+    <rect x="500" y="86" width="220" height="48" fill="#60a5fa"/>
+    <rect x="720" y="86" width="380" height="48" fill="#1d4ed8"/>
+    <rect x="1100" y="86" width="100" height="48" fill="#60a5fa"/>
+    <rect x="1200" y="86" width="130" height="48" fill="#bfdbfe"/>
+    <rect x="1330" y="86" width="130" height="48" fill="#e2e8f0"/>
+  </g>
+  <g font-size="17" font-weight="bold" font-family="Menlo, Consolas, monospace" text-anchor="middle">
+    <text x="270" y="116" fill="#0f2f52">off</text>
+    <text x="410" y="116" fill="#0f2f52">no_beam</text>
+    <text x="610" y="116" fill="#0f2f52">beam</text>
+    <text x="910" y="116" fill="#ffffff">run</text>
+    <text x="1150" y="116" fill="#0f2f52">beam</text>
+    <text x="1265" y="116" fill="#0f2f52">no_beam</text>
+    <text x="1395" y="116" fill="#0f2f52">off</text>
+  </g>
+
+  <!-- ===== readiness lane ===== -->
+  <text x="205" y="169" font-size="16" font-weight="bold" fill="#0f2f52" text-anchor="end">Readiness</text>
+  <g stroke="#64748b" stroke-width="1">
+    <rect x="320" y="146" width="300" height="34" fill="#e5e7eb"/>
+    <rect x="620" y="146" width="100" height="34" fill="#a7f3d0"/>
+    <rect x="720" y="146" width="170" height="34" fill="#34d399"/>
+    <rect x="890" y="146" width="80" height="34" fill="#fde68a"/>
+    <rect x="970" y="146" width="130" height="34" fill="#34d399"/>
+    <rect x="1100" y="146" width="230" height="34" fill="#e5e7eb"/>
+  </g>
+  <g font-size="14" font-family="Menlo, Consolas, monospace" fill="#1f2937" text-anchor="middle">
+    <text x="470" y="168">not_ready</text>
+    <text x="670" y="168">ready</text>
+    <text x="805" y="168">physics</text>
+    <text x="930" y="168">standby</text>
+    <text x="1035" y="168">physics</text>
+    <text x="1215" y="168">not_ready</text>
+  </g>
+
+  <!-- ===== detector participation lanes ===== -->
+  <text x="205" y="224" font-size="16" font-weight="bold" fill="#0f2f52" text-anchor="end">Detector participation</text>
+
+  <text x="205" y="251" font-size="14" fill="#33475e" text-anchor="end">detector A</text>
+  <rect x="720" y="232" width="380" height="28" fill="#3b82f6" stroke="#1e5a96" stroke-width="1"/>
+  <text x="910" y="251" font-size="14" fill="#ffffff" text-anchor="middle">in the run</text>
+
+  <text x="205" y="285" font-size="14" fill="#33475e" text-anchor="end">detector B</text>
+  <rect x="720" y="266" width="290" height="28" fill="#3b82f6" stroke="#1e5a96" stroke-width="1"/>
+  <text x="865" y="285" font-size="14" fill="#ffffff" text-anchor="middle">in the run</text>
+  <text x="1022" y="285" font-size="14" fill="#1f2937">drops out mid-run</text>
+
+  <text x="205" y="319" font-size="14" fill="#33475e" text-anchor="end">detector C</text>
+  <rect x="720" y="300" width="380" height="28" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <text x="910" y="319" font-size="14" fill="#475569" text-anchor="middle">out of the run — reduced participation</text>
+
+  <!-- ===== slow controls lane ===== -->
+  <text x="205" y="371" font-size="16" font-weight="bold" fill="#0f2f52" text-anchor="end">Slow controls</text>
+  <g stroke="#64748b" stroke-width="1">
+    <rect x="320" y="352" width="630" height="28" fill="#86efac"/>
+    <rect x="950" y="352" width="110" height="28" fill="#fde68a"/>
+    <rect x="1060" y="352" width="270" height="28" fill="#86efac"/>
+  </g>
+  <g font-size="14" fill="#1f2937" text-anchor="middle">
+    <text x="635" y="371">good</text>
+    <text x="1005" y="371">degraded</text>
+    <text x="1195" y="371">good</text>
+  </g>
+
+  <!-- ===== data flavors ===== -->
+  <text x="205" y="414" font-size="16" font-weight="bold" fill="#0f2f52" text-anchor="end">Data flavors</text>
+
+  <text x="205" y="440" font-size="14" font-family="Menlo, Consolas, monospace" fill="#33475e" text-anchor="end">lumi</text>
+  <rect x="500" y="422" width="700" height="26" fill="#93c5fd" stroke="#64748b" stroke-width="1"/>
+  <text x="850" y="440" font-size="14" fill="#1f2937" text-anchor="middle">while the collider operates</text>
+
+  <text x="205" y="474" font-size="14" font-family="Menlo, Consolas, monospace" fill="#33475e" text-anchor="end">eic epic daq calib</text>
+  <rect x="220" y="456" width="1240" height="26" fill="#bfdbfe" stroke="#64748b" stroke-width="1"/>
+  <text x="840" y="474" font-size="14" fill="#1f2937" text-anchor="middle">in and out of datataking — machine, detector, DAQ and calibration flows cross the run boundaries</text>
+
+  <!-- ===== continuously running components ===== -->
+  <text x="205" y="502" font-size="16" font-weight="bold" fill="#0f2f52" text-anchor="end">Steady state</text>
+  <text x="205" y="521" font-size="16" font-weight="bold" fill="#0f2f52" text-anchor="end">components</text>
+  <rect x="320" y="494" width="1010" height="26" fill="#dbeafe" stroke="#64748b" stroke-width="1"/>
+  <text x="825" y="512" font-size="14" fill="#1f2937" text-anchor="middle">e.g. scalers — carrying their own state across run boundaries</text>
+
+  <!-- ===== the vertical cut ===== -->
+  <line x1="850" y1="74" x2="850" y2="534" stroke="#b91c1c" stroke-width="2.5"/>
+  <text x="850" y="64" font-size="15" font-weight="bold" fill="#b91c1c" text-anchor="middle">the global state at an instant</text>
+
+  <text x="750" y="570" font-size="15" fill="#333333" text-anchor="middle">A vertical cut through the lanes is the global state: core state and readiness, detector participation, slow-controls status, and the active flows.</text>
+</svg>
