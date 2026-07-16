@@ -80,6 +80,7 @@ electronics/DAQ "AI ready". The specific answers as of July 2026:
 
 These items, together with the deployed Echelon 1 MCP service
 (`swf-monitor/docs/MCP.md`), define the MCP-based AI backplane spanning
-machine, DAQ, and E1:
+machine, DAQ, and global computing. The backplane figure lives with the
+MCP service documentation in swf-monitor:
 
-[![The MCP-based AI backplane](images/mcp-ai-backplane-v1.svg)](images/mcp-ai-backplane-v1.svg)
+[![The MCP-based AI backplane](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/infra/baseline-v39/docs/mcp-ai-backplane-v1.svg)](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/infra/baseline-v39/docs/mcp-ai-backplane-v1.svg)
