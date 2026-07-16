@@ -149,7 +149,7 @@ configuration — runs in a namespace expressing its participation scope,
 combining the detector participation component with the isolation
 mechanism the testbed already operates.
 
-### The state database and its mirror
+### The state database and its E1 mirror
 
 State changes are events: each transition is appended to the state
 history with its trigger and timestamp, so the database answers both
