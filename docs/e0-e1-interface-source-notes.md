@@ -62,6 +62,39 @@ This is the E0-side model the
   computers at the SDCC data center for time frame building, high-level
   filters, archiving, monitoring, logging, and QA.
 
+The TF/STF picture in one view (figure maintained in the WFMS
+documentation, epic-wfms-docs):
+
+[![Time frames and super time frames](https://raw.githubusercontent.com/eic/epic-wfms-docs/main/docs/diagrams/tf_stf_explainer.svg)](https://raw.githubusercontent.com/eic/epic-wfms-docs/main/docs/diagrams/tf_stf_explainer.svg)
+
+## Streaming reconstruction and event finding
+
+From the streaming reconstruction talk
+([T. Kumaoka et al.](https://indico.bnl.gov/event/31808/contributions/127067/))
+and the streaming readout AI background suppression talk
+([D. Romanov et al.](https://indico.bnl.gov/event/31808/contributions/126682/)),
+July 2026 workfest:
+
+- Vocabulary: simulation-side work organizes data in ~2 µs frames
+  (Kumaoka's "time-frame (2 µs)", Romanov's 2000 ns frames) — the
+  MAPS-integration sense of "time frame" noted in the DAQ overview,
+  distinct from the 0.6 ms DAQ TF.
+- Triggerless readout means events are identified in software. Kumaoka:
+  time splitting into ~20 ns slices; per-detector-set hit thresholds
+  trigger candidate slices (pre-identification), then track/vertex-level
+  event identification and ML classification in EICrecon. Scale at top
+  rates: ~300 DIS events and ~2×10⁶ background events per TF.
+- Romanov: per-hit classification hits a ceiling — individual signal and
+  background hits look identical — so window finding is the key step: a
+  CNN + attention window finder locates the interaction burst in time,
+  then in-window hit filtering. 99% signal retention, tracking up to 6.5×
+  faster; integrated in EICrecon as an ONNX plugin and run on the 26.07.0
+  campaign.
+- Common pattern: the event finder examines consecutive time intervals,
+  and physics signatures extend across interval boundaries — MAPS
+  integration (2–8 µs) above all — so the data processed together must be
+  contiguous and time-ordered.
+
 ## The DAQ AI-readiness plan
 
 From the DAQ overview (AI requirements): AI is not a project requirement
