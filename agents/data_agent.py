@@ -42,16 +42,21 @@ from rucio.client.uploadclient  import UploadClient
 from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 
 # Common lib imports
-RUCIO_COMMS_PATH    = ''
 try:
-    RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
-    print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
-    sys.path.append(RUCIO_COMMS_PATH)
-except KeyError:
-    print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-print(f'''*** Set the Python path: {sys.path} ***''')
+    from swf_common_lib.rucio_utils import calculate_adler32_from_file, register_file_on_rse
+    print('*** Imported rucio helpers from swf_common_lib.rucio_utils ***')
+except ImportError:  # Deprecated: legacy rucio_comms imports, to be removed in a future version
+    RUCIO_COMMS_PATH    = ''
+    try:
+        RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
+        print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
+        sys.path.append(RUCIO_COMMS_PATH)
+    except KeyError:
+        print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
+    print(f'''*** Set the Python path: {sys.path} ***''')
 
-from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse
+    from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse
+    print('*** Imported rucio helpers from rucio_comms.utils (legacy fallback) ***')
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.api_utils import ensure_namespace
 
