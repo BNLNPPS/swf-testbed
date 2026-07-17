@@ -241,7 +241,7 @@ Open items: the complete transition table with triggering conditions,
 event-driven transitions (a good-for-physics declaration, a fault
 dropping the detector out of physics), the interaction of state with the
 run boundary (a new run when the detector is in a new conditions state),
-the evaluation of the proposed facet model for the governed state
+the evaluation of the proposed facet model for the state
 machine definition, and the reconciliation with the DAQ run-control
 model in one document, which this document set begins.
 
@@ -465,7 +465,7 @@ A time order is not implied.
 - **State machine convergence** — complete the transition table, add
   event-driven transitions, weigh the proposed factorized facet model,
   and reconcile the testbed model with the DAQ run-control model in the
-  governed definition; realize the state database and its E1 mirror with
+  definition; realize the state database and its E1 mirror with
   a read API.
 - **Event plane definition** — specify the event contract for the run
   lifecycle and data availability vocabulary the testbed already
@@ -497,7 +497,7 @@ The concrete artifacts of the interface definition, July 2026:
 - [ePIC computing model diagram](https://epic-wfms-docs.readthedocs.io/en/latest/foundations/)
   — the architecture in one view, with the E0-E1 interface detail;
   maintained in the WFMS documentation.
-- [E0-E1 state machine](e0-e1-state-machine.md) — the governed
+- [E0-E1 state machine](e0-e1-state-machine.md) — the
   definition of the datataking state model and its proposed evolution.
 - [E0-E1 global state diagram](images/e0-e1-global-state-v1.svg) — the
   global state across a datataking arc.
