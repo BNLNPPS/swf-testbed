@@ -411,7 +411,7 @@ MCP-based AI backplane spanning machine, DAQ, Echelon 1 and global
 computing (figure maintained with the MCP service documentation in
 swf-monitor):
 
-[![The MCP-based AI backplane](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/infra/baseline-v39/docs/mcp-ai-backplane-v1.svg)](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/infra/baseline-v39/docs/mcp-ai-backplane-v1.svg)
+[![The MCP-based AI backplane](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/main/docs/mcp-ai-backplane-v1.svg)](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/main/docs/mcp-ai-backplane-v1.svg)
 
 The proposed AI contract of the interface classifies every AI
 interaction with the boundary as observation (reading through MCP),
@@ -507,10 +507,10 @@ The concrete artifacts of the interface definition, July 2026:
 - [TF/STF explainer](https://epic-wfms-docs.readthedocs.io/en/latest/streaming/#time-frames-and-super-time-frames)
   — the two data units and the sampling and streaming paths, in the WFMS
   documentation.
-- [MCP AI backplane diagram](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/infra/baseline-v39/docs/mcp-ai-backplane-v1.svg)
+- [MCP AI backplane diagram](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/main/docs/mcp-ai-backplane-v1.svg)
   — AI integration spanning machine, DAQ, Echelon 1 and global
   computing, maintained with the
-  [MCP service documentation](https://github.com/BNLNPPS/swf-monitor/blob/infra/baseline-v39/docs/MCP.md).
+  [MCP service documentation](https://github.com/BNLNPPS/swf-monitor/blob/main/docs/MCP.md).
 
 ## Sources
 

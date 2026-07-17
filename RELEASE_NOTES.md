@@ -1,5 +1,109 @@
 # Release Notes
 
+## v39 (2026-07-17)
+
+This release defines the ePIC E0-E1 interface as understood in mid 2026 and turns the campaign-assessment design
+from v38 into an operating production capability. The same cycle opens the PanDA user-analysis surface, adds the
+master production dashboard and site compute-usage history, extends the MCP-based AI architecture, and resets the
+Django migration epoch so fresh installations start from the schema the system actually runs. These notes cover
+the coordinated baseline repositories and the relevant `main` work in their peer repositories.
+
+### The E0-E1 Interface (swf-testbed)
+
+- `docs/e0-e1-interface.md` is the working statement of the boundary between the detector/DAQ domain and Echelon 1:
+  architecture, TF and STF dataflows, datataking state, latency, calibration and conditions, information and control
+  interfaces, AI readiness, the testbed realization, and the development path toward the Streaming Computing Model
+  report and the October 2026 review.
+- The companion state-machine document defines states, substates, transitions, the relationship to E0 run control,
+  and the proposed evolution toward a bilateral interface. A global-state SVG gives the model a single-page view.
+- Source notes preserve the primary July 2026 workfest material, distinguish the DAQ and simulation senses of time
+  frame, and connect event finding, data reduction, and the DAQ AI-readiness plan to the interface definition. The
+  README now makes all three artifacts first-class testbed documentation.
+
+### Campaign Assessments and Production Analytics (swf-epicprod, swf-monitor)
+
+- The production-owned analytics library computes versioned campaign blocks for progress, Rucio arrivals, PanDA
+  health, disposition history, action-stream activity, system status, and credential status. One rollup service
+  supplies MCP, REST, assessment evidence, dashboard panels, and a deterministic `ok | attention | alarm` verdict
+  floor; recorded analytics snapshots provide the historical comparison basis.
+- Daily and weekly campaign reports now run through a production-side harness: it resolves target campaigns,
+  assembles and renders the exact evidence bundle, submits the bounded LLM job to corun-ai, validates the returned
+  artifact, and registers the accepted assessment. The daily reports the reporting window and the weekly is a
+  standalone seven-day report; prior AI prose is not treated as evidence.
+- Assessment reports retain source timestamps, failures, changed-dataset evidence, comparison manifests, and the
+  generation report needed for factual audit. Human-facing report pages and linked production-stream notices expose
+  the accepted artifact while hidden evidence and execution pages stay out of normal browsing.
+- Completion dispatch and enforcement run through the production operations agent. A System-page freshness check
+  detects any scheduled daily or weekly slot lost between trigger, corun execution, callback, enforcement, and
+  registration instead of allowing a missing report to remain silent.
+
+### Production Operations and Dashboard (swf-epicprod, swf-monitor)
+
+- The production home gains **Nav | Ops** tabs. Ops is the master dashboard: bounded, linked panels for requests,
+  configurations, campaigns, PanDA activity, science-data arrivals, AI assessments, AI proposals, and the production
+  action stream. Panels are cached and independently revalidated; signed-in users can retain their default tab and
+  drag-ordered panel layout across machines.
+- The nightly catalog chain now opens with credential-expiry validation and includes the dataset-definitions sweep.
+  Producing campaigns receive progress and analytics refreshes even when they differ from the nominal current
+  campaign, and assessment completion carries measured run timing into the registered generation report.
+- The production request composer gains an explicit background-selection panel with no background as the visible
+  default, plus clearer confirmation and links from request identifiers to their data pages.
+- Production MCP tools move to `swf-epicprod`, where their policy and subject resolvers belong, while the monitor
+  retains the single MCP service and generic AI-content mechanism. Existing tool names remain stable. Hosted JLab
+  and BNL Rucio access joins the MCP surface.
+
+### User Analysis and Compute Usage (swf-monitor, swf-epicprod)
+
+- The new User Analysis page brings together the unified PanDA queue set, per-queue job-wait weather, recent
+  user-label task activity, the Production/Analysis global-share tree, and current executing and queued HS06 by
+  share stamp. The accompanying design note records the verified dispatch mechanism, the 95/5 policy, queue
+  unification requirements, site-steering options, and the measured responsiveness baseline.
+- Site compute-usage history has selectable periods, per-site selection, a compute-share chart, and a share-sorted
+  table, linked directly from PanDA activity. The chart and table refinements preserve readable labels and hovers
+  across the full site set.
+- The username page now serves both faces from one template: **My Workflows** lists the mapped PanDA user's recent
+  tasks and **Account** provides the appropriate internal password form or external-face password link. The main nav
+  displays the signed-in username.
+
+### AI and System Visibility (swf-monitor)
+
+- `docs/mcp-ai-backplane-v1.svg` places the deployed Echelon 1 MCP service in the larger machine–DAQ–global-computing
+  backplane, with interactive assistants, DISpatcher, corun-ai analytics, standing agents, and future validation and
+  control-room consumers. `MCP.md` carries the figure at the service boundary.
+- DISpatcher moves to Sonnet 5 with high effort. Its response rule now recognizes direct address and acknowledgments
+  that the message context calls for rather than relying only on mentions, while preserving silence for
+  ambient human conversation. It reports its exact configured runtime model when asked.
+- Questionnaire automatching moves from metered API calls to a subscription CLI delegate with tools disabled and
+  credentials stripped from the subprocess environment. A run emits one linked production-channel summary instead
+  of flooding the channel with one notice per match; detailed per-match records remain available for review.
+- System status adds GitHub Actions visibility, aggregate channel-versus-DM bot usage, and campaign-assessment
+  freshness. Development CI failures remain visible as warnings rather than turning the collaboration-facing System
+  indicator red.
+
+### Platform, Deployment, and Continuity
+
+- `monitor_app`, `ai`, and `pcs` each collapse their historical Django migration chain into one current
+  `0001_initial`. Existing production migration records are preserved, migration against `swfdb` remains a no-op,
+  and a fresh database reaches the current schema without replaying obsolete history. The retired EMI-to-PCS deploy
+  rename leaves the deployment path.
+- Schema-diagram CI now installs the sibling applications it imports, carries every required package, uses a
+  runner-writable temporary directory, handles the index definitions supported by PostgreSQL and django-dbml, and
+  commits only real schema changes.
+- Production deployment freezes `swf-common-lib` into the release venv alongside `swf-epicprod`; BaseAgent
+  auto-activation respects an already-active virtual environment. Lightweight deployment correctly syncs the
+  project-level static tree and performs its installed-PCS guard independently of the caller's working directory.
+- The integration image installs `swf-epicprod`, closing the missing-PCS startup failure. `swf-remote` relays safe
+  upstream redirects, proxies compute usage and the unified account page, and keeps its navigation synchronized with
+  the monitor's Sites/Analysis structure.
+- The external face is specified once in monitor code and once as the runtime SysConfig value, so a successor can
+  re-establish it without a distributed code search. The new epicprod and devcloud succession documents inventory
+  repositories, services, schedules, credentials, backups, operator-bound work, known gaps, and re-establishment.
+- `SYSTEM_TICKS.md` records the design—not an implementation—for aligned periodic whole-system state records,
+  including the data shape, collectors, writer, retention, and future page/MCP/AI consumers.
+- A dedicated [release-preparation guide](docs/releases.md) now defines the vNN repository boundary, how mainline
+  peer and contributor work is folded in, how to review against the previous baseline, and the coordinated notes and
+  PR procedure.
+
 ## v38 (2026-07-10)
 
 This release factors (part of) the production domain into its own repository. the PCS application and the epicprod documentation now

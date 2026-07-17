@@ -12,6 +12,7 @@ application of the swf platform. Its production peer is
 
 ### Release Notes
 - [**Release Notes**](RELEASE_NOTES.md) - What's new in each version
+- [**Preparing a Release**](docs/releases.md) - Scope and procedure for an SWF vNN release
 
 ### Getting Started
 - [**Installation Guide**](docs/installation.md) - Complete setup instructions
@@ -45,4 +46,3 @@ claude mcp add --transport http swf-testbed https://pandaserver02.sdcc.bnl.gov/s
 ### Development
 - [**Development Guide**](docs/development.md) - Contributing and development workflow
 - [**AI Memory**](docs/ai-memory.md) - Cross-session dialogue persistence (experimental)
-

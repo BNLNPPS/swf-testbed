@@ -116,4 +116,4 @@ These items, together with the deployed Echelon 1 MCP service
 machine, DAQ, and global computing. The backplane figure lives with the
 MCP service documentation in swf-monitor:
 
-[![The MCP-based AI backplane](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/infra/baseline-v39/docs/mcp-ai-backplane-v1.svg)](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/infra/baseline-v39/docs/mcp-ai-backplane-v1.svg)
+[![The MCP-based AI backplane](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/main/docs/mcp-ai-backplane-v1.svg)](https://raw.githubusercontent.com/BNLNPPS/swf-monitor/main/docs/mcp-ai-backplane-v1.svg)
