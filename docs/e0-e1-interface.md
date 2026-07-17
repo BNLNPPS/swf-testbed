@@ -47,9 +47,16 @@ Echelon 1 comprises the two host laboratories, each providing buffer,
 archive, prompt processing, and fast monitoring, with jointly hosted
 services — Rucio data management, PanDA workload management, AI services,
 databases — spanning them. Raw data reaches both E1 sites (the butterfly
-model), with JLab fed over ESnet at 400 Gbps. Two dataflows and the
-control messaging cross the boundary; they are described in the sections
-below.
+model), with JLab fed over ESnet at 400 Gbps. The WFMS requirements
+state that the two E1s operate as one integrated distributed system with
+failover: if one E1 goes down, the other takes over. Two dataflows and
+the control messaging cross the boundary; they are described in the
+sections below.
+
+The architecture in one view (the ePIC computing model diagram, July
+2026):
+
+[![The ePIC computing model](https://raw.githubusercontent.com/eic/epic-wfms-docs/main/docs/diagrams/epic_computing_model.svg)](https://raw.githubusercontent.com/eic/epic-wfms-docs/main/docs/diagrams/epic_computing_model.svg)
 
 Data scale: roughly 2 Tb/s digitized at the detector against an output
 requirement of about 100 Gb/s recorded, with a maximum deep inelastic
@@ -141,6 +148,18 @@ semantics; keeping those semantics distinct — what a consumer may infer
 from a fast-path sample versus a verified complete STF — is a
 formalization requirement.
 
+A TF stream direct from DAQ to downstream consumers such as fast
+calibration is under discussion.
+
+The WFMS requirements state further obligations at the boundary.
+Archiving and processing are triggered independently and simultaneously
+as data is ingested, with no possibility of processing blocking
+archiving. The complete copies arriving and archived at the two E1
+centers are promptly validated, with a continuously communicated running
+checksum maintained between them, and the stream is continuously sampled
+and validated against independent DAQ and conditions metadata as an
+early alarm for corruption and stream faults.
+
 The TF/STF picture in one view (figure maintained in the WFMS
 documentation):
 
@@ -157,14 +176,19 @@ zero suppression, file sizing toward the nominal 2 GB — remains open.
 The datataking state model is a set of states and substates describing
 collider, detector, DAQ and calibration state, maintained in a database
 that is definitive in E0 and mirrored in real time in E1, and carried as
-operational metadata on the data and messages crossing the interface —
-in STF filenames and in the message metadata of every STF notification.
-Downstream consumers, including AI tools reading through the Model
-Context Protocol (MCP), read from it the datataking context of the data
-they are handling.
+operational metadata on the data and messages crossing the interface,
+in STF filenames/files and in the message metadata of every STF notification.
+Downstream consumers can read state from the datataking context of the data
+they are handling. They can read current system state from distributed services
+such as MCP (Model Context Protocol). Integration with the
+detector/data state machine is a
+stated WFMS requirement, as is always-on streaming: accelerator and
+detector information flows outside the running state, with processing
+suspending and resuming on state and stream activity, the behavior the
+data-flavor substates and steady state components carry. 
 
 The first version of the model runs in the streaming workflow testbed,
-which drives all activity through it. The definition is maintained
+which drives all activity via the state machine. The definition is maintained
 independently of the implementation in the
 [E0-E1 state machine document](e0-e1-state-machine.md), which also
 carries the proposed evolution: generalizing the (state, substate) pair
@@ -176,8 +200,10 @@ state across a datataking arc:
 
 [![The E0-E1 global state](images/e0-e1-global-state-v1.svg)](images/e0-e1-global-state-v1.svg)
 
-The 2026 multi-model research carries the evolution further with a
-proposed factorized structure: the production state as a product of
+A multi-model AI research report (referenced below) carried the
+evolution further with a proposed factorized structure, judged of high
+enough quality to include here for consideration: the production state
+as a product of
 independently owned facets, with a single authority for each facet, an
 append-only transition history, and derived operational views (such as
 a physics-good flag) that are readable but not writable. The proposed
@@ -201,11 +227,6 @@ transition record carries its owner, subject, previous and new revision,
 transition type and reason, event and receipt times, configuration and
 schema versions, correlation and causation identifiers, actor identity,
 and a quality or confidence measure where the input is observational.
-Legal transitions are formally tabulated: running to paused is legal,
-closed to running is not, an aborted run requires a new run identity
-before acquisition resumes, and run end identifies the final expected
-STF sequence so that a temporarily quiet run and a closed complete run
-are distinguishable.
 
 The single-hierarchy model in operation today cannot express common
 combinations — beam present with the DAQ paused, a physics run with one
@@ -222,7 +243,7 @@ dropping the detector out of physics), the interaction of state with the
 run boundary (a new run when the detector is in a new conditions state),
 the evaluation of the proposed facet model for the governed state
 machine definition, and the reconciliation with the DAQ run-control
-model in one document — which this document set begins.
+model in one document, which this document set begins.
 
 ## Latency
 
@@ -231,7 +252,7 @@ serving mechanism in the two-dataflow structure above:
 
 1. **Bulk prompt processing**: minutes (Rucio delivery time) to
    availability of complete STF files at the E1s, with prompt results
-   over minutes to hours depending on sample size and processing cost.
+   over minutes to hours depending on processing load.
    Served by the STF stream.
 2. **Fast path**: 10-30 s from datataking to availability of STF-scale
    statistics for fresh data, delivered to the control room and AI via
@@ -246,9 +267,9 @@ reconstruction turnaround driven by calibration turnaround. The
 calibration program adds its own latency classes — seconds (prompt
 feedback), minutes (run-by-run updates), hours (delayed or quasi-online)
 — to be mapped onto the two dataflows and the state model's calibration
-modes. The September formalization should attach each stated latency to
-named endpoints (from what instant to what observable event) so that the
-tiers become measurable obligations rather than descriptions.
+modes. The September 2026 formalization should state latencies with well
+defined endpoints: from what event (e.g. data egress from DAQ) to what
+event (a high stats plot displayed in the control room).
 
 ## Calibration and conditions databases
 
@@ -295,24 +316,24 @@ ZeroMQ, and alignment algorithms adapted from existing tools — an
 end-to-end streaming calibration workflow on real detector data.
 
 SPINDLE (Streaming Physics INtelligence and Data Lifecycle Engine) is
-the JLab-side program: an HPDF nuclear physics use case built on online
+the JLab program: an HPDF nuclear physics use case built on online
 calibrations, with a five-stage lifecycle (monitoring, change detection,
 reconstruction and calibration, validation and change-driver analysis,
 calibration and conditions data with visualization) on autonomous
-ERSAP+JANA2 workflows. SPINDLE identifies streaming orchestration —
-workflow and workload management for streaming data — as the technology
-gap it shares with the testbed program, and positions itself as
-complementary to the testbed's orchestration focus, with joint reporting
-through the Streaming Computing working group.
+ERSAP+JANA2 workflows. 
+SPINDLE identifies streaming orchestration (workflow and workload management
+for streaming data) as the technology gap facing streaming readout
+experiments and HPDF alike; this is the capability the testbed program
+is building, and SPINDLE positions itself as complementary, with its
+data-lifecycle focus.
 
 ## Information and control interfaces
 
 **E0 to E1 is operational today**, in the testbed realization: the run
 lifecycle (run imminent, start, pause and resume, end) is broadcast from
-the DAQ side and drives downstream orchestration — dataset creation,
-processing task establishment, worker provisioning, run closeout — and
-STF availability notifications drive data handling, exactly the
-interaction pattern recorded in the January notes.
+the DAQ simulator and drives downstream orchestration — dataset creation,
+data transfers, processing task establishment, worker provisioning, run closeout.
+STF availability notifications drive data handling.
 
 **E1 to E0 is the open direction.** The use case is established —
 adjusting detector thresholds or configuration on the basis of an E1
@@ -328,7 +349,8 @@ than to ePIC software and computing. It is likely to be addressed in a
 preliminary way when the DAQ sets up its first proto-enclave around the
 end of 2026.
 
-The 2026 multi-model research on the interface proposes organizing the
+The July 2026 AI research on the interface presents a proposal
+worth considering, organizing the
 formalization into five planes, a candidate outline for the September
 work:
 
@@ -355,11 +377,22 @@ completeness, and delivery. The intent/control and provenance planes
 frame the E1-to-E0 direction: control crosses as attributable intents
 subject to E0-local policy and enforcement, not as direct writes.
 
+The event plane has had some discussion in the streaming computing model WG,
+in the context of developing the WFMS requirements document, but it needs
+dedicated discussion and a plan established, as it is an important
+part of the interface. The WFMS requirements carry the elements stated
+so far: workflows driven in real time by data-availability events, TF
+and bunch-crossing identifiers monotonically increasing and unique for
+the lifetime of the EIC, cataloged TF-to-bunch-crossing ranges so access
+at either granularity resolves to its containing TF, immutability of
+written TFs, and run-period records that may overlap, so a TF is not
+uniquely owned by one run period.
+
 ## AI readiness and AI-enabled control
 
-The July 2026 session recorded a consensus datum: no fundamental
+The July 2026 session recorded a consensus: no fundamental
 objection to MCP as the common basis for AI integration of services
-across the spectrum, DAQ included. The DAQ side has independently
+across the spectrum. The DAQ side has independently
 written down the same architecture in its AI requirements: AI is not a
 project requirement for the DAQ but a potentially very useful tool for
 attaining the project requirements, with the concrete AI-readiness list
@@ -401,20 +434,20 @@ The streaming workflow testbed is the working expression of the
 interface: a simulated DAQ expresses the E0 side (run lifecycle, STF
 stream, state metadata), and the data, processing, and fast-monitoring
 agents express the E1 side, on real services — PanDA, Rucio, ActiveMQ,
-the monitor. Both baseline workflows run daily, including in continuous
+the monitor. Both baseline workflows run routinely, including in continuous
 integration:
 
 - **Prompt STF processing**: run-imminent creates the Rucio run dataset;
   arriving STFs are registered and attached; a PanDA task per E1
-  consumes its site's subset dataset as it fills. The decision box
-  encodes ePIC and facility policy as Rucio dataset membership — the
+  consumes its site's subset dataset as it fills. A decision box will
+  encode ePIC and facility policy as Rucio dataset membership — the
   data agent at the exit buffer can examine each STF on arrival and
   attach it to BNL, JLab, both, or neither — so prompt processing is
-  per-Echelon-1 by construction, and policy is data-capable, not only
+  per-Echelon-1 by construction, and policy is informed by data, not only
   metadata-driven.
 - **Fast TF processing**: TF samples skimmed from STFs, divided into
-  slices, distributed to a standing pool of PanDA workers pre-provisioned
-  at run start through iDDS, running EICrecon as a persistent process
+  slices, distributed to a standing pool of persistent PanDA workers pre-provisioned
+  at run start through iDDS and Harvester, running EICrecon as a persistent process
   fed over ZeroMQ with streaming input over XRootD.
 
 State rides every STF message and filename, so downstream consumers and
@@ -423,12 +456,12 @@ Containerized deployment (docker-compose of the testbed, PanDA in a box)
 makes the testbed reproducible beyond its home installation — directly
 relevant to exercising the interface against the DAQ proto-enclave.
 
-## Development path
+## Development targets
 
-- **September 2026** — formalize the interface in the Streaming
-  Computing Model report, structured by the six open questions, with
-  the five-plane organization as the candidate outline and this document
-  set as input.
+A time order is not implied.
+
+- **September 2026** — formalize the interface in the current V3 draft
+  Streaming Computing Model report; this document is one input to its writing.
 - **State machine convergence** — complete the transition table, add
   event-driven transitions, weigh the proposed factorized facet model,
   and reconcile the testbed model with the DAQ run-control model in the
@@ -437,23 +470,33 @@ relevant to exercising the interface against the DAQ proto-enclave.
 - **Event plane definition** — specify the event contract for the run
   lifecycle and data availability vocabulary the testbed already
   operates.
-- **Calibration crossings** — EEEMCal calibration prototype with a
+- **Calibration** — EEEMCal calibration prototype with a
   proto-interface to a calibration database; SVT alignment demonstrator;
   the nopayloaddb conversation; definition (and naming) of the generic
   intra-run communications mechanism.
-- **End of calendar 2026** — exercise the interface against the DAQ
+- **E0 E1 integrated testing** — exercise the interface against the DAQ
   proto-enclave at SDCC; prepare the testbed to swap its DAQ simulator
-  for a DAQ-owned simulator, making the interface bilateral.
+  for a DAQ-owned simulator.
 - **Documentation** — the WFMS documentation covers the datataking state
-  machine and the status of the conditions database and of E1-to-E0
-  control; the AI contract of the boundary remains to be documented, and
-  the conditions and control coverage deepens as those elements
-  develop.
+  machine, the status of the conditions database and of E1-to-E0
+  control; the AI contract of the boundary remains to be documented.
+
+## Producing this document
+
+An AI (Anthropic Claude Fable 5, xhigh reasoning setting) was tasked with
+taking the references and artifacts
+cited below, and human guidance (T. Wenaus), as inputs and producing a draft of
+this document. Many human-AI iterations followed
+to refine the draft. When it was satisfactory, Wenaus went through the full 
+draft and edited by hand.
 
 ## Interface artifacts
 
 The concrete artifacts of the interface definition, July 2026:
 
+- [ePIC computing model diagram](https://epic-wfms-docs.readthedocs.io/en/latest/foundations/)
+  — the architecture in one view, with the E0-E1 interface detail;
+  maintained in the WFMS documentation.
 - [E0-E1 state machine](e0-e1-state-machine.md) — the governed
   definition of the datataking state model and its proposed evolution.
 - [E0-E1 global state diagram](images/e0-e1-global-state-v1.svg) — the
@@ -495,6 +538,11 @@ The concrete artifacts of the interface definition, July 2026:
   — the interface dataflows, units, workflows, and testbed realization.
 - [The ePIC Streaming Computing Model](https://zenodo.org/records/14675920)
   — the publication the September formalization targets.
-- [AI-ready information and control boundary between E0 and E1 — research report](https://etaverse.com/tjai/entry/?entry_id=research-ai-ready-e0-e1-information-control-boundary-chatgpt)
+- [Requirements for an ePIC Distributed Workflow Management System](https://www.overleaf.com/project/67bdf89a3d44a138da503dea)
+  (Diefenthaler, Wenaus, and the ePIC Streaming Computing Model Working
+  Group, v1.0, October 2025) — the WFMS requirements, including the
+  streaming-processing, state-machine, and data-integrity obligations at
+  the interface.
+- [AI-ready information and control boundary between E0 and E1 — AI research report](https://etaverse.com/tjai/p/research-ai-ready-e0-e1-information-control-boundary-chatgpt/)
   (July 2026 multi-model research) — the five-plane organization, the
   factorized state model, and the control analysis drawn on above.
