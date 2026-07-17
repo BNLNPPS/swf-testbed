@@ -7,6 +7,7 @@ dependencies = [
     # Dependencies from private GitHub Packages index
     "swf-common-lib",
     "swf-monitor",
+    "snapper-ai",
     # "swf-daqsim-agent",
     # "swf-data-agent",
     # "swf-processing-agent",
@@ -40,3 +41,4 @@ where = ["src"]
 [tool.uv.sources]
 swf-common-lib = { path = "../swf-common-lib", editable = true }
 swf-monitor    = { path = "../swf-monitor",    editable = true }
+snapper-ai     = { path = "../snapper-ai",     editable = true }
