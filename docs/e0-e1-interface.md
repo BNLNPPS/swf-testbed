@@ -273,8 +273,8 @@ event (a high stats plot displayed in the control room).
 
 ## Calibration and conditions databases
 
-The July 2026 calibration sessions produced the most structured
-requirements statement yet, with interface specifications as requirement
+The July 2026 calibration sessions produced a well structured
+requirements statement, with interface specifications as requirement
 number one, scoped explicitly as E0-E1 / E1-E2: what data is produced
 and consumed; calibration object format, metadata, versioning, validity
 intervals. Infrastructure requirements follow — conditions database,
