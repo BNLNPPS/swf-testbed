@@ -20,6 +20,7 @@ application of the swf platform. Its production peer is
 ### Operations
 - [**Running the Testbed**](docs/operations.md) - Starting, stopping, and monitoring services
 - [**Workflow Orchestration**](docs/workflows.md) - Running and managing workflows
+- [**The E0-E1 Interface**](docs/e0-e1-interface.md) - The interface as understood in 2026: architecture, definitions, open questions, development path
 - [**The E0-E1 State Machine**](docs/e0-e1-state-machine.md) - The datataking state model at the E0-E1 interface
 - [**Monitor Integration**](docs/monitor.md) - Web interface and API usage
 - [**MCP Integration**](../swf-monitor/docs/MCP.md) - Model Context Protocol for LLM interaction
