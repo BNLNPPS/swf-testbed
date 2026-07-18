@@ -49,7 +49,6 @@ try:
         create_dataset, add_files_to_dataset,
     )
     _USE_RUCIO_UTILS = True
-    print('*** Imported rucio helpers from swf_common_lib.rucio_utils ***')
 except ImportError:  # Deprecated: legacy rucio_comms imports, to be removed in a future version
     RUCIO_COMMS_PATH    = ''
     try:
