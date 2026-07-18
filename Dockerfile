@@ -39,7 +39,14 @@ RUN git clone --depth 1 --branch "${SWF_EPICPROD_REF}" \
         https://github.com/BNLNPPS/swf-epicprod.git /build/swf-epicprod \
     && pip install --no-cache-dir /build/swf-epicprod
 
-# 4. swf-testbed itself (typer CLI, supervisor, psutil, simpy, etc.)
+# 4. snapper-ai (generic coherent-state history installed in the monitor
+#    runtime and declared by the swf-testbed meta-package).
+ARG SNAPPER_AI_REF=main
+RUN git clone --depth 1 --branch "${SNAPPER_AI_REF}" \
+        https://github.com/BNLNPPS/snapper-ai.git /build/snapper-ai \
+    && pip install --no-cache-dir /build/snapper-ai
+
+# 5. swf-testbed itself (typer CLI, supervisor, psutil, simpy, etc.)
 RUN pip install --no-cache-dir /build/swf-testbed
 
 # --------------- runtime stage: slim image -----------------------------------
