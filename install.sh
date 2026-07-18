@@ -21,6 +21,7 @@ SWF_COMMON_LIB="$SWF_PARENT_DIR/swf-common-lib"
 SWF_MONITOR="$SWF_PARENT_DIR/swf-monitor"
 SWF_EPICPROD="$SWF_PARENT_DIR/swf-epicprod"
 SNAPPER_AI="$SWF_PARENT_DIR/snapper-ai"
+SITE_CANARY="$SWF_PARENT_DIR/site-canary"
 
 echo "📁 Checking for required repositories..."
 if [[ ! -d "$SWF_COMMON_LIB" ]]; then
@@ -50,6 +51,13 @@ if [[ ! -d "$SNAPPER_AI" ]]; then
     exit 1
 fi
 
+if [[ ! -d "$SITE_CANARY" ]]; then
+    echo "❌ Error: site-canary not found at $SITE_CANARY"
+    echo "   site-canary is REQUIRED (site health application installed into the monitor runtime)"
+    echo "   Please clone: git clone https://github.com/BNLNPPS/site-canary.git"
+    exit 1
+fi
+
 echo "✅ All required repositories found"
 
 # Create virtual environment if it doesn't exist
@@ -72,26 +80,29 @@ python -m pip install --upgrade pip
 # Install dependencies in correct order
 echo "📦 Installing Python packages in dependency order..."
 
-echo "  1/6 Installing swf-common-lib (shared utilities)..."
+echo "  1/7 Installing swf-common-lib (shared utilities)..."
 pip install -e "$SWF_COMMON_LIB"
 
-echo "  2/6 Installing swf-monitor dependencies..."
+echo "  2/7 Installing swf-monitor dependencies..."
 if [[ -f "$SWF_MONITOR/requirements.txt" ]]; then
     pip install -r "$SWF_MONITOR/requirements.txt"
 else
     echo "    No requirements.txt found in swf-monitor"
 fi
 
-echo "  3/6 Installing swf-monitor (core Django infrastructure)..."
+echo "  3/7 Installing swf-monitor (core Django infrastructure)..."
 pip install -e "$SWF_MONITOR"
 
-echo "  4/6 Installing swf-epicprod (production applications)..."
+echo "  4/7 Installing swf-epicprod (production applications)..."
 pip install -e "$SWF_EPICPROD"
 
-echo "  5/6 Installing snapper-ai (operational history application)..."
+echo "  5/7 Installing snapper-ai (operational history application)..."
 pip install -e "$SNAPPER_AI"
 
-echo "  6/6 Installing swf-testbed CLI and core dependencies..."
+echo "  6/7 Installing site-canary (site health application)..."
+pip install -e "$SITE_CANARY[store]"
+
+echo "  7/7 Installing swf-testbed CLI and core dependencies..."
 # Install core dependencies first
 pip install typer[all] supervisor psutil
 # Install testbed without trying to resolve the swf-* dependencies from PyPI
