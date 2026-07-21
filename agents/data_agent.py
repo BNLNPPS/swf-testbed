@@ -41,17 +41,26 @@ from rucio.client.didclient     import DIDClient
 from rucio.client.uploadclient  import UploadClient
 from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 
-# Common lib imports
-RUCIO_COMMS_PATH    = ''
+# Common lib imports – prefer the packaged rucio_utils; fall back to legacy rucio_comms
+_USE_RUCIO_UTILS = False
 try:
-    RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
-    print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
-    sys.path.append(RUCIO_COMMS_PATH)
-except KeyError:
-    print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
-print(f'''*** Set the Python path: {sys.path} ***''')
+    from swf_common_lib.rucio_utils import (
+        calculate_adler32_from_file, register_file_on_rse,
+        create_dataset, add_files_to_dataset,
+    )
+    _USE_RUCIO_UTILS = True
+except ImportError:  # Deprecated: legacy rucio_comms imports, to be removed in a future version
+    RUCIO_COMMS_PATH    = ''
+    try:
+        RUCIO_COMMS_PATH = os.environ['RUCIO_COMMS_PATH']
+        print(f'''*** The RUCIO_COMMS_PATH is defined in the environment: {RUCIO_COMMS_PATH}, will be added to sys.path ***''')
+        sys.path.append(RUCIO_COMMS_PATH)
+    except KeyError:
+        print('*** The variable RUCIO_COMMS_PATH is undefined, will rely on PYTHONPATH ***')
+    print(f'''*** Set the Python path: {sys.path} ***''')
 
-from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse
+    from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse
+    print('*** Imported rucio helpers from rucio_comms.utils (legacy fallback) ***')
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.api_utils import ensure_namespace
 
@@ -130,8 +139,6 @@ class DATA(BaseAgent):
     def init_rucio(self):
         ''' Initialize the Rucio module.
         '''
- 
-        from rucio_comms import DatasetManager, FileManager
 
         # A Rucio client will be needed for any operation with Rucio
         if self.verbose: print(f'''*** Instantiating the RucioClient and UploadClient ***''')
@@ -145,6 +152,14 @@ class DATA(BaseAgent):
         except Exception as e:
             print(f'*** Failed to instantiate the RucioClient, UploadClient and DIDClient: {e}, exiting... ***')
             exit(-1)
+
+        if _USE_RUCIO_UTILS:
+            # Using standalone functions from swf_common_lib.rucio_utils –
+            # no DatasetManager / FileManager instances needed.
+            return
+
+        # Deprecated: fall back to legacy rucio_comms class-based managers
+        from rucio_comms import DatasetManager, FileManager
 
         # A Dataset Manager will be needed for any operation with Rucio datasets
         if self.verbose: print(f'''*** Instantiating the Dataset Manager ***''')
@@ -252,7 +267,10 @@ class DATA(BaseAgent):
         if self.verbose: print(f'''*** Current dataset set to {self.dataset}, folder set to {self.folder} ***''')
         
         lifetime = 7 # days
-        result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
+        if _USE_RUCIO_UTILS:
+            result = create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True, client=self.rucio_client)
+        else:  # Deprecated: legacy rucio_comms class-based managers
+            result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
         if self.verbose: print(f'''*** Dataset {self.dataset}, creation result: {result} ***''')
         if not result:
             if self.verbose: print('*** Dataset creation failed, exiting... ***')
@@ -364,7 +382,10 @@ class DATA(BaseAgent):
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
 
         # Register the file replica, using the lfn
-        attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
+        if _USE_RUCIO_UTILS:
+            attachment_success = add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''', client=self.rucio_client)
+        else:  # Deprecated: legacy rucio_comms class-based managers
+            attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
 
         if self.count == 0:
