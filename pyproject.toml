@@ -7,12 +7,11 @@ dependencies = [
     # Dependencies from private GitHub Packages index
     "swf-common-lib",
     "swf-monitor",
-    "snapper-ai",
-    # "swf-daqsim-agent",
-    # "swf-data-agent",
-    # "swf-processing-agent",
     # "swf-fastmon-agent",
     # "swf-mcp-agent",
+    # Agent dependencies
+    "snapper-ai",
+    "panda-client",
     # CLI tool dependencies
     "typer",
     "supervisor",
