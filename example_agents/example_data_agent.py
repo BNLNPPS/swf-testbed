@@ -301,7 +301,7 @@ class DataAgent(BaseAgent):
         self.update_stf_file_status(filename, 'processed')
 
         self.logger.info("Sent stf_ready message",
-                        extra=self._log_extra(stf_filename=filename, destination="epictopic"))
+                        extra=self._log_extra(stf_filename=filename, destination="/topic/epictopic"))
 
 
     
