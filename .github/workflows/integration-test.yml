@@ -1,6 +1,7 @@
 # =============================================================================
 # Integration test: bring up the full Docker Compose stack and verify that
-# the stf_datataking workflow runs to completion.
+# each supported workflow runs to completion.  Runs as a matrix so
+# stf_datataking and prompt_processing are tested in parallel.
 # =============================================================================
 name: Integration Test
 
@@ -68,11 +69,6 @@ on:
         type: string
         default: main
 
-# Cancel in-progress runs for the same branch/PR
-concurrency:
-  group: integration-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   DB_NAME:     swfdb
   DB_USER:     admin
@@ -85,8 +81,20 @@ env:
 
 jobs:
   integration:
+    name: ${{ matrix.testbed_workflow }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    strategy:
+      # Run both workflow variants; report each result independently.
+      fail-fast: false
+      matrix:
+        testbed_workflow: [stf_datataking, prompt_processing]
+
+    # Cancel in-progress runs for the same branch/PR *and* workflow variant.
+    concurrency:
+      group: integration-${{ github.ref }}-${{ matrix.testbed_workflow }}
+      cancel-in-progress: true
 
     steps:
       # ---- 1. Check out all three sibling repos ----
@@ -141,12 +149,14 @@ jobs:
           sed -i 's/^[[:space:]]*//' swf-monitor/.env
 
       # ---- 3. Build and start the full stack ----
-      - name: Docker Compose up
+      - name: Docker Compose up (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
+        env:
+          TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
         run: docker compose up -d --build
 
       # ---- 4. Wait for the success marker in testbed logs ----
-      - name: Wait for workflow completion
+      - name: Wait for workflow completion (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
         run: |
           SUCCESS_MARKER="Workflow completed:"
