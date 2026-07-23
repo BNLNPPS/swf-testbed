@@ -29,7 +29,7 @@ AGENTS_CONF = 'agents.supervisord.conf'
 AGENTS_SOCK = '/tmp/swf-agents-supervisor.sock'
 
 
-def load_config(config_name: str = None) -> dict:
+def load_config(config_name: str = None) -> tuple:
     """
     Load workflow configuration.
 
@@ -37,7 +37,7 @@ def load_config(config_name: str = None) -> dict:
         config_name: Name of config file (without path/extension), or None for testbed.toml
 
     Returns:
-        Merged configuration dict
+        Tuple of (config dict, resolved absolute Path)
     """
     workflows_dir = Path(__file__).parent
 
@@ -61,7 +61,7 @@ def load_config(config_name: str = None) -> dict:
     with open(config_path, 'rb') as f:
         config = tomllib.load(f)
 
-    return config
+    return config, config_path.resolve()
 
 
 def restart_supervisord() -> bool:
@@ -284,10 +284,17 @@ def run(config_name: str = None) -> bool:
     """
     # Load configuration
     try:
-        config = load_config(config_name)
+        config, config_path = load_config(config_name)
     except FileNotFoundError as e:
         print(f"Error: {e}")
         return False
+
+    # Propagate the resolved absolute config path so supervisord child processes
+    # (workflow-runner, agents) all use the same config file.  config_path is
+    # already an absolute Path from load_config() (via Path.resolve()), so
+    # str(config_path) is always an absolute filesystem path, not a relative one.
+    os.environ['SWF_TESTBED_CONFIG'] = str(config_path)
+    print(f"Config: {config_path}")
 
     namespace = config.get('testbed', {}).get('namespace')
     if not namespace:

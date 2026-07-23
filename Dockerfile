@@ -81,4 +81,5 @@ COPY swf-testbed/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
+# Default workflow; docker-compose.yml overrides this via TESTBED_WORKFLOW.
 CMD ["testbed", "run"]
