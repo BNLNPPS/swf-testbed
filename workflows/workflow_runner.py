@@ -303,16 +303,24 @@ class WorkflowRunner(BaseAgent):
             config=config
         )
 
-        # Execute the workflow
-        self._execute_workflow(
-            execution_id=execution_id,
-            workflow_code=workflow_code,
-            config=config,
-            duration=duration,
-            realtime=realtime
-        )
-
-        # Update execution status to completed
+        # Execute the workflow. The execution record was created as
+        # 'running' and MUST reach a terminal status on every exit path —
+        # an abandoned 'running' row is a standing lie every monitoring
+        # surface then repeats. The same holds one level down: a failed
+        # workflow must not leave its announced runs claiming activity.
+        self._announced_runs = set()
+        try:
+            self._execute_workflow(
+                execution_id=execution_id,
+                workflow_code=workflow_code,
+                config=config,
+                duration=duration,
+                realtime=realtime
+            )
+        except BaseException:
+            self._update_execution_status(execution_id, 'failed')
+            self._abandon_announced_runs()
+            raise
         self._update_execution_status(execution_id, 'completed')
 
         return execution_id
@@ -645,11 +653,35 @@ class WorkflowRunner(BaseAgent):
         else:
             raise ValueError("WorkflowExecutor class not found in workflow code")
 
+    def _abandon_announced_runs(self):
+        """Terminalize the runs this execution announced but did not
+        end: a failed workflow leaves no run state claiming activity.
+        Failures to write are logged loudly — the stale-state detector
+        on the System page names any survivor."""
+        for run_number in sorted(getattr(self, '_announced_runs', ())):
+            try:
+                response = self.api_session.patch(
+                    f"{self.monitor_url}/api/run-states/{run_number}/",
+                    json={'phase': 'failed', 'state': 'abandoned',
+                          'substate': None,
+                          'state_changed_at': datetime.now().isoformat()}
+                )
+                if response.status_code != 200:
+                    self.logger.error(
+                        f"Failed to abandon run state {run_number}: "
+                        f"HTTP {response.status_code}")
+            except Exception as exc:
+                self.logger.error(
+                    f"Failed to abandon run state {run_number}: {exc}")
+
     def _update_execution_status(self, execution_id: str, status: str):
-        """Update workflow execution status"""
+        """Update workflow execution status; every terminal status
+        carries its end time."""
         payload = {
             'status': status,
-            'end_time': datetime.now().isoformat() if status == 'completed' else None
+            'end_time': (datetime.now().isoformat()
+                         if status in ('completed', 'failed', 'terminated')
+                         else None)
         }
 
         response = self.api_session.patch(
@@ -705,6 +737,9 @@ class WorkflowRunner(BaseAgent):
 
         if response.status_code in [200, 201]:
             self.logger.info(f"State initialized: {state_id}")
+            if not hasattr(self, '_announced_runs'):
+                self._announced_runs = set()
+            self._announced_runs.add(state_id)
             return True
 
         self.logger.error(f"Failed to initialize state: {response.status_code}")
