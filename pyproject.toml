@@ -8,6 +8,7 @@ dependencies = [
     "swf-common-lib",
     "swf-monitor",
     "snapper-ai",
+    "site-canary[store]",
     # "swf-daqsim-agent",
     # "swf-data-agent",
     # "swf-processing-agent",
@@ -42,3 +43,4 @@ where = ["src"]
 swf-common-lib = { path = "../swf-common-lib", editable = true }
 swf-monitor    = { path = "../swf-monitor",    editable = true }
 snapper-ai     = { path = "../snapper-ai",     editable = true }
+site-canary    = { path = "../site-canary",    editable = true }
