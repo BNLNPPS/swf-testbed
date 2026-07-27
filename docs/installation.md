@@ -13,8 +13,8 @@ Before starting, ensure you have:
 
 ## Step 1: Clone the Repositories
 
-Clone the SWF repositories and snapper-ai as siblings in the same parent
-directory:
+Clone the SWF repositories, snapper-ai, and site-canary as siblings in the
+same parent directory:
 
 ```bash
 # Create a directory for the SWF project
@@ -26,6 +26,7 @@ git clone https://github.com/BNLNPPS/swf-monitor.git
 git clone https://github.com/BNLNPPS/swf-common-lib.git
 git clone https://github.com/BNLNPPS/swf-epicprod.git
 git clone https://github.com/BNLNPPS/snapper-ai.git
+git clone https://github.com/BNLNPPS/site-canary.git
 
 # Your directory structure should now look like:
 # swf-project/
@@ -33,7 +34,8 @@ git clone https://github.com/BNLNPPS/snapper-ai.git
 # ├── swf-monitor/
 # ├── swf-common-lib/
 # ├── swf-epicprod/
-# └── snapper-ai/
+# ├── snapper-ai/
+# └── site-canary/
 ```
 
 ## Step 2: Environment Configuration
@@ -189,6 +191,9 @@ source .venv/bin/activate
    # Install snapper-ai (operational history, installed into the monitor runtime)
    pip install -e ../snapper-ai
 
+   # Install site-canary (site health, installed into the monitor runtime)
+   pip install -e '../site-canary[store]'
+
    # Install swf-testbed CLI
    pip install -e .
    ```
@@ -205,7 +210,7 @@ if it is applied to this venv:
 2. **dev-update** — re-run the editable install so the venv, and the editable
    package metadata that `pip check` reads, reflect the change:
    ```bash
-   pip install -e ../swf-common-lib ../swf-monitor ../swf-epicprod ../snapper-ai .
+   pip install -e ../swf-common-lib ../swf-monitor ../swf-epicprod ../snapper-ai '../site-canary[store]' .
    ```
    Removing a dependency? `pip install` never uninstalls — `pip uninstall` the
    orphan explicitly.
@@ -357,7 +362,7 @@ The Django application will automatically read these values during startup.
 5. **Import errors:**
    ```bash
    # Reinstall packages in correct order
-   pip install -e ../swf-common-lib ../swf-monitor ../swf-epicprod ../snapper-ai .
+   pip install -e ../swf-common-lib ../swf-monitor ../swf-epicprod ../snapper-ai '../site-canary[store]' .
    ```
 
 ## Next Steps

@@ -1,5 +1,91 @@
 # Release Notes
 
+## v40 (2026-07-25)
+
+This release adds Snapper, which records subsystem-published operational state as a queryable history, with a
+report page for browsing that history over time. At the end of the cycle the Snapper UI moved from swf-monitor
+into the snapper-ai package, with the experiment-specific parts supplied by the host through a registration
+interface. The cycle also installs the site-canary health checks, corrects the PanDA final-failure metric,
+speeds up the PanDA tasks list, and fixes several failure modes in broker-dependent operations. These notes
+cover the coordinated baseline repositories and the relevant `main` work in their peer repositories.
+
+### Snapper (snapper-ai, swf-monitor, swf-testbed)
+
+- The [snapper-ai](https://github.com/BNLNPPS/snapper-ai) repository holds the package: registered bounded
+  components published by their owning subsystems, change-driven capture at aligned boundaries with periodic
+  baselines, immutable full snaps, and temporal queries (latest, state-at, component history, changes-between,
+  context-around). Query results carry actual snap times, provenance, and observer-coverage status, including
+  recovery gaps recorded as immutable intervals.
+- Three components are in production: System health in both scopes, testbed datataking state with per-namespace
+  lanes discovered from the run records, and the epicprod PanDA activity projection with current in-flight job
+  and task states by target site. A five-day commissioning read closed the initial measurement phase; capture
+  now runs once per aligned boundary and logs only material events.
+- The queries are exposed through read-open REST endpoints and five MCP tools, and the three registered event
+  resolvers map to their authoritative services.
+- The report page shows the recorded history: namespace lanes drawn as idle tracks with tiles for run activity,
+  per-family curve panels sharing one time axis and crosshair, and a click-placed cut that renders the state at
+  that instant as component cards. The cards and the lanes derive from the same run-record query so they cannot
+  disagree. Zoom and cut state are carried in the URL. Window arrows step through the recorded history; an
+  arrow is omitted only at the newest data or the earliest snap. All times are Eastern.
+- On the testbed side, run lifecycle messages now update RunState and republish the datataking component, and
+  the workflow runner clears execution and announced-run state on every exit path. Stale historical run and
+  execution records were repaired, and a System check now reports any state record that claims activity without
+  supporting evidence.
+- The UI moved into the snapper-ai package. A host registers per-scope providers (curve extraction, labels and
+  groupings, component cards rendered through a host template, activity lanes, reference resolution) and
+  service hooks (preferences, configuration, scheduler status); unregistered pieces fall back to generic
+  rendering. `docs/INTEGRATION.md` describes the integration steps with the swf-monitor integration as the
+  example, and the repository includes report-page screenshots for both scopes.
+
+### PanDA metrics and tasks list (swf-monitor)
+
+- The final-failure metric was wrong: it counted failed job records with `attemptnr >= maxattempt`, but JEDI
+  sets each job record's maxattempt equal to its own attempt number, so every failed record matched and the
+  "final" rate equalled the all-failures rate. Jobs that failed and then succeeded on retry were counted as
+  final failures. The metric now counts retry-exhausted input files from `jedi_datasets`, which matches what
+  the PanDA monitor reports. The task pages, the failure-rate alarms, and the campaign analytics all use the
+  corrected definition.
+- Task pages and the tasks list now also show average retries per successful job (0 means every job passed on
+  its first attempt), as a measure of how much retry churn sits behind the successes.
+- The tasks list previously re-aggregated job counts from the PanDA database on every sort and page change,
+  which took about two seconds for sorts on computed columns. The list is now served from a cached full-window
+  aggregation rebuilt at most every two minutes; sorts and paging run against the cache and return in tens of
+  milliseconds. The same caching mechanism (`docs/CACHED_PRODUCTS.md`) serves the error summary, which now
+  reports average time-to-error per pattern and runs a single scan of the jobs tables.
+- Tasks that PCS discovered and linked through the nightly sync or the association sweep were displaying the
+  sweep's name as the task owner. The owner display and filter now fall back to the PanDA username for those
+  tasks; `created_by` on the PCS records is unchanged.
+
+### site-canary and operations (site-canary, swf-monitor, swf-testbed)
+
+- The site-canary store, page, and site-health agent are installed in the shared environment and frozen into
+  the release venv at deploy.
+- Following an investigation of dropped messages, the System page gains an activemq-broker check (handshake
+  latency, recent drops, heap, connections, dead-letter queue depth) with per-check Retry buttons that re-probe
+  a single check through the operations agent. Production enqueues now retry across transient broker handshake
+  failures, and the lightweight deployment warms the recycled application so the first external request after a
+  deploy no longer times out.
+
+### Platform, deployment, and peer mainline work
+
+- The lightweight deployment syncs the snapper-ai package alongside pcs; the full deploy freezes it into the
+  release venv. Campaign narratives list in reverse campaign order; the assessments list shows the narration,
+  with verdict badges on the detail page; User Analysis navigation and cursor handling were fixed.
+- swf-common-lib `main` (external contributions) added the `rucio_utils` package and removed the `mq_comms` and
+  `rucio_comms` modules; the testbed agents switched to the package imports (#62). This work is folded into the
+  baseline at the release boundary.
+- swf-epicprod `main` added assessment crash handling: a run that dies before submitting its result is
+  resubmitted once, and a labeled salvage report carrying the mechanical verdict floor is registered so the
+  scheduled slot is never silently empty. The campaign analytics and progress summaries carry the corrected
+  final-failure definition.
+
+### Acknowledgments
+
+- Dmitry Kalinkin contributed the swf-common-lib `rucio_utils` package, the retirement of the superseded
+  `mq_comms` and `rucio_comms` modules, the common-lib CI workflow, and the testbed agents' switch to the
+  package imports.
+- Sakib Rahman reported the final-failure metric discrepancy and proposed the average-retries metric.
+
 ## v39 (2026-07-17)
 
 This release defines the ePIC E0-E1 interface as understood in mid 2026 and turns the campaign-assessment design
