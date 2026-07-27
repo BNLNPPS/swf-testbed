@@ -14,6 +14,8 @@ dependencies = [
     # "swf-processing-agent",
     # "swf-fastmon-agent",
     # "swf-mcp-agent",
+    # Agent dependencies
+    "panda-client",
     # CLI tool dependencies
     "typer",
     "supervisor",

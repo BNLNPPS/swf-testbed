@@ -121,6 +121,10 @@ services:
     build:
       context: ../               # monorepo root (needs swf-common-lib, swf-monitor, swf-testbed)
       dockerfile: swf-testbed/Dockerfile
+    # Override the Dockerfile CMD so the workflow name can be injected at
+    # runtime via the TESTBED_WORKFLOW environment variable.
+    # Default: stf_datataking  (matches the Dockerfile CMD fallback)
+    command: testbed run ${TESTBED_WORKFLOW:-stf_datataking}
     depends_on:
       db:
         condition: service_healthy
