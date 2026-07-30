@@ -12,7 +12,7 @@ The fast processing workflow enables rapid processing of detector data by:
 
 ### Pipeline Overview
 
-![Fast Processing Pipeline](images/fast-processing-pipeline-v5.svg)
+![Fast Processing Pipeline](images/fast-processing-pipeline-v11.svg)
 
 **Worker Payload:** Each PanDA worker receives a TF slice as input and runs a reconstruction payload. Currently the payload is a placeholder; in production it will be EICrecon for ePIC detector reconstruction.
 
