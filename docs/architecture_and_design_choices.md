@@ -80,6 +80,17 @@ contributors and for future architectural reviews.
   `dedup_key` to avoid the duplicate-work race concurrency introduces; a send
   lock makes worker-thread sends safe and shutdown drains the pool.
 
+- **Concurrency is separate from responsiveness:** the bounded pool uses
+  `SWF_AGENT_MAX_WORKERS` and defaults to 4, so calls with different
+  `dedup_key`s may execute at the same time. Deduplication is not serialization.
+  The safe first migration of an existing serial handler is
+  `SWF_AGENT_MAX_WORKERS=1`: work leaves the receiver thread, but doers still run
+  one at a time. Use more workers only after per-message state has moved out of
+  shared `self.*` fields and every shared library, client, temporary path, and
+  process-global operation has been audited. A non-thread-safe subsection may
+  instead use a dedicated lock acquired inside the background doer; never wait
+  for that lock in `on_message`.
+
 - **API and consumers:** the API is documented in the `swf-common-lib` README;
   the first consumer is the epicprod ops agent
   (`swf-epicprod/docs/EPICPROD_OPS_AGENT.md`).

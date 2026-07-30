@@ -110,6 +110,40 @@ The workflow resolves the STF output directory in this order:
 3. `SWF_PROMPT_PROCESSING_CONTAINER`
 4. `/tmp`
 
+### Background execution and PanDA submission
+
+The processing agent should enqueue blocking work with
+`BaseAgent.run_in_background` so PanDA, REST, or storage delays do not block the
+STOMP receiver and its heartbeats. Background execution does not imply that the
+existing handler is safe to run concurrently.
+
+For the current prompt-processing agent, start with:
+
+```bash
+export SWF_AGENT_MAX_WORKERS=1
+```
+
+This preserves serial task submission while freeing the receiver thread. It is
+the safe setting while the agent has per-run values in shared instance state
+and uses the legacy `PrunScript.main` path, whose sandbox construction and
+process-global state are not thread-safe.
+
+If the worker count is later increased:
+
+- pass `run_id`, site, dataset names, and output names into the background doer
+  and keep them local rather than updating shared `self.run_id`, `self.inDS`, or
+  `self.outDS`;
+- retain a semantic dedup key such as `submit:<run_id>:<site>` to suppress
+  duplicate delivery, while remembering that different keys still run in
+  parallel;
+- protect the complete legacy prun preparation/submission section with one
+  agent-owned lock acquired inside the doer, not inside `on_message`;
+- use unique temporary paths and do not concurrently change the working
+  directory or process environment.
+
+The canonical API contract and locking example are in the
+[`swf-common-lib` background-execution documentation](https://github.com/BNLNPPS/swf-common-lib#background-execution-baseagentrun_in_background).
+
 ## Running the Workflow
 
 ### Prerequisites
