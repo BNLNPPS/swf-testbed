@@ -146,8 +146,12 @@ class WorkflowExecutor:
 
         if self.stf_source_files:
             import os
+            try:
+                from swf_common_lib.rucio_quote import encode as rucio_encode
+            except ImportError:
+                rucio_encode = lambda s: s.replace('=', '_')
             source_index = (self.stf_sequence - 1) % len(self.stf_source_files)
-            stf_filename = os.path.basename(self.stf_source_files[source_index])
+            stf_filename = rucio_encode(os.path.basename(self.stf_source_files[source_index]))
         else:
             stf_filename = f"swf.{self.run_id}.{self.stf_sequence:06d}.stf"
 
