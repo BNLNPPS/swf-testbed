@@ -1,6 +1,7 @@
 class WorkflowExecutor:
     def __init__(self, config, runner, execution_id, container=None):
         import os
+        import glob
 
         self.config = config
         self.runner = runner
@@ -38,7 +39,24 @@ class WorkflowExecutor:
                 # Merge this parameter section (later sections override earlier ones)
                 self.daq = {**self.daq, **section_values}
 
+        # Resolve STF source files from glob pattern (if configured)
+        stf_source_pattern = config.get('simulation', {}).get('stf_source_pattern', '')
+        if stf_source_pattern:
+            self.stf_source_files = sorted(glob.glob(stf_source_pattern))
+            if not self.stf_source_files:
+                runner.logger.warning(
+                    f"stf_source_pattern '{stf_source_pattern}' matched no files; "
+                    "falling back to JSON stub generation"
+                )
+        else:
+            self.stf_source_files = []
+
         self.runner.logger.info(f"Prompt processing container: {self.container}")
+        if self.stf_source_files:
+            self.runner.logger.info(
+                f"STF source: {len(self.stf_source_files)} file(s) from pattern "
+                f"'{stf_source_pattern}'"
+            )
 
 
     def execute(self, env):
@@ -125,8 +143,14 @@ class WorkflowExecutor:
 
     def generate_single_stf(self, env):
         self.stf_sequence += 1
-        stf_filename = f"swf.{self.run_id}.{self.stf_sequence:06d}.stf"
-        
+
+        if self.stf_source_files:
+            import os
+            source_index = (self.stf_sequence - 1) % len(self.stf_source_files)
+            stf_filename = os.path.basename(self.stf_source_files[source_index])
+        else:
+            stf_filename = f"swf.{self.run_id}.{self.stf_sequence:06d}.stf"
+
         # Broadcast STF generation
         yield env.process(self.broadcast_stf_gen(env, stf_filename))
 
@@ -306,10 +330,19 @@ class WorkflowExecutor:
             "substate": "physics"
         }
 
-        data = json.dumps(message)
-        with open(f'{self.folder}/{stf_filename}', 'w') as f:
-            f.write(data)
-            f.close()
+        if self.stf_source_files:
+            import shutil
+            source_index = (self.stf_sequence - 1) % len(self.stf_source_files)
+            source_file = self.stf_source_files[source_index]
+            shutil.copyfile(source_file, f'{self.folder}/{stf_filename}')
+            self.runner.logger.debug(
+                f"Copied {source_file} -> {self.folder}/{stf_filename} "
+                f"(index {source_index}/{len(self.stf_source_files)})"
+            )
+        else:
+            data = json.dumps(message)
+            with open(f'{self.folder}/{stf_filename}', 'w') as f:
+                f.write(data)
 
         destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
