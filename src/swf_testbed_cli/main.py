@@ -325,10 +325,19 @@ def stop_agents():
         print(f"Error: {AGENTS_CONF} not found. Run 'testbed init' first.")
         raise typer.Exit(code=1)
 
-    # Stop all agents
+    # Stop workflow agents; standing infrastructure programs (the
+    # episode builder) are not part of any workflow's lifecycle and
+    # stay up.
+    sys.path.insert(0, str(testbed_root))
+    from workflows.orchestrator import STANDING_PROGRAMS, get_running_agents
+
     print("Stopping workflow agents...")
+    to_stop = get_running_agents()
+    if not to_stop:
+        print("No workflow agents running.")
+        return
     result = subprocess.run(
-        ["supervisorctl", "-c", str(conf_path), "stop", "all"],
+        ["supervisorctl", "-c", str(conf_path), "stop"] + to_stop,
         capture_output=True,
         text=True,
         cwd=testbed_root
