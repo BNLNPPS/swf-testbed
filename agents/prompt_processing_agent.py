@@ -1,11 +1,21 @@
-import os, time, json, re, threading, tomllib
+import os, time, json, re, threading, shutil
 from datetime import datetime
+from urllib.parse import urlencode
 from pandaclient import PrunScript, panda_api
 from pandaclient.Client import getTaskStatus, getPandaIDsWithTaskID, getFullJobStatus
 from swf_common_lib.base_agent import BaseAgent
+try:
+    from agent_config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
+except ModuleNotFoundError as e:
+    if e.name != "agent_config_helpers":
+        raise
+    from agents.agent_config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
+
+from swf_testbed_decision_box.monitor_metadata import execution_id_matches
+from swf_testbed_decision_box.models import Decision, FileDID
 
 #################################################################################
-class PROCESSING(BaseAgent):
+class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
     ''' The PROCESSING class is the main task management class.
         It receives MW messages from the DAQ simulator and handles them.
         Main functionality is to manage PanDA tasks for the testbed.
@@ -28,6 +38,10 @@ class PROCESSING(BaseAgent):
         self.polling_thread = None
         self.polling_lock = threading.Lock()
         self.polling_stop_event = threading.Event()
+        self.prun_lock = threading.Lock()
+        self.data_ready_lock = threading.Lock()
+        self.prun_work_root = os.getcwd()
+        self.prun_payload_script = os.path.join(self.prun_work_root, "payload.sh")
         prompt_config = self._load_prompt_processing_config()
         self.panda_poll_interval_seconds = self._config_int(
             prompt_config,
@@ -41,46 +55,85 @@ class PROCESSING(BaseAgent):
             "SWF_PANDA_POLL_TIMEOUT",
             0,
         )
+        self.background_stf_ready = self._config_bool(
+            prompt_config,
+            "background_stf_ready",
+            "SWF_PROMPT_PROCESSING_BACKGROUND",
+            False,
+        )
+        self.non_decision_box_site = os.getenv(
+            "SWF_NON_DECISION_BOX_SITE",
+            str(prompt_config.get("non_decision_box_site", "E1_BNL")),
+        ).strip()
+        self.decision_box_enabled = self._config_bool(
+            prompt_config,
+            "decision_box_enabled",
+            "SWF_DECISION_BOX_ENABLED",
+            False,
+        )
+        self.decision_box_sites = self._config_list(
+            prompt_config,
+            "decision_box_sites",
+            "SWF_DECISION_BOX_SITES",
+            ["E1_BNL", "E1_JLAB"],
+        )
+        self.decision_box_rucio_scope = os.getenv(
+            "SWF_DECISION_BOX_RUCIO_SCOPE",
+            str(prompt_config.get("decision_box_rucio_scope", "group.daq")),
+        ).strip()
+        self.decision_box_site_dataset_template = os.getenv(
+            "SWF_DECISION_BOX_SITE_DATASET_TEMPLATE",
+            str(prompt_config.get("decision_box_site_dataset_template", "")),
+        ).strip() or None
 
         if self.verbose: print(f'''*** Initialized the PROCESSING class, test mode is {self.test} ***''')
 
 
-    def _prompt_processing_config_path(self):
-        return os.path.join(os.path.dirname(os.path.dirname(__file__)), "workflows", "prompt_processing.toml")
+    def _decision_box_context_for_run(self, run_id):
+        return self.active_processing.get(str(run_id)) or self.panda_status.get(str(run_id)) or {}
 
 
-    def _load_prompt_processing_section(self, config_path, warn=False):
-        try:
-            with open(config_path, "rb") as config_file:
-                return tomllib.load(config_file).get("prompt_processing", {})
-        except (OSError, tomllib.TOMLDecodeError) as e:
-            if warn:
-                self.logger.warning(
-                    f"Could not load prompt_processing config from {config_path}: {e}",
-                    extra=self._log_extra()
-                )
-            return {}
+    def _safe_path_component(self, value):
+        """Return a filesystem-safe token for generated prun work directories."""
+        token = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value or "unknown")).strip("._")
+        return token or "unknown"
 
 
-    def _load_prompt_processing_config(self):
-        """Load prompt-processing settings, with workflow defaults plus active config overrides."""
-        prompt_config = self._load_prompt_processing_section(self._prompt_processing_config_path(), warn=True)
-        active_config = self._load_prompt_processing_section(self.config_path, warn=True)
-        prompt_config.update(active_config)
-        return prompt_config
-
-
-    def _config_int(self, config, key, env_var, default):
-        """Read an integer setting from config, with an environment override."""
-        value = os.getenv(env_var, config.get(key, default))
-        try:
-            return int(value)
-        except (TypeError, ValueError):
+    def _prepare_prun_workdir(self, run_number, site_name):
+        """Create an isolated minimal work directory for one prun sandbox."""
+        run_token = self._safe_path_component(run_number)
+        site_token = self._safe_path_component(site_name)
+        unique_token = f"{time.time_ns()}-{threading.get_ident()}"
+        workdir = os.path.join(
+            self.prun_work_root,
+            "prun-submissions",
+            f"run-{run_token}-{site_token}-{unique_token}",
+        )
+        os.makedirs(workdir, exist_ok=False)
+        if os.path.exists(self.prun_payload_script):
+            shutil.copy2(self.prun_payload_script, os.path.join(workdir, "payload.sh"))
+        else:
             self.logger.warning(
-                f"Invalid {key} value {value!r}; using default {default}",
-                extra=self._log_extra()
+                f"Payload script {self.prun_payload_script} does not exist; prun sandbox may be incomplete",
+                extra=self._log_extra(run_id=run_number),
             )
-            return default
+        return workdir
+
+
+    def _build_prun_params(self, prun_args, run_number=None, site_name=None):
+        """Run PrunScript.main from an isolated directory.
+
+        PrunScript changes the process cwd while creating the sandbox, so this
+        section is serialized even when stf_ready handlers run in background.
+        """
+        workdir = self._prepare_prun_workdir(run_number, site_name)
+        with self.prun_lock:
+            previous_cwd = os.getcwd()
+            try:
+                os.chdir(workdir)
+                return PrunScript.main(True, prun_args)
+            finally:
+                os.chdir(previous_cwd)
 
 
     # ---
@@ -110,7 +163,7 @@ class PROCESSING(BaseAgent):
 
         #  Call PrunScript.main to get the task parameters dictionary
         try:
-            params = PrunScript.main(True, prun_args)
+            params = self._build_prun_params(prun_args, self.run_id, "test")
         except Exception as e:
             print(f"PRUN CRITICAL: - {str(e)}")
             return None
@@ -277,6 +330,47 @@ class PROCESSING(BaseAgent):
         return f"user.{username}.swf.{run_number}.processed"
 
 
+    def _output_dataset_did_for_site(self, run_number, site_name, output_suffix=None):
+        output_dataset = f"{self._output_dataset_did(run_number)}.{site_name}"
+        if output_suffix:
+            safe_suffix = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(output_suffix).strip())
+            if safe_suffix:
+                output_dataset = f"{output_dataset}.{safe_suffix}"
+        return output_dataset
+
+
+    def _decision_from_stf_file(self, run_number, stf_file):
+        """Read the data-agent decision from an STF monitor row."""
+        metadata = stf_file.get("metadata") or {}
+        file_did_value = metadata.get("decision_box_file_did")
+        site_datasets = tuple(metadata.get("decision_box_site_datasets") or ())
+        if not file_did_value or not site_datasets:
+            return None
+        try:
+            file_did = FileDID.parse(file_did_value, default_scope=self.decision_box_rucio_scope)
+        except ValueError:
+            return None
+        run_dataset = self._run_dataset_did(run_number)
+        return Decision(
+            run_dataset=run_dataset,
+            full_dataset=run_dataset,
+            file_did=file_did,
+            site_datasets=site_datasets,
+            reason=metadata.get("decision_box_reason", "data-agent decision"),
+        )
+
+
+    def _decision_from_filename(self, run_number, filename, execution_id=None):
+        stf_file = self._monitor_stf_file_by_filename(
+            filename,
+            run_number=run_number,
+            execution_id=execution_id,
+        )
+        if not stf_file:
+            return None
+        return self._decision_from_stf_file(run_number, stf_file)
+
+
     def _monitor_run_id(self, run_number):
         runs = self._api_records(self.call_monitor_api("GET", "/runs/"))
         for run in runs or []:
@@ -295,20 +389,81 @@ class PROCESSING(BaseAgent):
         return []
 
 
-    def _monitor_stf_files_for_run(self, run_number):
+    def _monitor_stf_files(self, params=None, limit=500):
+        """Fetch STF rows using server-side filters when available.
+
+        Use only conservative server-side filters here. run_number is enough
+        to reduce normal polling load, while status/stf_filename/workflow_id
+        are checked locally to avoid depending on newer monitor filter code.
+        """
+        query_params = {
+            key: value for key, value in (params or {}).items()
+            if value is not None and value != ""
+        }
+        query_params.setdefault("limit", limit)
+
+        records = []
+        offset = int(query_params.get("offset") or 0)
+        while True:
+            page_params = dict(query_params)
+            page_params["offset"] = offset
+            response = self.call_monitor_api("GET", f"/stf-files/?{urlencode(page_params)}")
+            page_records = self._api_records(response)
+            records.extend(page_records)
+
+            if not isinstance(response, dict):
+                break
+            next_url = response.get("next")
+            count = response.get("count")
+            if not next_url:
+                break
+            offset += len(page_records)
+            if not page_records or (isinstance(count, int) and offset >= count):
+                break
+        return records
+
+
+    def _monitor_stf_files_for_run(self, run_number, status=None, execution_id=None):
         monitor_run_id = self._monitor_run_id(run_number)
-        files = self._api_records(self.call_monitor_api("GET", "/stf-files/"))
-        if monitor_run_id is None:
-            return [f for f in files if str(f.get("run")) == str(run_number)]
-        return [f for f in files if str(f.get("run")) == str(monitor_run_id)]
+        query = {
+            "run_number": run_number,
+        }
+        files = self._monitor_stf_files(query)
+        if monitor_run_id is not None:
+            filtered = [f for f in files if str(f.get("run")) == str(monitor_run_id)]
+        else:
+            filtered = [f for f in files if str(f.get("run")) == str(run_number)]
+        if status:
+            filtered = [f for f in filtered if str(f.get("status")) == str(status)]
+        if execution_id:
+            filtered = [
+                f for f in filtered
+                if self._execution_id_matches((f.get("metadata") or {}), execution_id)
+            ]
+        return filtered
 
 
-    def _monitor_stf_file_by_filename(self, filename):
-        files = self._api_records(self.call_monitor_api("GET", "/stf-files/"))
+    def _monitor_stf_file_by_filename(self, filename, run_number=None, execution_id=None):
+        files = self._monitor_stf_files_for_run(run_number) if run_number is not None else self._monitor_stf_files()
         for stf_file in files:
-            if stf_file.get("stf_filename") == filename:
-                return stf_file
+            if stf_file.get("stf_filename") != filename:
+                continue
+            metadata = stf_file.get("metadata") or {}
+            if not self._execution_id_matches(metadata, execution_id):
+                continue
+            return stf_file
         return None
+
+
+    def _active_monitor_stf_files_for_run(self, run_number, execution_id=None):
+        return (
+            self._monitor_stf_files_for_run(run_number, status="registered", execution_id=execution_id)
+            + self._monitor_stf_files_for_run(run_number, status="processing", execution_id=execution_id)
+        )
+
+
+    def _execution_id_matches(self, metadata, execution_id=None):
+        return execution_id_matches(metadata, execution_id)
 
 
     def _monitor_run_number_by_id(self, monitor_run_id):
@@ -326,7 +481,7 @@ class PROCESSING(BaseAgent):
             and metadata.get("panda_tracking_namespace") == self.namespace
         ):
             return False
-        if execution_id and metadata.get("workflow_execution_id") != execution_id:
+        if not self._execution_id_matches(metadata, execution_id):
             return False
         if panda_task_id and str(metadata.get("panda_task_id")) != str(panda_task_id):
             return False
@@ -337,8 +492,11 @@ class PROCESSING(BaseAgent):
         metadata = stf_file.get("metadata") or {}
         if metadata.get("panda_tracking_namespace") != self.namespace:
             return False
-        if execution_id and metadata.get("workflow_execution_id") != execution_id:
+        if not self._execution_id_matches(metadata, execution_id):
             return False
+        site_task_ids = metadata.get("panda_site_task_ids") or {}
+        if panda_task_id and str(panda_task_id) in {str(task_id) for task_id in site_task_ids.values() if task_id}:
+            return True
         if panda_task_id and str(metadata.get("panda_task_id")) != str(panda_task_id):
             return False
         if panda_task_id is None and metadata.get("panda_task_id"):
@@ -351,7 +509,7 @@ class PROCESSING(BaseAgent):
         tracking_agent = metadata.get("panda_tracking_agent")
         tracking_namespace = metadata.get("panda_tracking_namespace")
         row_execution_id = metadata.get("workflow_execution_id")
-        if row_execution_id and execution_id and row_execution_id != execution_id:
+        if row_execution_id and not self._execution_id_matches(metadata, execution_id):
             return False
         if not tracking_agent and not tracking_namespace:
             return allow_unclaimed or (execution_id is not None and row_execution_id == execution_id)
@@ -363,6 +521,7 @@ class PROCESSING(BaseAgent):
     def _needs_processing_claim(self, stf_file, panda_task_id=None, execution_id=None):
         """Return True when the monitor row needs a processing claim PATCH."""
         metadata = stf_file.get("metadata") or {}
+        site_task_ids = metadata.get("panda_site_task_ids") or {}
 
         if stf_file.get("status") != "processing":
             return True
@@ -370,23 +529,53 @@ class PROCESSING(BaseAgent):
             return True
         if metadata.get("panda_tracking_namespace") != self.namespace:
             return True
-        if execution_id and metadata.get("workflow_execution_id") != execution_id:
+        if not self._execution_id_matches(metadata, execution_id):
             return True
+        if panda_task_id and str(panda_task_id) in {str(task_id) for task_id in site_task_ids.values() if task_id}:
+            return False
         if panda_task_id and str(metadata.get("panda_task_id")) != str(panda_task_id):
             return True
         return False
 
 
-    def _patch_stf_file(self, stf_file, status, panda_task_id=None, matched_input_files=None, reason=None, run_number=None, execution_id=None, extra_metadata=None):
+    def _patch_stf_file(
+        self,
+        stf_file,
+        status,
+        panda_task_id=None,
+        matched_input_files=None,
+        reason=None,
+        run_number=None,
+        execution_id=None,
+        extra_metadata=None,
+        output_dataset=None,
+    ):
         metadata = stf_file.get("metadata") or {}
         metadata.update({
             "processed_by": self.agent_name,
             "panda_tracking_agent": self.agent_name,
             "panda_tracking_namespace": self.namespace,
             "panda_task_id": panda_task_id,
-            "panda_output_dataset": self._output_dataset_did(run_number or stf_file.get("run")),
             "panda_polled_at": datetime.now().isoformat(),
         })
+        all_site_outputs = {}
+        if isinstance(metadata.get("panda_site_output_datasets"), dict):
+            all_site_outputs.update(metadata.get("panda_site_output_datasets") or {})
+        if isinstance((extra_metadata or {}).get("panda_site_output_datasets"), dict):
+            all_site_outputs.update((extra_metadata or {}).get("panda_site_output_datasets") or {})
+
+        scalar_output_dataset = output_dataset
+        if len(all_site_outputs) > 1:
+            scalar_output_dataset = None
+        if scalar_output_dataset is None:
+            if len(all_site_outputs) == 1:
+                scalar_output_dataset = next(iter(all_site_outputs.values()))
+            elif not all_site_outputs:
+                scalar_output_dataset = self._output_dataset_did(run_number or stf_file.get("run"))
+        if scalar_output_dataset:
+            metadata["panda_output_dataset"] = scalar_output_dataset
+        elif "panda_output_dataset" in metadata:
+            metadata.pop("panda_output_dataset", None)
         if execution_id:
             metadata["workflow_execution_id"] = execution_id
         if matched_input_files is not None:
@@ -403,7 +592,76 @@ class PROCESSING(BaseAgent):
         )
 
 
-    def mark_run_stfs_processing(self, run_number, panda_task_id=None, execution_id=None):
+    def _site_name_for_task_id(self, metadata, panda_task_id, fallback_site=None):
+        """Return the decision-box site name associated with a PanDA task."""
+        if fallback_site:
+            return fallback_site
+        task_id_value = str(panda_task_id) if panda_task_id is not None else ""
+        for site_name, task_id in (metadata.get("panda_site_task_ids") or {}).items():
+            if task_id and str(task_id) == task_id_value:
+                return site_name
+        return None
+
+
+    def _aggregate_decision_status(self, site_statuses, selected_sites):
+        """Collapse per-site status into the single monitor row status."""
+        if not selected_sites:
+            return "processing"
+        statuses = [
+            (site_statuses.get(site_name) or {}).get("status")
+            for site_name in selected_sites
+        ]
+        if statuses and all(status == "processed" for status in statuses):
+            return "processed"
+        if statuses and all(status in {"processed", "failed"} for status in statuses):
+            return "failed" if any(status == "failed" for status in statuses) else "processed"
+        return "processing"
+
+
+    def _decision_site_poll_metadata(
+        self,
+        stf_file,
+        panda_task_id,
+        site_status,
+        run_number=None,
+        site_name=None,
+        matched_input_files=None,
+        reason=None,
+        job=None,
+    ):
+        """Build metadata for one site poll without losing sibling site state."""
+        metadata = stf_file.get("metadata") or {}
+        site_name = self._site_name_for_task_id(metadata, panda_task_id, fallback_site=site_name)
+        if not site_name:
+            return site_status, {}
+        site_statuses = dict(metadata.get("panda_site_statuses") or {})
+        site_outputs = metadata.get("panda_site_output_datasets") or {}
+        site_inputs = metadata.get("panda_site_input_datasets") or {}
+        site_entry = dict(site_statuses.get(site_name) or {})
+        site_entry.update({
+            "status": site_status,
+            "task_id": str(panda_task_id) if panda_task_id is not None else None,
+            "input_dataset": site_inputs.get(site_name),
+            "output_dataset": site_outputs.get(site_name),
+            "polled_at": datetime.now().isoformat(),
+        })
+        if matched_input_files is not None:
+            site_entry["matched_input_files"] = matched_input_files
+        if reason:
+            site_entry["reason"] = reason
+        if job:
+            site_entry["panda_job_id"] = job.get("panda_id")
+            site_entry["panda_job_status"] = job.get("status")
+        site_statuses[site_name] = site_entry
+        selected_sites = list(site_inputs.keys()) or list((metadata.get("panda_site_task_ids") or {}).keys())
+        aggregate_status = self._aggregate_decision_status(site_statuses, selected_sites)
+        return aggregate_status, {
+            "panda_selected_site": site_name,
+            "panda_site_statuses": site_statuses,
+        }
+
+
+    def mark_run_stfs_processing(self, run_number, panda_task_id=None, execution_id=None, decision_box_enabled=None):
         """Claim all eligible monitor STF rows for this run/task."""
         if not panda_task_id:
             self.logger.warning(
@@ -411,10 +669,28 @@ class PROCESSING(BaseAgent):
                 extra=self._log_extra(run_id=run_number, execution_id=execution_id)
             )
             return 0
+        if decision_box_enabled is None:
+            decision_box_enabled = self._decision_box_enabled_for_message({}, run_id=run_number)
+        if decision_box_enabled:
+            task_info = self.active_processing.get(str(run_number)) or self.panda_status.get(str(run_number)) or {}
+            site_tasks = task_info.get("site_tasks") or {}
+            if not site_tasks:
+                return 0
+            updated = 0
+            for stf_file in self._active_monitor_stf_files_for_run(run_number, execution_id=execution_id):
+                decision = self._decision_from_stf_file(run_number, stf_file)
+                if not decision:
+                    continue
+                updated += self.mark_stf_processing_for_decision(
+                    stf_file.get("stf_filename"),
+                    run_number,
+                    decision,
+                    site_tasks,
+                    execution_id=execution_id,
+                )
+            return updated
         updated = 0
-        for stf_file in self._monitor_stf_files_for_run(run_number):
-            if stf_file.get("status") not in {"registered", "processing"}:
-                continue
+        for stf_file in self._active_monitor_stf_files_for_run(run_number, execution_id=execution_id):
             if not self._claimable_by_this_agent(stf_file, execution_id=execution_id, allow_unclaimed=True):
                 continue
             if not self._needs_processing_claim(stf_file, panda_task_id=panda_task_id, execution_id=execution_id):
@@ -428,11 +704,19 @@ class PROCESSING(BaseAgent):
         return updated
 
 
-    def mark_stf_processing_by_filename(self, filename, run_number, panda_task_id=None, execution_id=None):
+    def mark_stf_processing_by_filename(
+        self,
+        filename,
+        run_number,
+        panda_task_id=None,
+        execution_id=None,
+        extra_metadata=None,
+        output_dataset=None,
+    ):
         """Claim one STF row when its stf_gen message arrives."""
         if not execution_id:
             return False
-        stf_file = self._monitor_stf_file_by_filename(filename)
+        stf_file = self._monitor_stf_file_by_filename(filename, run_number=run_number, execution_id=execution_id)
         if not stf_file:
             return False
         if stf_file.get("status") not in {"registered", "processing"}:
@@ -444,11 +728,132 @@ class PROCESSING(BaseAgent):
             "processing",
             panda_task_id=panda_task_id,
             run_number=run_number,
-            execution_id=execution_id
+            execution_id=execution_id,
+            extra_metadata=extra_metadata,
+            output_dataset=output_dataset,
         ))
 
 
-    def poll_processed_stf_files_once(self, run_number, panda_task_id=None, execution_id=None):
+    def _selected_decision_site_tasks(self, decision, site_tasks):
+        return {
+            site_name: site_task
+            for site_name, site_task in (site_tasks or {}).items()
+            if site_task.get("input_dataset") in decision.site_datasets
+        }
+
+
+    def _submitted_decision_site_tasks(self, selected_site_tasks):
+        return {
+            site_name: site_task
+            for site_name, site_task in selected_site_tasks.items()
+            if site_task.get("status") == 0 and site_task.get("task_id")
+        }
+
+
+    def _decision_site_task_metadata(self, decision, selected_site_tasks, existing_metadata):
+        submitted_site_tasks = self._submitted_decision_site_tasks(selected_site_tasks)
+        site_task_ids = {
+            site_name: site_task.get("task_id")
+            for site_name, site_task in submitted_site_tasks.items()
+        }
+        metadata = {
+            "decision_box_reason": decision.reason,
+            "decision_box_file_did": str(decision.file_did),
+            "decision_box_site_datasets": list(decision.site_datasets),
+            "panda_site_task_ids": site_task_ids,
+            "panda_site_input_datasets": {
+                site_name: site_task.get("input_dataset")
+                for site_name, site_task in selected_site_tasks.items()
+            },
+            "panda_site_output_datasets": {
+                site_name: site_task.get("output_dataset")
+                for site_name, site_task in selected_site_tasks.items()
+            },
+            "panda_site_statuses": dict((existing_metadata or {}).get("panda_site_statuses") or {}),
+        }
+        for site_name, site_task in submitted_site_tasks.items():
+            metadata["panda_site_statuses"].setdefault(site_name, self._decision_site_status("processing", site_task))
+        for site_name, site_task in selected_site_tasks.items():
+            if site_name not in submitted_site_tasks:
+                metadata["panda_site_statuses"][site_name] = self._decision_site_status(
+                    "failed",
+                    site_task,
+                    reason=f"PanDA submission failed: {site_task.get('message')}",
+                )
+        return metadata
+
+
+    def _decision_site_status(self, status, site_task, reason=None):
+        entry = {
+            "status": status,
+            "task_id": str(site_task.get("task_id")) if site_task.get("task_id") else None,
+            "input_dataset": site_task.get("input_dataset"),
+            "output_dataset": site_task.get("output_dataset"),
+        }
+        if reason:
+            entry["reason"] = reason
+        return entry
+
+
+    def _primary_decision_task_id(self, metadata):
+        return next(iter((metadata.get("panda_site_task_ids") or {}).values()), None)
+
+
+    def _single_decision_output_dataset(self, metadata):
+        output_datasets = metadata.get("panda_site_output_datasets") or {}
+        if len(output_datasets) == 1:
+            return next(iter(output_datasets.values()))
+        return None
+
+
+    def mark_stf_processing_for_decision(self, filename, run_number, decision, site_tasks, execution_id=None):
+        """Claim one STF monitor row with the site tasks selected by the decision box."""
+        if not filename or not decision or not site_tasks:
+            return 0
+        stf_file = self._monitor_stf_file_by_filename(filename, run_number=run_number, execution_id=execution_id)
+        if not stf_file:
+            return 0
+        existing_metadata = (stf_file or {}).get("metadata") or {}
+        selected_site_tasks = self._selected_decision_site_tasks(decision, site_tasks)
+        if not selected_site_tasks:
+            return 0
+        metadata = self._decision_site_task_metadata(decision, selected_site_tasks, existing_metadata)
+        primary_task_id = self._primary_decision_task_id(metadata)
+        output_dataset = self._single_decision_output_dataset(metadata)
+        if not primary_task_id:
+            patch_status = self._aggregate_decision_status(
+                metadata["panda_site_statuses"],
+                list(metadata["panda_site_input_datasets"].keys()),
+            )
+            return int(bool(self._patch_stf_file(
+                stf_file,
+                patch_status,
+                panda_task_id=None,
+                reason="all selected decision-box site submissions failed",
+                run_number=run_number,
+                execution_id=execution_id,
+                extra_metadata=metadata,
+                output_dataset=output_dataset,
+            )))
+        return int(self.mark_stf_processing_by_filename(
+            filename,
+            run_number,
+            primary_task_id,
+            execution_id=execution_id,
+            extra_metadata=metadata,
+            output_dataset=output_dataset,
+        ))
+
+
+    def poll_processed_stf_files_once(
+        self,
+        run_number,
+        panda_task_id=None,
+        execution_id=None,
+        site_name=None,
+        input_dataset=None,
+        decision_box_enabled=None,
+    ):
         """Run one PanDA status poll and patch matching swf-monitor STF rows."""
         if not panda_task_id:
             self.logger.warning(
@@ -470,12 +875,19 @@ class PROCESSING(BaseAgent):
         active_statuses = {"registered", "processing"}
         task_status = self._task_status(panda_task_id) if panda_task_id else None
         job_records = self._job_status_records(panda_task_id)
+        if decision_box_enabled is None:
+            decision_box_enabled = self._decision_box_enabled_for_message({}, run_id=run_number)
 
         # Each poll re-scans the run so late-registered STF rows are claimed.
-        self.mark_run_stfs_processing(run_number, panda_task_id, execution_id=execution_id)
+        self.mark_run_stfs_processing(
+            run_number,
+            panda_task_id,
+            execution_id=execution_id,
+            decision_box_enabled=decision_box_enabled,
+        )
 
         stf_files = [
-            f for f in self._monitor_stf_files_for_run(run_number)
+            f for f in self._monitor_stf_files_for_run(run_number, status="processing", execution_id=execution_id)
             if self._recoverable_by_this_agent(f, execution_id=execution_id, panda_task_id=panda_task_id)
         ]
         processed = 0
@@ -494,40 +906,80 @@ class PROCESSING(BaseAgent):
             failed_jobs = [job for job in matching_jobs if job.get("status") in job_failure]
             if success_jobs:
                 job = success_jobs[-1]
+                matched_inputs = sorted(job.get("input_files", []))
+                patch_status = "processed"
+                patch_metadata = {
+                    "panda_job_id": job.get("panda_id"),
+                    "panda_job_status": job.get("status"),
+                    "matched_input_files": matched_inputs,
+                }
+                patch_output_dataset = None
+                if decision_box_enabled:
+                    patch_status, site_metadata = self._decision_site_poll_metadata(
+                        stf_file,
+                        panda_task_id,
+                        "processed",
+                        run_number=run_number,
+                        site_name=site_name,
+                        matched_input_files=matched_inputs,
+                        job=job,
+                    )
+                    patch_metadata.update(site_metadata)
+                    selected_site = site_metadata.get("panda_selected_site")
+                    site_outputs = (stf_file.get("metadata") or {}).get("panda_site_output_datasets") or {}
+                    patch_output_dataset = site_outputs.get(selected_site)
                 if self._patch_stf_file(
                     stf_file,
-                    "processed",
+                    patch_status,
                     panda_task_id,
-                    sorted(job.get("input_files", [])),
+                    matched_inputs,
                     run_number=run_number,
                     execution_id=execution_id,
-                    extra_metadata={
-                        "panda_job_id": job.get("panda_id"),
-                        "panda_job_status": job.get("status"),
-                        "matched_input_files": sorted(job.get("input_files", [])),
-                    },
+                    extra_metadata=patch_metadata,
+                    output_dataset=patch_output_dataset,
                 ):
                     processed += 1
-            elif failed_jobs and all(job.get("status") in job_failure for job in matching_jobs):
+            elif stf_file.get("status") != "processed" and failed_jobs and all(job.get("status") in job_failure for job in matching_jobs):
                 job = failed_jobs[-1]
+                matched_inputs = sorted(job.get("input_files", []))
+                reason = f"panda job {job.get('panda_id')} {job.get('status')}"
+                patch_status = "failed"
+                patch_metadata = {
+                    "panda_job_id": job.get("panda_id"),
+                    "panda_job_status": job.get("status"),
+                    "matched_input_files": matched_inputs,
+                }
+                patch_output_dataset = None
+                if decision_box_enabled:
+                    patch_status, site_metadata = self._decision_site_poll_metadata(
+                        stf_file,
+                        panda_task_id,
+                        "failed",
+                        run_number=run_number,
+                        site_name=site_name,
+                        matched_input_files=matched_inputs,
+                        reason=reason,
+                        job=job,
+                    )
+                    patch_metadata.update(site_metadata)
+                    selected_site = site_metadata.get("panda_selected_site")
+                    site_outputs = (stf_file.get("metadata") or {}).get("panda_site_output_datasets") or {}
+                    patch_output_dataset = site_outputs.get(selected_site)
                 if self._patch_stf_file(
                     stf_file,
-                    "failed",
+                    patch_status,
                     panda_task_id,
-                    reason=f"panda job {job.get('panda_id')} {job.get('status')}",
+                    reason=reason,
                     run_number=run_number,
                     execution_id=execution_id,
-                    extra_metadata={
-                        "panda_job_id": job.get("panda_id"),
-                        "panda_job_status": job.get("status"),
-                        "matched_input_files": sorted(job.get("input_files", [])),
-                    },
+                    extra_metadata=patch_metadata,
+                    output_dataset=patch_output_dataset,
                 ):
                     failed += 1
 
         is_task_terminal = task_status in task_terminal
         refreshed_stf_files = [
-            f for f in self._monitor_stf_files_for_run(run_number)
+            f for f in self._monitor_stf_files_for_run(run_number, status="processing", execution_id=execution_id)
             if self._recoverable_by_this_agent(f, execution_id=execution_id, panda_task_id=panda_task_id)
         ]
         unfinished = [
@@ -540,18 +992,37 @@ class PROCESSING(BaseAgent):
         ]
         if is_task_terminal:
             for stf_file in unmatched:
+                reason = f"no PanDA job found before task became {task_status}"
+                patch_status = "failed"
+                patch_metadata = {}
+                patch_output_dataset = None
+                if decision_box_enabled:
+                    patch_status, site_metadata = self._decision_site_poll_metadata(
+                        stf_file,
+                        panda_task_id,
+                        "failed",
+                        run_number=run_number,
+                        site_name=site_name,
+                        reason=reason,
+                    )
+                    patch_metadata.update(site_metadata)
+                    selected_site = site_metadata.get("panda_selected_site")
+                    site_outputs = (stf_file.get("metadata") or {}).get("panda_site_output_datasets") or {}
+                    patch_output_dataset = site_outputs.get(selected_site)
                 if self._patch_stf_file(
                     stf_file,
-                    "failed",
+                    patch_status,
                     panda_task_id,
-                    reason=f"no PanDA job found before task became {task_status}",
+                    reason=reason,
                     run_number=run_number,
                     execution_id=execution_id,
+                    extra_metadata=patch_metadata,
+                    output_dataset=patch_output_dataset,
                 ):
                     failed += 1
             if unmatched:
                 refreshed_stf_files = [
-                    f for f in self._monitor_stf_files_for_run(run_number)
+                    f for f in self._monitor_stf_files_for_run(run_number, status="processing", execution_id=execution_id)
                     if self._recoverable_by_this_agent(f, execution_id=execution_id, panda_task_id=panda_task_id)
                 ]
                 unfinished = [
@@ -566,9 +1037,15 @@ class PROCESSING(BaseAgent):
         self.processing_stats["total_processed"] += processed
         self.processing_stats["failed_count"] += failed
         complete = is_task_terminal and not unfinished
+        target = f"task_id={panda_task_id}"
+        if site_name:
+            target += f", site={site_name}"
+        if input_dataset:
+            target += f", input_dataset={input_dataset}"
         self.logger.info(
-            f"PanDA polling updated STF files for run {run_number}: processed={processed}, failed={failed}, "
-            f"task_status={task_status}, jobs_seen={len(job_records)}, unfinished={len(unfinished)}, unmatched={len(unmatched)}",
+            f"PanDA polling updated STF files for run {run_number} ({target}): "
+            f"processed={processed}, failed={failed}, task_status={task_status}, "
+            f"jobs_seen={len(job_records)}, unfinished={len(unfinished)}, unmatched={len(unmatched)}",
             extra=self._log_extra(run_id=run_number, panda_task_id=panda_task_id)
         )
         return {
@@ -582,7 +1059,15 @@ class PROCESSING(BaseAgent):
         }
 
 
-    def start_processed_stf_polling(self, run_number, panda_task_id=None, execution_id=None):
+    def start_processed_stf_polling(
+        self,
+        run_number,
+        panda_task_id=None,
+        execution_id=None,
+        site_name=None,
+        input_dataset=None,
+        decision_box_enabled=None,
+    ):
         """Add a run/task to the polling scheduler."""
         if not panda_task_id:
             self.logger.warning(
@@ -595,7 +1080,7 @@ class PROCESSING(BaseAgent):
         with self.polling_lock:
             if poll_key in self.polling_tasks:
                 self.logger.info(
-                    f"PanDA polling already active for run {run_key}",
+                    f"PanDA polling already active for run {run_key}, task_id={panda_task_id}",
                     extra=self._log_extra(run_id=run_key, panda_task_id=panda_task_id, execution_id=execution_id)
                 )
                 return False
@@ -603,12 +1088,20 @@ class PROCESSING(BaseAgent):
                 "run_number": run_key,
                 "panda_task_id": panda_task_id,
                 "execution_id": execution_id,
+                "site_name": site_name,
+                "input_dataset": input_dataset,
+                "decision_box_enabled": decision_box_enabled,
                 "started_at": time.time(),
                 "last_poll": 0,
             }
             self._ensure_polling_scheduler_locked()
+        target = f"task_id={panda_task_id}"
+        if site_name:
+            target += f", site={site_name}"
+        if input_dataset:
+            target += f", input_dataset={input_dataset}"
         self.logger.info(
-            f"Registered PanDA polling for run {run_key}",
+            f"Registered PanDA polling for run {run_key} ({target})",
             extra=self._log_extra(run_id=run_key, panda_task_id=panda_task_id, execution_id=execution_id)
         )
         return True
@@ -647,15 +1140,23 @@ class PROCESSING(BaseAgent):
                         task["run_number"],
                         task.get("panda_task_id"),
                         execution_id=task.get("execution_id"),
+                        site_name=task.get("site_name"),
+                        input_dataset=task.get("input_dataset"),
+                        decision_box_enabled=task.get("decision_box_enabled"),
                     )
                     timed_out = timeout_seconds > 0 and now - task.get("started_at", now) > timeout_seconds
                     if result.get("complete") or timed_out:
-                        self.active_processing.pop(task["run_number"], None)
                         with self.polling_lock:
                             self.polling_tasks.pop(poll_key, None)
+                            still_polling_run = any(
+                                remaining_task.get("run_number") == task["run_number"]
+                                for remaining_task in self.polling_tasks.values()
+                            )
+                        if not still_polling_run:
+                            self.active_processing.pop(task["run_number"], None)
                         if timed_out and not result.get("complete"):
                             self.logger.warning(
-                                f"PanDA polling timed out for run {task['run_number']}",
+                                f"PanDA polling timed out for run {task['run_number']}, task_id={task.get('panda_task_id')}",
                                 extra=self._log_extra(
                                     run_id=task["run_number"],
                                     panda_task_id=task.get("panda_task_id"),
@@ -664,7 +1165,7 @@ class PROCESSING(BaseAgent):
                             )
                 except Exception as e:
                     self.logger.error(
-                        f"PanDA polling failed for run {task['run_number']}: {e}",
+                        f"PanDA polling failed for run {task['run_number']}, task_id={task.get('panda_task_id')}: {e}",
                         extra=self._log_extra(
                             run_id=task["run_number"],
                             panda_task_id=task.get("panda_task_id"),
@@ -687,8 +1188,9 @@ class PROCESSING(BaseAgent):
 
     def recover_active_panda_polling(self):
         """Restart polling for processing STF rows left by an earlier agent."""
-        stf_files = self._api_records(self.call_monitor_api("GET", "/stf-files/"))
+        stf_files = self._monitor_stf_files()
         runs_to_poll = {}
+        recovered_task_context = {}
         for stf_file in stf_files:
             if stf_file.get("status") != "processing":
                 continue
@@ -696,21 +1198,40 @@ class PROCESSING(BaseAgent):
             execution_id = metadata.get("workflow_execution_id")
             if not execution_id:
                 continue
-            panda_task_id = metadata.get("panda_task_id")
-            if not panda_task_id:
-                continue
-            if not self._recoverable_by_this_agent(stf_file, execution_id=execution_id, panda_task_id=panda_task_id):
-                continue
             run_number = self._monitor_run_number_by_id(stf_file.get("run"))
-            runs_to_poll.setdefault((run_number, str(panda_task_id), execution_id), 0)
-            runs_to_poll[(run_number, str(panda_task_id), execution_id)] += 1
+            site_task_ids = metadata.get("panda_site_task_ids") or {}
+            site_input_datasets = metadata.get("panda_site_input_datasets") or {}
+            panda_task_ids = [task_id for task_id in site_task_ids.values() if task_id]
+            if metadata.get("panda_task_id"):
+                panda_task_ids.append(metadata.get("panda_task_id"))
+            for site_name, task_id in site_task_ids.items():
+                if task_id:
+                    recovered_task_context[str(task_id)] = {
+                        "site_name": site_name,
+                        "input_dataset": site_input_datasets.get(site_name),
+                        "decision_box_enabled": True,
+                    }
+            for panda_task_id in {str(task_id) for task_id in panda_task_ids if task_id}:
+                if not self._recoverable_by_this_agent(stf_file, execution_id=execution_id, panda_task_id=panda_task_id):
+                    continue
+                runs_to_poll.setdefault((run_number, panda_task_id, execution_id), 0)
+                runs_to_poll[(run_number, panda_task_id, execution_id)] += 1
 
         for (run_number, panda_task_id, execution_id), count in runs_to_poll.items():
+            task_context = recovered_task_context.get(str(panda_task_id), {})
             self.logger.info(
-                f"Recovering PanDA polling for run {run_number}: task_id={panda_task_id}, execution_id={execution_id}, stf_files={count}",
+                f"Recovering PanDA polling for run {run_number}: task_id={panda_task_id}, "
+                f"site={task_context.get('site_name') or '-'}, execution_id={execution_id}, stf_files={count}",
                 extra=self._log_extra(run_id=run_number, panda_task_id=panda_task_id, execution_id=execution_id)
             )
-            self.start_processed_stf_polling(run_number, panda_task_id, execution_id=execution_id)
+            self.start_processed_stf_polling(
+                run_number,
+                panda_task_id,
+                execution_id=execution_id,
+                site_name=task_context.get("site_name"),
+                input_dataset=task_context.get("input_dataset"),
+                decision_box_enabled=task_context.get("decision_box_enabled", False),
+            )
 
         return len(runs_to_poll)
 
@@ -757,7 +1278,16 @@ class PROCESSING(BaseAgent):
              
             if msg_namespace == self.namespace:
                 if msg_type == 'stf_ready':
-                    self.handle_data_ready(message_data)
+                    if self.background_stf_ready:
+                        run_key = str(message_data.get("run_id") or "unknown")
+                        site_key = str(message_data.get("site") or "all-sites")
+                        self.run_in_background(
+                            self.handle_data_ready,
+                            dict(message_data),
+                            label=f"stf_ready run={run_key} site={site_key}",
+                        )
+                    else:
+                        self.handle_data_ready(message_data)
                 elif msg_type == 'stf_gen':
                     self.handle_stf_gen(message_data)
                 elif msg_type == 'run_imminent':
@@ -776,6 +1306,12 @@ class PROCESSING(BaseAgent):
 
     # ---
     def handle_data_ready(self, message_data):
+        """Serialize data_ready handling while keeping MQ callbacks responsive."""
+        with self.data_ready_lock:
+            return self._handle_data_ready(message_data)
+
+
+    def _handle_data_ready(self, message_data):
         """Handle data_ready message"""
         
         run_id = message_data.get('run_id')
@@ -785,6 +1321,143 @@ class PROCESSING(BaseAgent):
         self.run_id = str(run_id)
         self.name_current_datasets()
         username = os.getenv('PANDA_NICKNAME', os.getenv('USER', 'unknown'))
+        decision_box_enabled = self._decision_box_enabled_for_message(message_data, run_id=self.run_id)
+        non_decision_box_site = self._non_decision_box_site_for_message(message_data, run_id=self.run_id)
+
+        if decision_box_enabled:
+            task_info = self.active_processing.get(self.run_id) or self.panda_status.get(self.run_id) or {}
+            site_tasks = dict(task_info.get("site_tasks") or {})
+            requested_site = message_data.get("site")
+            requested_sites = [requested_site] if requested_site else list(self.decision_box_sites)
+            primary_task_id = task_info.get("task_id")
+            primary_status = task_info.get("status")
+            primary_msg = task_info.get("message")
+
+            for site_name in requested_sites:
+                if site_name not in self.decision_box_sites:
+                    self.logger.warning(
+                        f"Ignoring stf_ready for unknown decision-box site {site_name}",
+                        extra=self._log_extra(run_id=self.run_id, execution_id=message_data.get("execution_id"))
+                    )
+                    continue
+                force_resubmit = self._message_bool(message_data, "force_resubmit", False)
+                if not force_resubmit and site_name in site_tasks and site_tasks[site_name].get("task_id"):
+                    self.logger.info(
+                        f"PanDA task for {site_name} already exists for run {self.run_id}; skipping duplicate stf_ready",
+                        extra=self._log_extra(run_id=self.run_id, panda_task_id=site_tasks[site_name].get("task_id"))
+                    )
+                    continue
+                input_dataset = message_data.get("input_dataset") or self._input_dataset_did_for_site(self.run_id, site_name)
+                output_dataset = self._output_dataset_did_for_site(
+                    self.run_id,
+                    site_name,
+                    output_suffix=message_data.get("output_suffix"),
+                )
+                prun_args = [
+                "--exec", "./payload.sh",
+                "--inDS", input_dataset,
+                "--outDS", output_dataset,
+                "--nJobs", "1",
+                "--vo", "epic",
+                "--site", site_name,
+                "--prodSourceLabel", "test",
+                "--workingGroup", "EIC",
+                "--noBuild",
+                "--expertOnly_skipScout",
+                "--outputs", "myout.txt"
+                ]
+                try:
+                    params = self._build_prun_params(prun_args, self.run_id, site_name)
+                except Exception as e:
+                    print(f"PRUN CRITICAL for site {site_name}: - {str(e)}")
+                    site_tasks[site_name] = {
+                        "site": site_name,
+                        "task_id": None,
+                        "status": 1,
+                        "message": f"PRUN parameter build failed: {e}",
+                        "input_dataset": input_dataset,
+                        "output_dataset": output_dataset,
+                    }
+                    if primary_status is None:
+                        primary_status = 1
+                        primary_msg = site_tasks[site_name]["message"]
+                    continue
+
+                params['runUntilClosed'] = True
+                params['processingType'] = "stfprocessing"
+                params['nFilesPerJob'] = 1
+                params['nChunksToWait'] = 1
+
+                status, msg = self.panda_submit_task(params)
+                panda_task_id = self._extract_panda_task_id(msg)
+                site_tasks[site_name] = {
+                    "site": site_name,
+                    "task_id": panda_task_id,
+                    "status": status,
+                    "message": msg,
+                    "input_dataset": input_dataset,
+                    "output_dataset": output_dataset,
+                }
+                if primary_task_id is None:
+                    primary_task_id = panda_task_id
+                    primary_status = status
+                    primary_msg = msg
+                if status == 0 and panda_task_id:
+                    self.start_processed_stf_polling(
+                        self.run_id,
+                        panda_task_id,
+                        execution_id=message_data.get("execution_id"),
+                        site_name=site_name,
+                        input_dataset=input_dataset,
+                        decision_box_enabled=True,
+                    )
+                else:
+                    self.logger.error(
+                        f"PanDA task submission for {site_name} did not return a usable task ID. status:{status}, message:{msg}",
+                        extra=self._log_extra(run_id=self.run_id)
+                    )
+
+            self.panda_status[self.run_id] = {
+                'status': primary_status,
+                'message': primary_msg,
+                'task_id': primary_task_id,
+                'site_tasks': site_tasks,
+                "decision_box_enabled": True,
+                "non_decision_box_site": non_decision_box_site,
+            }
+            self.active_processing[self.run_id] = {
+                "task_id": primary_task_id,
+                "site_tasks": site_tasks,
+                "started_at": datetime.now(),
+                "input_dataset": self._run_dataset_did(self.run_id),
+                "site_input_datasets": {site: info["input_dataset"] for site, info in site_tasks.items()},
+                "site_output_datasets": {site: info["output_dataset"] for site, info in site_tasks.items()},
+                "execution_id": message_data.get("execution_id"),
+                "decision_box_enabled": True,
+                "non_decision_box_site": non_decision_box_site,
+            }
+            decided = 0
+            marked = 0
+            for stf_file in self._monitor_stf_files_for_run(self.run_id):
+                filename = stf_file.get("stf_filename")
+                if not filename:
+                    continue
+                decision = self._decision_from_stf_file(self.run_id, stf_file)
+                if decision:
+                    decided += 1
+                    marked += self.mark_stf_processing_for_decision(
+                        filename,
+                        self.run_id,
+                        decision,
+                        site_tasks,
+                        execution_id=message_data.get("execution_id"),
+                    )
+            self.logger.info(
+                f"Decision-box PanDA tasks submitted for run {self.run_id}: {site_tasks}; "
+                f"read {decided} existing data-agent decisions and marked {marked} site-task claims",
+                extra=self._log_extra(run_id=self.run_id, panda_task_id=primary_task_id)
+            )
+            return None
 
         #  Construct the full list of arguments for PrunScript.main
         prun_args = [
@@ -793,7 +1466,7 @@ class PROCESSING(BaseAgent):
         "--outDS",  f"user.{username}.{self.outDS}",
         "--nJobs", "1",
         "--vo", "epic",
-        "--site", "E1_BNL",
+        "--site", non_decision_box_site,
         "--prodSourceLabel", "test",
         "--workingGroup", "EIC",
         "--noBuild",
@@ -802,7 +1475,7 @@ class PROCESSING(BaseAgent):
         ]
         #  Call PrunScript.main to get the task parameters dictionary
         try:
-            params = PrunScript.main(True, prun_args)
+            params = self._build_prun_params(prun_args, self.run_id, non_decision_box_site)
         except Exception as e:
             print(f"PRUN CRITICAL: - {str(e)}")
             return None
@@ -813,7 +1486,13 @@ class PROCESSING(BaseAgent):
 
         status, msg = self.panda_submit_task(params)
         panda_task_id = self._extract_panda_task_id(msg)
-        self.panda_status[self.run_id] = {'status': status, 'message': msg, 'task_id': panda_task_id}
+        self.panda_status[self.run_id] = {
+            'status': status,
+            'message': msg,
+            'task_id': panda_task_id,
+            "decision_box_enabled": False,
+            "non_decision_box_site": non_decision_box_site,
+        }
         if status != 0 or not panda_task_id:
             self.logger.error(
                 f"PanDA task submission did not return a usable task ID. status:{status}, message:{msg}",
@@ -826,9 +1505,21 @@ class PROCESSING(BaseAgent):
             "input_dataset": f"group.daq:{self.inDS}",
             "output_dataset": f"user.{username}.{self.outDS}",
             "execution_id": message_data.get("execution_id"),
+            "decision_box_enabled": False,
+            "non_decision_box_site": non_decision_box_site,
         }
-        self.mark_run_stfs_processing(self.run_id, panda_task_id, execution_id=message_data.get("execution_id"))
-        self.start_processed_stf_polling(self.run_id, panda_task_id, execution_id=message_data.get("execution_id"))
+        self.mark_run_stfs_processing(
+            self.run_id,
+            panda_task_id,
+            execution_id=message_data.get("execution_id"),
+            decision_box_enabled=False,
+        )
+        self.start_processed_stf_polling(
+            self.run_id,
+            panda_task_id,
+            execution_id=message_data.get("execution_id"),
+            decision_box_enabled=False,
+        )
 
         self.logger.info(
             f"New task submitted to PanDA. status:{status}, task_id:{panda_task_id}, message:{msg}",
@@ -847,6 +1538,19 @@ class PROCESSING(BaseAgent):
 
         if run_id:
             task_info = self.active_processing.get(run_id) or self.panda_status.get(run_id) or {}
+            if self._decision_box_enabled_for_message(message_data, run_id=run_id):
+                execution_id = message_data.get("execution_id") or task_info.get("execution_id")
+                decision = self._decision_from_filename(run_id, fn, execution_id=execution_id) if fn else None
+                site_tasks = task_info.get("site_tasks") or {}
+                if decision and site_tasks:
+                    self.mark_stf_processing_for_decision(
+                        fn,
+                        run_id,
+                        decision,
+                        site_tasks,
+                        execution_id=execution_id,
+                    )
+                return
             panda_task_id = task_info.get("task_id")
             if panda_task_id and fn:
                 self.mark_stf_processing_by_filename(
@@ -908,10 +1612,23 @@ class PROCESSING(BaseAgent):
 
         run_key = str(run_id)
         task_info = self.active_processing.get(run_key) or self.panda_status.get(run_key) or {}
+        decision_box_enabled = self._decision_box_enabled_for_message(message_data, run_id=run_key)
+        if decision_box_enabled and task_info.get("site_tasks"):
+            for site_name, site_task in task_info.get("site_tasks", {}).items():
+                self.start_processed_stf_polling(
+                    run_key,
+                    site_task.get("task_id"),
+                    execution_id=message_data.get("execution_id") or task_info.get("execution_id"),
+                    site_name=site_task.get("site") or site_name,
+                    input_dataset=site_task.get("input_dataset"),
+                    decision_box_enabled=True,
+                )
+            return
         self.start_processed_stf_polling(
             run_key,
             task_info.get("task_id"),
-            execution_id=message_data.get("execution_id") or task_info.get("execution_id")
+            execution_id=message_data.get("execution_id") or task_info.get("execution_id"),
+            decision_box_enabled=False,
         )
         
 
@@ -927,7 +1644,7 @@ class PROCESSING(BaseAgent):
 
 
 if __name__ == "__main__":
-    import  argparse, sys, shutil
+    import  argparse, shutil
     from    pathlib import Path
 
     # Example of inputDS for the static test: group.daq:swf.101871.run
@@ -978,12 +1695,6 @@ if __name__ == "__main__":
 
         print(f"*** Top directory:    {top_directory} ***")
         print(f"*** Test script path: {script} ***")
-
-    if top_directory not in sys.path:
-        sys.path.append(str(top_directory))
-        if verbose: print(f'''*** Added {top_directory} to sys.path ***''')
-    else:
-        if verbose: print(f'''*** {top_directory} is already in sys.path ***''')
 
     processing = PROCESSING(verbose=verbose, test=test)
 
