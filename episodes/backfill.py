@@ -43,9 +43,16 @@ def backfill(execution_id: str) -> bool:
     if isinstance(rows, dict):
         rows = rows.get('results') or []
     rows.sort(key=lambda row: row.get('sent_at') or '')
-    messages = [row.get('message_content') or {} for row in rows]
-    messages = [m for m in messages
-                if m.get('execution_id') == execution_id]
+    messages = []
+    for row in rows:
+        content = row.get('message_content') or {}
+        if content.get('execution_id') != execution_id:
+            continue
+        # The recorded sent time backs any message whose writer
+        # stamped no timestamp of its own.
+        if row.get('sent_at'):
+            content.setdefault('sent_at', row['sent_at'])
+        messages.append(content)
     if not messages:
         print(f'{execution_id}: no recorded messages')
         return False

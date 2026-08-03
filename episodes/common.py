@@ -32,17 +32,21 @@ def message_time(message: Dict) -> Optional[str]:
 
     Bus timestamps are naive local stamps from the sending agent; the
     store accepts only aware times, so the agents' zone is attached.
+    Writers that stamp nothing (a known gap) fall back to the recorded
+    sent time (backfill) or the builder's arrival stamp (live).
     """
-    raw = message.get('timestamp')
-    if not raw:
-        return None
-    try:
-        parsed = datetime.fromisoformat(str(raw))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=AGENT_ZONE)
-    return parsed.isoformat()
+    for field in ('timestamp', 'sent_at', '_received_at'):
+        raw = message.get(field)
+        if not raw:
+            continue
+        try:
+            parsed = datetime.fromisoformat(str(raw))
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=AGENT_ZONE)
+        return parsed.isoformat()
+    return None
 
 
 class TestbedEpisodeDefinition(EpisodeDefinition):

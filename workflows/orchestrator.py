@@ -28,9 +28,11 @@ AGENT_PROGRAM_MAP = {
 AGENTS_CONF = 'agents.supervisord.conf'
 
 # Standing infrastructure programs: not part of any workflow's agent
-# lifecycle, so run/stop checks leave them alone. They carry
-# autostart=true and revive with supervisord restarts.
-STANDING_PROGRAMS = {'episode-builder-agent'}
+# lifecycle, so run/stop checks leave them alone. Empty since the
+# episode builder moved to the swf-episode-builder systemd service;
+# the mechanism stays for future supervisord-resident standing
+# programs.
+STANDING_PROGRAMS = set()
 AGENTS_SOCK = '/tmp/swf-agents-supervisor.sock'
 
 

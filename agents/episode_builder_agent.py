@@ -28,15 +28,22 @@ class EpisodeBuilderAgent(BaseAgent):
     def __init__(self):
         super().__init__(agent_type='EPISODE_BUILDER',
                          subscription_queue='/topic/epictopic')
+        # The builder identity is stable across restarts and instances:
+        # a restarted builder must resume the episodes its predecessor
+        # opened. The per-process agent name would strand them.
         ingest = MonitorEpisodeIngest(
             base_url=self.base_url,
             token=self.api_token,
-            builder_identity=self.agent_name,
+            builder_identity='episode-builder',
         )
         self.builder = EpisodeBuilder(
             [definition() for definition in ALL_DEFINITIONS], ingest)
         logging.info('armed definitions: %s',
                      [d.workflow_name for d in self.builder.definitions])
+        adopted = self.builder.adopt_open_episodes()
+        if adopted:
+            logging.info('adopted %d open episode(s) from a previous '
+                         'builder instance', adopted)
 
     def on_message(self, frame):
         try:
