@@ -34,6 +34,9 @@ realtime = true                 # Run in real-time (1 sim second = 1 wall second
 # When unset, JSON stubs are written instead.
 # stf_source_pattern = "/cvmfs/eic.opensciencegrid.org/testbed/epic/FULL/26.03.0/epic_craterlake/Bkg_Exact1S_2us/GoldCt/10um/DIS/NC/10x100/minQ2=1/pythia8NCDIS_10x100_minQ2=1_beamEffects_xAngle=-0.025_hiDiv_1.*.edm4hep.root"
 
+# Destination filename pattern using str.format() syntax.
+# stf_destination_pattern = "swf.{run_id}.{counter:06d}.edm4hep.root"
+
 [prompt_processing]
 # Optional shared output root for generated STF files.
 # Leave empty in the shared config. Users can override via:

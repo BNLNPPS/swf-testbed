@@ -51,6 +51,12 @@ class WorkflowExecutor:
         else:
             self.stf_source_files = []
 
+        # Pattern for destination STF filenames using str.format() syntax.
+        # Available keys: counter (1-based sequence number), run_id
+        self.stf_destination_pattern = config.get('simulation', {}).get(
+            'stf_destination_pattern', 'swf.{run_id}.{counter:06d}.stf'
+        )
+
         self.runner.logger.info(f"Prompt processing container: {self.container}")
         if self.stf_source_files:
             self.runner.logger.info(
@@ -144,16 +150,9 @@ class WorkflowExecutor:
     def generate_single_stf(self, env):
         self.stf_sequence += 1
 
-        if self.stf_source_files:
-            import os
-            try:
-                from swf_common_lib.rucio_quote import encode as rucio_encode
-            except ImportError:
-                rucio_encode = lambda s: s.replace('=', '_')
-            source_index = (self.stf_sequence - 1) % len(self.stf_source_files)
-            stf_filename = rucio_encode(os.path.basename(self.stf_source_files[source_index]))
-        else:
-            stf_filename = f"swf.{self.run_id}.{self.stf_sequence:06d}.stf"
+        stf_filename = self.stf_destination_pattern.format(
+            counter=self.stf_sequence, run_id=self.run_id
+        )
 
         # Broadcast STF generation
         yield env.process(self.broadcast_stf_gen(env, stf_filename))
