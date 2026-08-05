@@ -132,7 +132,8 @@ class DATA(BaseAgent):
 
         if self.verbose: print(f'''*** DATA class initialized. RSE: {self.rse} ***''')
 
-        time.sleep(1)
+        if self.rse:
+            self.rse_is_deterministic = self.rucio_client.get_rse(rse=self.rse)['deterministic']
 
 
     # ---
@@ -347,8 +348,11 @@ class DATA(BaseAgent):
             'rse':          self.rse,
             'did_scope':    self.rucio_scope,
             'did_name':     fn,
-            'pfn':          f'{xrd_server.rstrip("/")}{xrd_folder}/{self.dataset}/{fn}'
         }
+        if self.rse_is_deterministic:
+            self.logger.warning(f"RSE \"{self.rse}\" is deterministic, so this upload will not follow the PFN schema")
+        else:
+            upload_spec['pfn'] = f'{xrd_server.rstrip("/")}{xrd_folder}/{self.dataset}/{fn}'
 
         # Upload the file using either XRootD or Rucio
         if self.xrdup: # XRootD upload
