@@ -132,7 +132,8 @@ class DATA(BaseAgent):
 
         if self.verbose: print(f'''*** DATA class initialized. RSE: {self.rse} ***''')
 
-        if self.rse:
+        self.rse_is_deterministic = False
+        if self.rse and self.rucio_client:
             self.rse_is_deterministic = self.rucio_client.get_rse(rse=self.rse)['deterministic']
 
 
