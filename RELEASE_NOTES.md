@@ -1,5 +1,117 @@
 # Release Notes
 
+## v41 (2026-08-07)
+
+This release extends Snapper with site-level job histories and a campaign delivery view, introduces workflow
+episodes as a recorded unit across the stack, adds verified PanDA task pause and resume with paced bulk
+controls, restructures the TF slice record around its registered TF sample, and moves the heavy monitor pages
+to cached serving. The epicprod domain gains the delivered-data daily record and the campaign plan curation
+surface. These notes cover the coordinated baseline repositories and the relevant `main` work in their peer
+repositories.
+
+### Snapper: site job histories and campaign delivery (snapper-ai, swf-monitor)
+
+- Site-level job lifecycle histories: the PanDA component publishes cumulative terminal-outcome counters with
+  retrofill, and a Site focus renders per-site job curves in lifecycle order with application-standard state
+  colors. The site slice is a table with one row per curve; site facts drill down to the jobs pages, and
+  drilldowns are limited to persistent outcomes. The jobs-page graphics align with the selected Snapper
+  interval and use consistent semantic colors for failure classes.
+- Campaign delivery view: per-campaign tabs with delivery lens curves, a per-PC daily arrivals quilt, a
+  day-breakdown cut card covering the selected campaigns, and events and files as toggled quantities, served
+  from cached series. Delivery leaves account by progress rule, one leaf per configuration.
+- URL state: curve tick selection, provider-owned default-off curves, live-edge (`cut=now`) tracking URLs, and
+  sticky chosen cuts; display defaults never stamp the URL. Focus-sized series caching follows refreshes
+  promptly.
+- The numbered activity bars open run stories with machine-readable failed-file counts and application-standard
+  state fills; low-information curves are removed from the job and task plots.
+
+### Workflow episodes (swf-common-lib, snapper-ai, swf-monitor, swf-testbed)
+
+- The swf-common-lib episodes module is a generic episode-building engine: definitions specify event-fed
+  bounded records with start and end hooks; the builder adopts events, stamps arrivals, and reports each
+  participant once.
+- The testbed episode builder runs as a standing system service, capturing workflow episodes off the message
+  bus for all namespaces.
+- swf-monitor provides episode REST ingest and read endpoints backed by the snapper-ai episode store, and the
+  Snapper Time history adds an Episode view. An agentic workflow view over these records is planned, with plan
+  documents in swf-testbed and snapper-ai.
+
+### PanDA task operations and Capcom (swf-monitor, swf-epicprod)
+
+- Verified pause and resume for PanDA tasks: operator controls restricted to authorized users, executed and
+  verified against PanDA, with paced bulk operations rendered above the dynamic task table. An alarm-driven
+  automatic pause on failure-rate spikes is planned (swf-epicprod).
+- Capcom: a state endpoint serves tile-exact SWF state for external notice pages; the dispatcher tile is named
+  swf-bot; alarm presence is a state tile; a nightly campaign-delivery notice reports the day's arrivals;
+  notices are buffered for consumer polling instead of external push; the PanDA tile shows the running task
+  count and integer success percent.
+
+### Fast processing chain and TF slice restructure (swf-monitor, swf-testbed)
+
+- The fast processing pipeline v11 is the design of record: STF files slice directly and the separate FastMon
+  processing stage is retired; the TF sample persists as a registration record (FastMonFile) that parents the
+  slices.
+- The TFSlice record is keyed to its registered TF sample by foreign key and the flat tf_filename/stf_filename
+  columns are removed (monitor_app migrations 0005 and 0006). REST and MCP outputs are unchanged. The REST
+  create payload replaces the two filename fields with `fastmon_file` naming the registered sample; clients
+  that create slices must be updated accordingly. The example fast processing agent posts the new payload; its
+  worker queue messages are unchanged.
+- The fastmon-files list page 500 (unbound short_filename) is fixed.
+
+### PCS: delivered-data record, campaign plan, physics configuration (swf-epicprod, swf-monitor)
+
+- The campaign delivery daily record measures per-file events and accumulates per-PC arrivals over complete
+  days, backfilled from Rucio arrival history and produced nightly in the catalog_sync chain, bounded to
+  active and recorded campaigns. CAMPAIGN_DELIVERY.md documents the record and its views.
+- Campaign plan: a target-events curation surface (/pcs/plan/) with expected-events fields, a setter service,
+  and a REST endpoint; request-material target derivation; campaign pages link the campaign's delivery time
+  history.
+- The physics configuration is an entity (PhysicsConfig) and is documented as such. The physics page and
+  request composer serve cached products; an unknown tag type is a 404.
+- Catalog: forward-only rotation with server-side guards; the latest daily AI assessment appears inline on
+  current and producing campaign pages; assessment strips name their campaign and use human-addressed URLs.
+- EPICPROD_VALIDATION records the agreed production–validation loop. Assessment causal claims require evidence
+  and structured attribution.
+
+### Serving performance and deployment (swf-monitor)
+
+- The PanDA activity page, tasks list, compute-usage rollup, and log summary serve from cached products; the
+  tasks window cache renders cells at serve time. Typed REST filters reject malformed values with 400.
+  django-filter is enabled so filterset_fields declarations filter.
+- Deploys stage a unique release and never rebuild the current tree in place; the Apache maximum-requests
+  daemon recycling is removed.
+- The Mattermost bots keep a stable prompt-cache prefix and log usage per round.
+
+### Interface work (swf-monitor)
+
+- List pages: enumerated value walls are removed as filters; long names render middle-elided with the full
+  name on hover; the TF slices page is reorganized; latching table headers on all list pages with adaptive
+  two-axis scrolling for wide tables; visible checkbox borders application-wide.
+- The account page shows testbed activity lanes on the My Workflows tab; the testbed home places Snapper
+  namespace lanes above Workflows; hub routes are authoritative for navigation mode; robots.txt is served
+  outside the OIDC gate and disallows all crawling.
+
+### External access (swf-remote, site-canary)
+
+- swf-remote: crawlers are denied the whole proxied surface at the proxy choke point; a live-data access
+  contract with proxy identities; the aggregate System page is proxied; GitHub sign-in; a rolling session
+  window.
+- site-canary: queue assessments state their evaluation window, keep status evidence-current, and link to
+  Snapper and source documentation; Canary queues publish into Snapper site state with updated state colors.
+
+### Agents and CI (swf-testbed)
+
+- data_agent supports uploading to deterministic RSEs; prompt_processing adds a configurable mode for real
+  file processing; the integration test runs several workflows.
+- Run lifecycle: executions and announced runs terminalize on mid-run stop; status checks probe TCP directly
+  instead of shelling out; the testbed image installs site-canary before the meta-package.
+
+### Acknowledgments
+
+- Wen Guan: the TFSlice restructure (swf-monitor PR #45) and the fast processing workflow it serves.
+- Dmitry Kalinkin: data agent deterministic-RSE uploads, prompt processing real-file mode, and the
+  multi-workflow integration test (swf-testbed PRs #68, #66, #63).
+
 ## v40 (2026-07-25)
 
 This release adds Snapper, which records subsystem-published operational state as a queryable history, with a
