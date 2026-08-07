@@ -1,0 +1,26 @@
+[testbed]
+namespace = "test-user"
+
+[workflow]
+name = "stf_datataking"
+version = "1.0"
+description = "Default STF datataking workflow"
+config = "stf_datataking_default"
+includes = ["daq_state_machine.toml"]
+
+# =============================================================================
+# Agent Configuration
+# =============================================================================
+[agents.processing]
+enabled = true
+script = "example_agents/example_processing_agent.py"
+
+# =============================================================================
+# Simulation Parameters
+# =============================================================================
+[simulation]
+stf_count = 5
+physics_period_count = 1
+physics_period_duration = 60
+stf_interval = 2.2
+realtime = true
