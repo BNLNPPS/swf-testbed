@@ -41,10 +41,12 @@ repositories.
 - Verified pause and resume for PanDA tasks: operator controls restricted to authorized users, executed and
   verified against PanDA, with paced bulk operations rendered above the dynamic task table. An alarm-driven
   automatic pause on failure-rate spikes is planned (swf-epicprod).
-- Capcom: a state endpoint serves tile-exact SWF state for external notice pages; the dispatcher tile is named
-  swf-bot; alarm presence is a state tile; a nightly campaign-delivery notice reports the day's arrivals;
-  notices are buffered for consumer polling instead of external push; the PanDA tile shows the running task
-  count and integer success percent.
+- Capcom is an operations communication console: a page of state tiles showing current SWF operational state,
+  alongside a feed of operational notices. The console itself is currently external to SWF, implemented in a
+  separate operations system, and will probably be added to SWF. swf-monitor serves it: a state endpoint
+  provides tile-exact SWF state; alarm presence and the swf-bot dispatcher are state tiles; a nightly
+  campaign-delivery notice reports the day's arrivals; notices are buffered for consumer polling instead of
+  external push; the PanDA state includes the running task count and integer success percent.
 
 ### Fast processing chain and TF slice restructure (swf-monitor, swf-testbed)
 
