@@ -683,9 +683,14 @@ class FastProcessingAgent(BaseAgent):
                 }
             }
 
-            # Create in database
+            # Create in database. The record references its registered
+            # TF sample (FastMonFile) by name; the derived slice filename
+            # stays in the queue message only.
+            db_payload = {k: v for k, v in slice_data.items()
+                          if k not in ('tf_filename', 'stf_filename')}
+            db_payload['fastmon_file'] = tf_filename
             try:
-                result = self.call_monitor_api('POST', '/tf-slices/', slice_data)
+                result = self.call_monitor_api('POST', '/tf-slices/', db_payload)
                 if result:
                     self.stats['slices_created'] += 1
                     self.slices_created += 1

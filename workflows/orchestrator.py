@@ -26,6 +26,13 @@ AGENT_PROGRAM_MAP = {
 }
 
 AGENTS_CONF = 'agents.supervisord.conf'
+
+# Standing infrastructure programs: not part of any workflow's agent
+# lifecycle, so run/stop checks leave them alone. Empty since the
+# episode builder moved to the swf-episode-builder systemd service;
+# the mechanism stays for future supervisord-resident standing
+# programs.
+STANDING_PROGRAMS = set()
 AGENTS_SOCK = '/tmp/swf-agents-supervisor.sock'
 
 
@@ -88,7 +95,22 @@ def restart_supervisord() -> bool:
             capture_output=True,
             cwd=testbed_dir
         )
-        time.sleep(1)
+        # Shutdown stops every program, including standing ones such
+        # as the episode builder, and can take several seconds; the
+        # new instance cannot bind until the old one is gone.
+        for _ in range(30):
+            time.sleep(1)
+            probe = subprocess.run(
+                ['supervisorctl', '-c', conf_path, 'status'],
+                capture_output=True,
+                text=True,
+                cwd=testbed_dir
+            )
+            if probe.returncode == 4:
+                break
+        else:
+            print("Warning: previous supervisord did not shut down "
+                  "within 30 s")
 
     # Start fresh
     print("Starting supervisord...")
@@ -185,7 +207,8 @@ def get_running_agents() -> list:
         if 'RUNNING' in line:
             # Line format: "program-name   RUNNING   pid 12345, uptime 0:00:05"
             program_name = line.split()[0]
-            running.append(program_name)
+            if program_name not in STANDING_PROGRAMS:
+                running.append(program_name)
 
     return running
 

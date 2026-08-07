@@ -310,7 +310,7 @@ class WorkflowRunner(BaseAgent):
         # workflow must not leave its announced runs claiming activity.
         self._announced_runs = set()
         try:
-            self._execute_workflow(
+            outcome = self._execute_workflow(
                 execution_id=execution_id,
                 workflow_code=workflow_code,
                 config=config,
@@ -321,7 +321,14 @@ class WorkflowRunner(BaseAgent):
             self._update_execution_status(execution_id, 'failed')
             self._abandon_announced_runs()
             raise
-        self._update_execution_status(execution_id, 'completed')
+        if outcome == 'stopped':
+            # A stop mid-run is not a completion: the workflow never sent
+            # end_run, so its announced runs must not be left claiming
+            # activity.
+            self._update_execution_status(execution_id, 'terminated')
+            self._abandon_announced_runs()
+        else:
+            self._update_execution_status(execution_id, 'completed')
 
         return execution_id
 
@@ -631,13 +638,15 @@ class WorkflowRunner(BaseAgent):
             end_time = duration if duration and duration > 0 else float('inf')
 
             while True:
-                # Step callback - check stop flag and other per-step actions
-                if not self._on_simulation_step(env, execution_id):
-                    break
-
-                # Check if workflow process completed
+                # Check if workflow process completed — before the stop
+                # check, so a finished workflow always reads 'completed'
+                # even when a stop request races its last event.
                 if workflow_process.processed:
                     break
+
+                # Step callback - check stop flag and other per-step actions
+                if not self._on_simulation_step(env, execution_id):
+                    return 'stopped'
 
                 # Check duration limit
                 if env.now >= end_time:
@@ -652,6 +661,7 @@ class WorkflowRunner(BaseAgent):
                     break
         else:
             raise ValueError("WorkflowExecutor class not found in workflow code")
+        return 'completed'
 
     def _abandon_announced_runs(self):
         """Terminalize the runs this execution announced but did not

@@ -1,6 +1,7 @@
 import typer
 import shutil
 from pathlib import Path
+import socket
 import subprocess
 import os
 import sys
@@ -105,43 +106,36 @@ def _check_supervisord_running() -> bool:
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         return False
 
-def _check_postgres_connection():
-    """Checks the connection to the PostgreSQL database."""
-    db_host = os.getenv("DB_HOST", "localhost")
-    db_port = os.getenv("DB_PORT", "5432")
-    db_user = os.getenv("DB_USER", "admin")
-    db_name = os.getenv("DB_NAME", "swfdb")
-
-    print(f"--- Checking PostgreSQL connection at {db_host}:{db_port} ---")
+def _check_tcp_service(name, host, port):
+    """Probe a TCP service by connecting to it. External tools (pg_isready,
+    lsof) are unreliable here: not on PATH, or blind to other users'
+    sockets without privileges. A connect() needs neither."""
+    print(f"--- Checking {name} connection at {host}:{port} ---")
     try:
-        result = subprocess.run(
-            ["pg_isready", "-h", db_host, "-p", db_port, "-U", db_user, "-d", db_name],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        print(result.stdout.strip())
-        if "accepting connections" not in result.stdout:
-            print("Warning: PostgreSQL is not ready.")
-            return False
+        with socket.create_connection((host, int(port)), timeout=3):
+            pass
+        print(f"{name} is accepting connections at {host}:{port}.")
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"Error checking PostgreSQL status: {e}")
-        print("Please ensure PostgreSQL is running and `pg_isready` is in your PATH.")
+    except OSError as e:
+        print(f"Warning: could not connect to {name} at {host}:{port}: {e}")
+        print(f"Please ensure {name} is running.")
         return False
+
+def _check_postgres_connection():
+    """Checks that PostgreSQL is accepting connections."""
+    return _check_tcp_service(
+        "PostgreSQL",
+        os.getenv("DB_HOST", "localhost"),
+        os.getenv("DB_PORT", "5432"),
+    )
 
 def _check_activemq_connection():
-    """Checks if ActiveMQ is listening on its port."""
-    amq_port = os.getenv("ACTIVEMQ_PORT", "61616")
-    print(f"--- Checking ActiveMQ connection on port {amq_port} ---")
-    result = subprocess.run(f"lsof -i -P -n | grep LISTEN | grep ':{amq_port}'", shell=True, capture_output=True)
-    if result.returncode == 0:
-        print(f"ActiveMQ appears to be running and listening on port {amq_port}.")
-        return True
-    else:
-        print(f"Warning: Could not detect a service listening on port {amq_port}.")
-        print("Please ensure ActiveMQ is running.")
-        return False
+    """Checks that ActiveMQ is accepting connections."""
+    return _check_tcp_service(
+        "ActiveMQ",
+        os.getenv("ACTIVEMQ_HOST", "localhost"),
+        os.getenv("ACTIVEMQ_PORT", "61616"),
+    )
 
 
 def _get_workflow_status():
@@ -331,10 +325,19 @@ def stop_agents():
         print(f"Error: {AGENTS_CONF} not found. Run 'testbed init' first.")
         raise typer.Exit(code=1)
 
-    # Stop all agents
+    # Stop workflow agents; standing infrastructure programs (the
+    # episode builder) are not part of any workflow's lifecycle and
+    # stay up.
+    sys.path.insert(0, str(testbed_root))
+    from workflows.orchestrator import STANDING_PROGRAMS, get_running_agents
+
     print("Stopping workflow agents...")
+    to_stop = get_running_agents()
+    if not to_stop:
+        print("No workflow agents running.")
+        return
     result = subprocess.run(
-        ["supervisorctl", "-c", str(conf_path), "stop", "all"],
+        ["supervisorctl", "-c", str(conf_path), "stop"] + to_stop,
         capture_output=True,
         text=True,
         cwd=testbed_root

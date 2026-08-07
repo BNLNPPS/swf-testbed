@@ -6,13 +6,12 @@ This document describes the fast processing workflow for near real-time detector
 
 The fast processing workflow enables rapid processing of detector data by:
 1. Simulating DAQ data taking (STF generation)
-2. Sampling Time Frames (TF) from Super Time Frames (STF)
-3. Creating TF slices for parallel processing
-4. Distributing slices to PanDA workers running reconstruction payloads
+2. Creating TF slices directly from arriving STFs for parallel processing
+3. Distributing slices to PanDA workers running reconstruction payloads
 
 ### Pipeline Overview
 
-![Fast Processing Pipeline](images/fast-processing-pipeline-v5.svg)
+![Fast Processing Pipeline](images/fast-processing-pipeline-v11.svg)
 
 **Worker Payload:** Each PanDA worker receives a TF slice as input and runs a reconstruction payload. Currently the payload is a placeholder; in production it will be EICrecon for ePIC detector reconstruction.
 
@@ -24,13 +23,11 @@ The fast processing workflow enables rapid processing of detector data by:
 flowchart LR
     DS["DAQ Simulator"]
     DA["Data Agent"]
-    FM["FastMon Agent"]
     FP["Fast Processing Agent"]
     W["PanDA Workers<br/>(EICrecon)"]
 
     DS -->|"stf_gen<br/>STF"| DA
-    DA -->|"stf_ready"| FM
-    FM -->|"tf_file_registered<br/>STF sample"| FP
+    DA -->|"stf_ready"| FP
     FP -->|"TF slices"| W
 ```
 
@@ -40,7 +37,6 @@ flowchart LR
 sequenceDiagram
     participant DS as DAQ Simulator
     participant DA as Data Agent
-    participant FM as FastMon Agent
     participant FP as Fast Processing Agent
     participant PQ as PanDA Queue
     participant MON as Monitor DB
@@ -48,32 +44,24 @@ sequenceDiagram
     Note over DS,MON: === Run Initialization ===
 
     DS->>DA: run_imminent (execution_id, run_id)
-    DS->>FM: run_imminent
     DS->>FP: run_imminent
     DA->>MON: Create dataset for run
     FP->>MON: Initialize RunState
 
     DS->>DA: start_run (run_id)
-    DS->>FM: start_run
     DS->>FP: start_run
     FP->>MON: Update RunState (phase=physics)
 
     Note over DS,MON: === STF Processing (repeat for each STF) ===
 
     DS->>DA: stf_gen (filename, sequence)
-    DS->>FM: stf_gen
     DS->>FP: stf_gen
 
     DA->>MON: Register STF file
     DA->>DA: Process STF metadata
-    DA->>FM: stf_ready (filename, run_id)
-    DA->>FP: stf_ready
+    DA->>FP: stf_ready (filename, run_id)
 
-    FM->>FM: Sample TFs from STF
-    FM->>MON: Register TF samples
-    FM->>FP: tf_file_registered (tf_filename, stf_filename)
-
-    FP->>FP: Create TF slices
+    FP->>FP: Create TF slices from the STF
     FP->>MON: Register TF slices
 
     loop For each slice
@@ -85,7 +73,6 @@ sequenceDiagram
     Note over DS,MON: === Run Completion ===
 
     DS->>DA: end_run (total_stf_files)
-    DS->>FM: end_run
     DS->>FP: end_run
 
     DA->>MON: Finalize dataset
@@ -103,15 +90,10 @@ Run (run_id: 101993)
 │   ├── swf.101993.000002.stf
 │   └── swf.101993.000003.stf
 │
-├── TF Samples (Time Frame samples from FastMon)
-│   ├── swf.101993.000001_tf_001.tf
-│   ├── swf.101993.000001_tf_002.tf
-│   └── ...
-│
 └── TF Slices (for PanDA workers)
     ├── swf.101993.000001_slice_000.tf
     ├── swf.101993.000001_slice_001.tf
-    └── ... (15 slices per STF sample)
+    └── ... (15 slices per STF)
 ```
 
 ### Data Product Details
@@ -119,7 +101,6 @@ Run (run_id: 101993)
 | Product | Created By | Stored In | Purpose |
 |---------|-----------|-----------|---------|
 | **STF File** | DAQ Simulator | STFFile table | Raw detector data unit |
-| **TF Sample** | FastMon Agent | FastMonFile table | Sampled subset for fast monitoring |
 | **TF Slice** | Fast Processing Agent | TFSlice table | Processing unit for PanDA workers |
 
 ## Message Types
@@ -139,14 +120,13 @@ Run (run_id: 101993)
 
 | Message | From | To | Payload |
 |---------|------|----|---------|
-| `stf_ready` | Data Agent | FastMon, Fast Processing | `filename`, `checksum`, `size_bytes` |
-| `tf_file_registered` | FastMon Agent | Fast Processing Agent | `tf_filename`, `stf_filename`, `tf_count` |
+| `stf_ready` | Data Agent | Fast Processing Agent | `filename`, `checksum`, `size_bytes` |
 
 ### Queue Messages (Fast Processing → PanDA)
 
 | Message | Destination | Payload |
 |---------|-------------|---------|
-| `slice` | `/queue/panda.transformer.slices` | `slice_id`, `tf_filename`, `start`, `end`, `tf_count` |
+| `slice` | `/queue/panda.transformer.slices` | `slice_id`, `stf_filename`, `start`, `end`, `tf_count` |
 
 ## Configuration
 
@@ -159,9 +139,6 @@ namespace = "torre2"
 [agents.data]
 enabled = true
 
-[agents.fastmon]
-enabled = true
-
 [agents.fast_processing]
 enabled = true
 
@@ -169,8 +146,7 @@ enabled = true
 stf_count = 10              # STF files to generate
 physics_period_count = 1    # Physics periods per run
 target_worker_count = 30    # Target PanDA workers
-stf_sampling_rate = 1.0     # Fraction of STFs to sample (1.0 = 100%)
-slices_per_sample = 15      # TF slices per STF sample
+slices_per_stf = 15         # TF slices per STF
 slice_processing_time = 30  # Seconds per slice (for planning)
 ```
 
@@ -247,7 +223,7 @@ stateDiagram-v2
 | Metric | Source | Purpose |
 |--------|--------|---------|
 | `stf_count` | WorkflowExecution | Total STFs in run |
-| `tf_files_received` | Fast Processing Agent | TF samples processed |
+| `stfs_received` | Fast Processing Agent | STFs processed |
 | `slices_created` | RunState | Total slices generated |
 | `slices_queued` | RunState | Slices waiting for workers |
 | `slices_completed` | RunState | Successfully processed |
@@ -288,7 +264,6 @@ Run 101993 Summary:
 └── Agents involved:
     ├── daq_simulator-agent-wenauseic-484
     ├── data-agent-wenauseic-481
-    ├── fastmon-agent-wenauseic-482
     └── fast_processing-agent-wenauseic-483
 ```
 
@@ -382,8 +357,8 @@ chmod +x run_fast_processing.sh
    - Logs "Fast Processing Agent ready" to console
 
 3. **During Run**:
-   - Processes `tf_file_registered` messages
-   - Creates TF slices (15 per TF sample by default)
+   - Processes `stf_ready` messages
+   - Creates TF slices (15 per STF by default)
    - Sends slices to `/topic/panda.slices`
    - Broadcasts `run_imminent` and `end_run` to `/topic/panda.workers`
    - Receives and processes slice results
@@ -396,8 +371,8 @@ Watch the console output for:
 [INFO] Fast Processing Agent ready
 [INFO] Received run_imminent for run 101993
 [INFO] Broadcasting run_imminent to workers (target: 30)
-[INFO] Received tf_file_registered: swf.101993.000001_tf_001.tf
-[INFO] Created 15 slices for TF swf.101993.000001_tf_001.tf
+[INFO] Received stf_ready: swf.101993.000001.stf
+[INFO] Created 15 slices for STF swf.101993.000001.stf
 [INFO] Sent slice swf.101993.000001_slice_000.tf to queue
 [INFO] Received slice_result: slice_000 completed (success)
 ```
