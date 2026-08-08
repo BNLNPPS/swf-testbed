@@ -116,7 +116,7 @@ def _check_tcp_service(name, host, port):
             pass
         print(f"{name} is accepting connections at {host}:{port}.")
         return True
-    except OSError as e:
+    except (OSError, ValueError) as e:
         print(f"Warning: could not connect to {name} at {host}:{port}: {e}")
         print(f"Please ensure {name} is running.")
         return False
@@ -329,7 +329,7 @@ def stop_agents():
     # episode builder) are not part of any workflow's lifecycle and
     # stay up.
     sys.path.insert(0, str(testbed_root))
-    from workflows.orchestrator import STANDING_PROGRAMS, get_running_agents
+    from workflows.orchestrator import get_running_agents
 
     print("Stopping workflow agents...")
     to_stop = get_running_agents()
