@@ -271,7 +271,12 @@ def send_run_workflow(config: dict) -> bool:
     realtime = workflow_config.get('realtime', True)
 
     # Get parameter overrides
-    params = config.get('parameters', {})
+    params = dict(config.get('parameters', {}))
+    # The run's completion-notice stamp travels to the workflow runner as
+    # a command parameter and lands top-level in the execution's
+    # parameter_values (notice routing, swf-monitor docs/NOTICE_ROUTING.md).
+    if config.get('notice'):
+        params['notice'] = True
 
     # Get namespace from the loaded config (not from hardcoded testbed.toml)
     namespace = config.get('testbed', {}).get('namespace')
@@ -292,7 +297,7 @@ def send_run_workflow(config: dict) -> bool:
         sender.disconnect()
 
 
-def run(config_name: str = None) -> bool:
+def run(config_name: str = None, notice: bool = False) -> bool:
     """
     Start agents and trigger workflow.
 
@@ -301,6 +306,7 @@ def run(config_name: str = None) -> bool:
 
     Args:
         config_name: Name of config file, or None for testbed.toml
+        notice: Stamp the run for a completion notice (testbed run --notice)
 
     Returns:
         True if workflow started successfully
@@ -311,6 +317,8 @@ def run(config_name: str = None) -> bool:
     except FileNotFoundError as e:
         print(f"Error: {e}")
         return False
+    if notice:
+        config['notice'] = True
 
     # Propagate the resolved absolute config path so supervisord child processes
     # (workflow-runner, agents) all use the same config file.  config_path is

@@ -359,6 +359,13 @@ def run(
         None,
         help="Config name (e.g., 'fast_processing' loads workflows/fast_processing.toml). "
              "If not specified, uses workflows/testbed.toml"
+    ),
+    notice: bool = typer.Option(
+        False, "--notice",
+        help="Stamp this run for a completion notice: its terminal state "
+             "emits a workflow_execution_completed event with notice=true, "
+             "deliverable to notice-routing subscribers "
+             "(swf-monitor docs/NOTICE_ROUTING.md)."
     )
 ):
     """
@@ -367,6 +374,7 @@ def run(
     Examples:
         testbed run                    # Run using workflows/testbed.toml
         testbed run fast_processing    # Run using workflows/fast_processing.toml
+        testbed run --notice           # Nightly form: completion notice requested
     """
     _setup_environment()
 
@@ -376,7 +384,7 @@ def run(
 
     from workflows.orchestrator import run as orchestrator_run
 
-    success = orchestrator_run(config_name)
+    success = orchestrator_run(config_name, notice=notice)
     if not success:
         raise typer.Exit(code=1)
 
