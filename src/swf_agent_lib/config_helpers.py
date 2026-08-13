@@ -6,7 +6,7 @@ class PromptProcessingConfigMixin:
     """Shared prompt-processing config helpers for local testbed agents."""
 
     def _prompt_processing_config_path(self):
-        return os.path.join(os.path.dirname(os.path.dirname(__file__)), "workflows", "prompt_processing.toml")
+        return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "workflows", "prompt_processing.toml")
 
     def _load_prompt_processing_section(self, config_path, warn=False):
         if not config_path:
@@ -124,3 +124,4 @@ class DecisionDatasetNamingMixin:
             if dataset_did == self._input_dataset_did_for_site(run_number, site_name):
                 return site_name
         return None
+

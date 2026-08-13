@@ -56,12 +56,7 @@ except ModuleNotFoundError as e:  # Deprecated: legacy rucio_comms imports, to b
     print('*** Imported rucio helpers from rucio_comms.utils (legacy fallback) ***')
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.api_utils import ensure_namespace
-try:
-    from agent_config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
-except ModuleNotFoundError as e:
-    if e.name != "agent_config_helpers":
-        raise
-    from agents.agent_config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
+from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
 
 from swf_testbed_decision_box.catalog import RucioDatasetCatalog
 from swf_testbed_decision_box.monitor_metadata import metadata_with_execution_id

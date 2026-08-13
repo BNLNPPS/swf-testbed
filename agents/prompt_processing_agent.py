@@ -4,12 +4,7 @@ from urllib.parse import urlencode
 from pandaclient import PrunScript, panda_api
 from pandaclient.Client import getTaskStatus, getPandaIDsWithTaskID, getFullJobStatus
 from swf_common_lib.base_agent import BaseAgent
-try:
-    from agent_config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
-except ModuleNotFoundError as e:
-    if e.name != "agent_config_helpers":
-        raise
-    from agents.agent_config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
+from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
 
 from swf_testbed_decision_box.monitor_metadata import execution_id_matches
 from swf_testbed_decision_box.models import Decision, FileDID
@@ -614,7 +609,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         if statuses and all(status == "processed" for status in statuses):
             return "processed"
         if statuses and all(status in {"processed", "failed"} for status in statuses):
-            return "failed" if any(status == "failed" for status in statuses) else "processed"
+            return "failed"
         return "processing"
 
 
