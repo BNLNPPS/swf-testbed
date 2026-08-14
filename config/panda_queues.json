@@ -1,4 +1,117 @@
 {
+  "BNL_NPPS_GPU": {
+    "name": "BNL_NPPS_GPU",
+    "nickname": "BNL_NPPS_GPU",
+    "panda_resource": "BNL_NPPS_GPU",
+    "siteid": "BNL_NPPS_GPU",
+    "panda_site": "BNL-OSG-PanDA",
+    "site": "BNL-OSG-PanDA",
+    "atlas_site": "BNL-OSG",
+    "gocname": "BNL-OSG",
+    "gstat": "BNL-OSG",
+    "rc": "US-T1-BNL",
+    "rc_site": "BNL-OSG",
+    "parent": "OSG_VIRTUAL",
+    "cloud": "US",
+    "region": "US",
+    "country": "United States",
+    "tier": "T1",
+    "vo_name": "eic",
+    "type": "production",
+    "resource_type": "gpu",
+    "capability": "ucore",
+    "state": "ACTIVE",
+    "status": "online",
+    "description": "NPPS GPU server npps0 (2x NVIDIA RTX 4090); Simphony optical photon simulation",
+    "workflow": "pull_ups",
+    "pilot_manager": "local",
+    "pilot_version": "3",
+    "python_version": "2",
+    "jobseed": "std",
+    "system": "osg",
+    "harvester": "",
+    "harvester_template": "",
+    "localqueue": "",
+    "corecount": 16,
+    "maxrss": 48000,
+    "meanrss": 4000,
+    "minrss": 0,
+    "maxtime": 86400,
+    "mintime": 0,
+    "timefloor": 0,
+    "maxwdir": 30000,
+    "maxinputsize": 30000,
+    "corepower": 12.32,
+    "container_type": "apptainer:pilot",
+    "container_options": "--nv",
+    "environ": "",
+    "envsetup": "",
+    "appdir": "",
+    "special_par": "",
+    "catchall": "allow_no_pilot,logging=logstash;http://pandalogstash.sdcc.bnl.gov:8443",
+    "is_cvmfs": false,
+    "allow_lan": true,
+    "allow_wan": false,
+    "direct_access_lan": false,
+    "direct_access_wan": true,
+    "wnconnectivity": "full",
+    "use_pcache": false,
+    "releases": [
+      "ANY"
+    ],
+    "copytools": {
+      "rucio": {
+        "setup": ""
+      }
+    },
+    "acopytools": {
+      "pr": [
+        "rucio"
+      ],
+      "pw": [
+        "rucio"
+      ],
+      "pl": [
+        "rucio"
+      ],
+      "read_lan": [
+        "rucio"
+      ],
+      "write_lan": [
+        "rucio"
+      ],
+      "read_lan_analysis": [
+        "rucio"
+      ],
+      "write_lan_analysis": [
+        "rucio"
+      ]
+    },
+    "astorages": {
+      "pr": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pw": [
+        "BNL_PROD_DISK_1"
+      ],
+      "pl": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan": [
+        "BNL_PROD_DISK_1"
+      ],
+      "read_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ],
+      "write_lan_analysis": [
+        "BNL_PROD_DISK_1"
+      ]
+    },
+    "zip_time_gap": 7200
+  },
   "BNL_OSG_PanDA_1": {
     "acopytools": {
       "pl": [
