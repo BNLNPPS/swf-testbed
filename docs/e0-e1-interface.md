@@ -77,7 +77,7 @@ workfest:
 - **Scale.** About 30 detectors read out through ~2500 readout boards
   (RDOs), ~120 data aggregation boards (DAMs), and a global timing unit
   (GTU). Echelon 0 computing is O(100) readout computers in the DAQ room
-  plus O(100) computers at the SDCC data center for time frame building,
+  plus O(100) computers at the SCDF data center for time frame building,
   high-level filters, archiving, monitoring, logging, and QA.
 - **Run-control model.** The state model incorporates continuously
   running components (scalers are the example); a "run" structure
@@ -106,7 +106,7 @@ workfest:
   the DAQ side of transfer interfaces for the orchestration testbed.
 
 Two E0 commitments bear directly on interface development. A DAQ
-proto-enclave at SDCC around the end of calendar 2026 — a few computers
+proto-enclave at SCDF around the end of calendar 2026 — a few computers
 that can exercise the interface against testbeds of interest — and the
 prospect of making the E0-E1 interface part of DAQ proper, with run
 control and file sending, eventually replacing the testbed's DAQ
@@ -475,7 +475,7 @@ A time order is not implied.
   the nopayloaddb conversation; definition (and naming) of the generic
   intra-run communications mechanism.
 - **E0 E1 integrated testing** — exercise the interface against the DAQ
-  proto-enclave at SDCC; prepare the testbed to swap its DAQ simulator
+  proto-enclave at SCDF; prepare the testbed to swap its DAQ simulator
   for a DAQ-owned simulator.
 - **Documentation** — the WFMS documentation covers the datataking state
   machine, the status of the conditions database and of E1-to-E0
