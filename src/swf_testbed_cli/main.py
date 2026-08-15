@@ -116,7 +116,7 @@ def _check_tcp_service(name, host, port):
             pass
         print(f"{name} is accepting connections at {host}:{port}.")
         return True
-    except OSError as e:
+    except (OSError, ValueError) as e:
         print(f"Warning: could not connect to {name} at {host}:{port}: {e}")
         print(f"Please ensure {name} is running.")
         return False
@@ -329,7 +329,7 @@ def stop_agents():
     # episode builder) are not part of any workflow's lifecycle and
     # stay up.
     sys.path.insert(0, str(testbed_root))
-    from workflows.orchestrator import STANDING_PROGRAMS, get_running_agents
+    from workflows.orchestrator import get_running_agents
 
     print("Stopping workflow agents...")
     to_stop = get_running_agents()
@@ -359,6 +359,13 @@ def run(
         None,
         help="Config name (e.g., 'fast_processing' loads workflows/fast_processing.toml). "
              "If not specified, uses workflows/testbed.toml"
+    ),
+    notice: bool = typer.Option(
+        False, "--notice",
+        help="Stamp this run for a completion notice: its terminal state "
+             "emits a workflow_execution_completed event with notice=true, "
+             "deliverable to notice-routing subscribers "
+             "(swf-monitor docs/NOTICE_ROUTING.md)."
     )
 ):
     """
@@ -367,6 +374,7 @@ def run(
     Examples:
         testbed run                    # Run using workflows/testbed.toml
         testbed run fast_processing    # Run using workflows/fast_processing.toml
+        testbed run --notice           # Nightly form: completion notice requested
     """
     _setup_environment()
 
@@ -376,7 +384,7 @@ def run(
 
     from workflows.orchestrator import run as orchestrator_run
 
-    success = orchestrator_run(config_name)
+    success = orchestrator_run(config_name, notice=notice)
     if not success:
         raise typer.Exit(code=1)
 

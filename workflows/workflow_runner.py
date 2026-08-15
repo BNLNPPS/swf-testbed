@@ -270,6 +270,13 @@ class WorkflowRunner(BaseAgent):
             else:
                 config[section] = values
 
+        # The completion-notice stamp is a run attribute, not a section
+        # override: it lands top-level in the stored config so the
+        # execution's parameter_values carry it (notice routing,
+        # swf-monitor docs/NOTICE_ROUTING.md).
+        if override_params.pop('notice', False):
+            config['notice'] = True
+
         # Apply CLI parameter overrides (highest priority) to all matching sections
         if override_params:
             for section, values in config.items():

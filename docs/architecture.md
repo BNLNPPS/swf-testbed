@@ -25,7 +25,7 @@ workflow and dataflow.
 The following is a schematic of the system the testbed targets (from the blue
 DAQ external subnet rightwards).
 
-![E0-E1 workflow schematic](../images/E0-E1_workflow_schematic.png)
+![E0-E1 workflow schematic](https://raw.githubusercontent.com/eic/epic-wfms-docs/main/docs/diagrams/E0-E1_workflow_schematic.svg)
 
 *Figure: E0-E1 data flow and processing schematic*
 

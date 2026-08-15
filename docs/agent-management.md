@@ -10,7 +10,7 @@ Agents are managed through two control paths:
 
 Both paths use supervisord for process management, ensuring consistent behavior.
 
-![Agent Management Overview](images/agent-management-overview-v4.svg)
+![Agent Management Overview](https://raw.githubusercontent.com/eic/epic-wfms-docs/main/docs/diagrams/testbed_agent_management.svg)
 
 ## CLI Control Path
 
