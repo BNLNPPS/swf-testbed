@@ -1,5 +1,101 @@
 # Release Notes
 
+## v42 (2026-08-15)
+
+This release adds Find Data, a single search field over the recorded dataset inventory with an LLM dialog
+sharing the same composer, and carries the production catalog through a composed-name integrity program.
+PanDA task operations gain retry coverage for aborted tasks together with the dataset and sandbox
+maintenance that lets retries succeed, and notice delivery moves onto one subscription-driven router. A
+standalone GPU worker outside the SCDF perimeter runs PanDA jobs with object-store stage-out. These notes
+cover the coordinated baseline repositories and the relevant `main` work in their peer repositories.
+
+### Find Data and the Brains dialog (swf-epicprod, swf-monitor)
+
+- The find page searches everything recorded — produced Rucio DIDs across campaigns, the registered EVGEN
+  inventory, and convention-implied unregistered EVGEN paths — from a cached corpus, with no live Rucio in
+  the render path. Query words are ANDed as substrings, a `-` prefix excludes, and dataset kinds are
+  searchable terms. Results carry a filter row per name field; a single match redirects to the dataset page.
+- The page is a chat over the search. One always-clear composer serves both the literal search and the
+  dialog, and the interleaved narrative of chat turns and applied searches is durable. A dialog reply may
+  end with a `SEARCH:` line, which the page applies, so the list and the dialog advance together.
+- The dialog runs on the DISpatcher bot engine in a Find Data mode: a page-specific preamble that informs
+  context, the full production tool set, and turn context carrying the page's current list state. Web turns
+  use a fixed tool set and place the cache breakpoint on the system block, so tools and system prompt cache
+  across rounds and turns.
+- Answers route by cost — the record tools and the page index first, the indexed documentation for
+  how-produced and what-a-file-contains questions, live Rucio last. Exhausted tool rounds synthesize an
+  answer from what was established instead of ending the turn. The cost and routing ladder lives in the
+  shared bot prompt, so the Mattermost face carries it as well.
+
+### PCS composed-name integrity (swf-epicprod)
+
+- The composed name is the catalog's identity. Intake derives a discriminating identity for each arrival,
+  the resolver refuses an ambiguous composed name instead of guessing, and the create path guards
+  uniqueness honestly. A collision audit and a class-wide backfill reconciled the existing catalog, and the
+  sample axis carries physics only — bookkeeping tokens are barred from it and a retraction removed those
+  already present.
+- A composed-name integrity collector on the System page alarms on collisions and on machine tokens in the
+  sample axis. Curation residue emits a catalog_curation_needed notice when the residue changes.
+
+### Data provenance (swf-epicprod, swf-monitor)
+
+- A provenance resolver answers where a dataset's inputs came from and what consumed it, including direct
+  xrootd paths for data not registered in Rucio, and states a DID's own registration status. It serves a
+  panel on the Rucio DID page, the `pcs_data_provenance` MCP tool, and an EVGEN registration coverage tab.
+  EPICPROD_DATA_LINEAGE.md documents the provenance surfaces.
+
+### PanDA task operations (swf-monitor)
+
+- Retry covers aborted tasks through reactivation, Kill becomes Stop and finish, and the task list gains
+  bulk Retry failed jobs. Task datasets reopen before a retry operation, a nightly keepalive maintains
+  sandbox and log-dataset lifetimes for retryable tasks, and a retry of a task whose sandbox tarball has
+  been purged is refused rather than attempted.
+- The System page reads the PanDA retry rules live from the PanDA database and shows both retry tables with
+  their identifiers. PANDA_ANCILLARY_AUDIT.md records the audit behind this work.
+
+### Notice routing (swf-monitor)
+
+- Notices are delivered through one subscription-driven router: subscriptions and workflow completion
+  events replace direct posting, the Mattermost publisher becomes the mattermost-live push plugin, and the
+  notice source is swf-notices. Live channel lines state the operation and its outcome in plain words, with
+  bulk-operation events off by default, and the heartbeat links to the workflow execution.
+
+### GPU worker outside the SCDF perimeter (swf-epicprod, swf-testbed)
+
+- The BNL_NPPS_GPU queue runs PanDA jobs on an NPPS GPU host with two RTX 4090s, using the standard BNL
+  pilot wrapper in pull mode under a launcher loop — no Harvester and no compute element. Each pass is
+  serialized by a per-GPU lock, so a service restart never kills a pass in flight.
+- The host is inside the laboratory but outside the SCDF perimeter and cannot reach the dCache doors, so
+  logs and outputs stage to an object store on the devcloud S3 bucket. Queue behavior and the storage
+  catalog are git-sourced and seeded per pass, with CRIC retaining the queue's existence. NPPS0_WORKER.md,
+  DEVCLOUD_STAGEOUT.md, and VOLUNTEER_GPU_PLAN.md carry the arrangement and the plan it serves;
+  PANDA_CAPABILITIES.md surveys the PanDA API surface it uses.
+
+### Validation interface and API documentation (swf-epicprod, swf-monitor)
+
+- The production-validation REST interface v1 serves completion reads and the campaign catalog and receives
+  results, with path-form URLs in its bodies.
+- The API documentation publishes an OpenAPI schema with self-hosted UI assets, and the schema declares the
+  application mount as its server base.
+
+### Residual rerun, campaign plan, and delivery (swf-epicprod)
+
+- Residual rerun submits a `.tryN` task over the undelivered remainder of a request, available as an
+  operator action on the compose page and through the API.
+- The plan page carries the campaign arrivals quilt. The delivery daily record writes every Eastern-time
+  day, quiet days included.
+
+### Testbed, interface, and MCP tools (swf-testbed, swf-monitor)
+
+- `testbed run --notice` stamps a run for a completion notice.
+- Navigation gains a Data menu (find data, EVGEN inputs, validation API), Activity and Diagnostics
+  pulldowns, and a Data & Validation section on the production hub. List tables adopt the house frame and
+  drop their overflow wrappers. Diagrams superseded by their epic-wfms-docs versions are retired.
+- `jlab_rucio_summarize_datasets` returns batch file counts and sizes in one call, Rucio tool docstrings
+  state each tool's time cost in the first line, and `get_did_metadata` sends the plugin selector only when
+  it is explicitly non-default, which the JLab server requires. The DISpatcher tool ranker boosts
+  identifier grammar over cosine similarity.
+
 ## v41 (2026-08-07)
 
 This release extends Snapper with site-level job histories and a campaign delivery view, introduces workflow
