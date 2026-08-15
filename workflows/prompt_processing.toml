@@ -48,3 +48,24 @@ container = ""
 # remain supported as operational overrides.
 panda_poll_interval_seconds = 60
 panda_poll_timeout_seconds = 0
+
+# Keep the STOMP receiver thread responsive while PanDA submission runs.
+# Enable with SWF_PROMPT_PROCESSING_BACKGROUND=true or set this to true.
+background_stf_ready = true
+
+# Keep the data-agent STOMP receiver responsive while STF upload, Rucio attach,
+# swf-monitor registration, and first-site stf_ready notification run.
+background_stf_gen = true
+
+# How long end_run waits for already received STF workers for the same run.
+# 0 means wait indefinitely; SWF_DATA_END_RUN_WAIT_TIMEOUT overrides this.
+data_end_run_wait_timeout_seconds = 0
+
+# Decision box: data agent creates site-specific open input datasets and sends
+# stf_ready once the first selected STF DID is attached for a site.
+non_decision_box_site = "E1_BNL"
+decision_box_enabled = true
+decision_box_policy = "round-robin"
+decision_box_sites = ["E1_BNL", "E1_JLAB"]
+decision_box_rucio_scope = "group.daq"
+decision_box_site_dataset_template = "run.{run_number}.{site_name}"

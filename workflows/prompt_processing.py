@@ -65,6 +65,23 @@ class WorkflowExecutor:
             )
 
 
+    def _config_bool(self, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(value)
+
+
+    def _add_prompt_processing_settings(self, message):
+        if "decision_box_enabled" in self.daq:
+            message["decision_box_enabled"] = self._config_bool(self.daq["decision_box_enabled"])
+        non_decision_box_site = self.daq.get("non_decision_box_site")
+        if non_decision_box_site:
+            message["non_decision_box_site"] = str(non_decision_box_site).strip()
+        return message
+
+
     def execute(self, env):
         # Generate run ID for this execution
         import os
@@ -178,6 +195,7 @@ class WorkflowExecutor:
             'dataset': self.dataset,
             'container': self.container
         }
+        self._add_prompt_processing_settings(message)
 
         destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
@@ -208,6 +226,7 @@ class WorkflowExecutor:
             "state": "run",
             "substate": "physics"
         }
+        self._add_prompt_processing_settings(message)
 
         destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
@@ -298,6 +317,7 @@ class WorkflowExecutor:
             "simulation_tick": env.now,
             "total_stf_files": self.stf_sequence
         }
+        self._add_prompt_processing_settings(message)
 
         destination = '/topic/epictopic'
         self.runner.send_message(destination, message)
@@ -327,11 +347,16 @@ class WorkflowExecutor:
             "run_id": self.run_id,
             "filename": stf_filename,
             "sequence": self.stf_sequence,
+            "decision_sequence": self.stf_sequence - 1,
             "timestamp": datetime.now().isoformat(),
             "simulation_tick": env.now,
             "state": "run",
             "substate": "physics"
         }
+        self._add_prompt_processing_settings(message)
+        decision_policy = self.daq.get("decision_box_policy")
+        if decision_policy:
+            message["decision_policy"] = decision_policy
 
         if self.stf_source_files:
             import shutil
