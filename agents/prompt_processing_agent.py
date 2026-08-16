@@ -269,7 +269,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         if not panda_ids:
             return []
         try:
-            status, jobs = getFullJobStatus(list(panda_ids))
+            int_ids = [int(pid) for pid in panda_ids]
+            status, jobs = getFullJobStatus(int_ids)
         except Exception as e:
             self.logger.warning(
                 f"Failed to query PanDA job status: {e}",
