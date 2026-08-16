@@ -1061,6 +1061,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         execution_id=None,
         site_name=None,
         input_dataset=None,
+        output_dataset=None,
         decision_box_enabled=None,
     ):
         """Add a run/task to the polling scheduler."""
@@ -1085,6 +1086,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 "execution_id": execution_id,
                 "site_name": site_name,
                 "input_dataset": input_dataset,
+                "output_dataset": output_dataset,
                 "decision_box_enabled": decision_box_enabled,
                 "started_at": time.time(),
                 "last_poll": 0,
@@ -1158,6 +1160,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                                     execution_id=task.get("execution_id")
                                 )
                             )
+                        # Publish stf_processed message to ActiveMQ
+                        self._publish_stf_processed(task, result, timed_out)
                 except Exception as e:
                     self.logger.error(
                         f"PanDA polling failed for run {task['run_number']}, task_id={task.get('panda_task_id')}: {e}",
@@ -1168,6 +1172,40 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                         )
                     )
             self.polling_stop_event.wait(1)
+
+
+    def _publish_stf_processed(self, task, result, timed_out):
+        """Publish an stf_processed message to ActiveMQ when a PanDA task completes."""
+        try:
+            msg = {
+                'msg_type': 'stf_processed',
+                'run_id': task.get("run_number"),
+                'panda_task_id': task.get("panda_task_id"),
+                'task_status': result.get("task_status"),
+                'processed': result.get("processed", 0),
+                'failed': result.get("failed", 0),
+                'timed_out': timed_out,
+            }
+            if task.get("execution_id"):
+                msg['execution_id'] = task["execution_id"]
+            if task.get("site_name"):
+                msg['site'] = task["site_name"]
+            if task.get("input_dataset"):
+                msg['input_dataset'] = task["input_dataset"]
+            if task.get("output_dataset"):
+                msg['output_dataset'] = task["output_dataset"]
+
+            self.send_message('/topic/epictopic', msg)
+        except Exception as e:
+            self.logger.error(
+                f"Failed to publish stf_processed for run {task.get('run_number')}, "
+                f"task_id={task.get('panda_task_id')}: {e}",
+                extra=self._log_extra(
+                    run_id=task.get("run_number"),
+                    panda_task_id=task.get("panda_task_id"),
+                    execution_id=task.get("execution_id"),
+                )
+            )
 
 
     def stop_processed_stf_polling(self, wait_seconds=5):
@@ -1196,6 +1234,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             run_number = self._monitor_run_number_by_id(stf_file.get("run"))
             site_task_ids = metadata.get("panda_site_task_ids") or {}
             site_input_datasets = metadata.get("panda_site_input_datasets") or {}
+            site_output_datasets = metadata.get("panda_site_output_datasets") or {}
             panda_task_ids = [task_id for task_id in site_task_ids.values() if task_id]
             if metadata.get("panda_task_id"):
                 panda_task_ids.append(metadata.get("panda_task_id"))
@@ -1204,6 +1243,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                     recovered_task_context[str(task_id)] = {
                         "site_name": site_name,
                         "input_dataset": site_input_datasets.get(site_name),
+                        "output_dataset": site_output_datasets.get(site_name) or metadata.get("panda_output_dataset"),
                         "decision_box_enabled": True,
                     }
             for panda_task_id in {str(task_id) for task_id in panda_task_ids if task_id}:
@@ -1225,6 +1265,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 execution_id=execution_id,
                 site_name=task_context.get("site_name"),
                 input_dataset=task_context.get("input_dataset"),
+                output_dataset=task_context.get("output_dataset"),
                 decision_box_enabled=task_context.get("decision_box_enabled", False),
             )
 
@@ -1404,6 +1445,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                         execution_id=message_data.get("execution_id"),
                         site_name=site_name,
                         input_dataset=input_dataset,
+                        output_dataset=output_dataset,
                         decision_box_enabled=True,
                     )
                 else:
@@ -1485,6 +1527,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             'status': status,
             'message': msg,
             'task_id': panda_task_id,
+            "input_dataset": f"group.daq:{self.inDS}",
+            "output_dataset": f"user.{username}.{self.outDS}",
             "decision_box_enabled": False,
             "non_decision_box_site": non_decision_box_site,
         }
@@ -1513,6 +1557,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             self.run_id,
             panda_task_id,
             execution_id=message_data.get("execution_id"),
+            input_dataset=f"group.daq:{self.inDS}",
+            output_dataset=f"user.{username}.{self.outDS}",
             decision_box_enabled=False,
         )
 
@@ -1616,6 +1662,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                     execution_id=message_data.get("execution_id") or task_info.get("execution_id"),
                     site_name=site_task.get("site") or site_name,
                     input_dataset=site_task.get("input_dataset"),
+                    output_dataset=site_task.get("output_dataset"),
                     decision_box_enabled=True,
                 )
             return
@@ -1623,6 +1670,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             run_key,
             task_info.get("task_id"),
             execution_id=message_data.get("execution_id") or task_info.get("execution_id"),
+            input_dataset=task_info.get("input_dataset"),
+            output_dataset=task_info.get("output_dataset"),
             decision_box_enabled=False,
         )
         
