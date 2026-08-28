@@ -520,7 +520,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
             
             if self.verbose: print(f'''*** Successfully instantiated the RucioClient, UploadClient, ReplicaClient and DIDClient***''')
         except Exception as e:
-            print(f'*** Failed to instantiate the RucioClient, UploadClient and DIDClient: {e}, exiting... ***')
+            print(f'*** Failed to instantiate the RucioClient, UploadClient, ReplicaClient and DIDClient: {e}, exiting... ***')
             exit(-1)
 
 
