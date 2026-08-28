@@ -1,5 +1,93 @@
 # Release Notes
 
+## v43 (2026-08-27)
+
+This release adds two Snapper views: Errors, recording PanDA job errors as five-minute interval
+events with drilldown to patterns and jobs, and Platform, recording PanDA platform health alongside
+load and consequences. Snapper series and cut summaries become REST and MCP queries. The ePIC queue
+list now has canary verdicts and two-week job-flow mini plots. PWG priorities on EVGEN inputs show
+wherever the catalog is read, and both ePIC retry rules are now enforcing. These notes cover the
+coordinated baseline repositories and the relevant `main` work in their peer repositories.
+
+### Snapper errors (swf-monitor, snapper-ai)
+
+- An error-state component records the error events of each five-minute interval — one entry per faulty
+  job with task, category, event time, and terminal status — reconstructed 30 days back by an idempotent
+  backfill. Counts over any period are sums of entries over the intervals it spans, and a per-task
+  reading is a filter on the same record. SNAPPER_ERRORS.md is the design.
+- The errors view plots the category flood quilt with client-side re-binning on zoom, a terminal-state
+  chip row (closed excluded by default), a grouping selector, and a pie chart of category shares. The
+  cut integrates a detail window: counts and shares per category, live diagnostic patterns,
+  representative job links, and an attribution reading — concentration verdicts over the category,
+  task, and site axes. The PanDA task page links to its filtered view.
+- The /panda/errors/ page and the error-summary MCP tool adopt digit-collapsed pattern grouping and
+  terminal-status filters, so a kill storm reads as one pattern instead of thousands of count-1 rows.
+- Pilot error labels are corrected at a single service root, deployed on the ePIC pilot (pilot3 PR #212);
+  ERROR_ATTRIBUTION.md records the rules and evidence grades.
+
+### Snapper Platform view (swf-monitor, snapper-ai)
+
+- A platform component records PanDA platform health each five minutes: database connections and
+  activity, the longest open transaction, heartbeat staleness tiers and yield against the expected rate,
+  server and PanDA-monitor latency, and the state of the swf-monitor host itself. SNAPPER_PLATFORM.md is
+  the design; PANDA_SERVER_REPORTER.md documents the server-host reporter that completes it.
+- The Platform view stacks the platform's own panels above the load and consequence panels for
+  correlation by eye, with a 60-minute heartbeat-yield curve derived from the recorded interval counts.
+  The cut renders the platform card and an aggregated summary of every plotted metric — value, delta,
+  and window statistics per row. A platform health alarm raises one detection per metric in warning.
+- A proactive storm-response plan of record covers detection, notice, bounded drilldown, and the
+  bounded-action tier (SNAPPER_ERRORS.md).
+
+### Snapper series and summaries as queries (snapper-ai, swf-monitor)
+
+- A focus view's series and the summary at a cut are served through REST and MCP in the standard
+  evidence envelope, built through the same cache as the page, so a query returns what the page
+  shows.
+- Focus pages land with their default cut inside the latest display bin with data, and a primary
+  family's section is always open on a fresh load.
+
+### ePIC queue list and site history (swf-monitor)
+
+- The queue list carries canary verdicts with failure percentages, last-use columns, two-week
+  completion-flow mini plots per queue, tier and facet filters, a value legend, and editable queue
+  descriptions. The queue detail page hosts the Snapper site view, and per-site completion flows are
+  recorded as cumulative counters binned at render.
+- NERSC job-log links follow the portal's published file names.
+
+### Campaign delivery views (swf-monitor, snapper-ai)
+
+- The campaign page now shows stacked cumulative breakdowns by physics category, species-aggregated
+  single-particle curves, per-category detail panels, and daily arrivals linked into the cumulative
+  tables. Site history panels stack, and cold cache builds move behind the page.
+
+### PWG priorities (swf-epicprod, swf-monitor)
+
+- Physics working groups set priorities on EVGEN inputs, shown everywhere the catalog is read: the
+  catalog pages, task detail, find data, campaign status, REST, and MCP. List paths preload the
+  resolution so the REST task list and the find corpus stay fast.
+
+### PCS integrity and intake (swf-epicprod)
+
+- Rerun Residual counts a row delivered only when its output is registered and arrived — an available
+  replica on at least one RSE — so a catalog entry whose data never landed falls into the residual.
+- Direct intake attaches to the existing identity when the arrival matches a recorded dataset, and
+  EVGEN inputs can be marked obsolete.
+
+### Retry rules enforcing (swf-monitor)
+
+- Both ePIC retry rules are enforcing in the PanDA database, managed by script rather than hand SQL,
+  with the System page reading them live.
+
+### GPU co-processor and node event dispatcher (swf-epicprod)
+
+- The synrad GPU co-processor is validated on Linux and native Windows with identical counts
+  (SYNRAD_VALIDATION.md), the volunteer GPU plan of record covers the gateway, pool agent, and
+  generation tiers (VOLUNTEER_GPU_PLAN.md, ADEPT_AUDIT.md, WORK_UNIT_CONTRACT.md), and the full chain
+  runs end to end as a PanDA task.
+- The node event dispatcher design targets Perlmutter efficiency with event-range processing in
+  fixed-lifetime allocations on the native PanDA Event Service, verified by a probe task
+  (NODE_EVENT_DISPATCHER.md).
+
 ## v42 (2026-08-15)
 
 This release adds Find Data, a single search field over the recorded dataset inventory with an LLM dialog
