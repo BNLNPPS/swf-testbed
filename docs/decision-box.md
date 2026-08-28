@@ -86,8 +86,8 @@ produces site-specific processing datasets such as
 `group.daq:run.102741.E1_BNL` and `group.daq:run.102741.E1_JLAB`. These logical
 work-partition datasets do not match broad `group.daq:swf*` Rucio rules.
 
-The decision box expects the same Rucio client and `rucio_comms` environment
-used by the existing data agent.
+The decision box expects the same Rucio client environment used by the
+existing data agent.
 
 When the decision box is disabled, prompt processing falls back to one PanDA
 task over the full run dataset. That legacy task uses

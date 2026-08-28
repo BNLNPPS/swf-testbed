@@ -37,54 +37,30 @@ class RucioDatasetCatalog(DatasetCatalog):
     def __init__(self, client, lifetime_days: int | None = None):
         self.client = client
         self.lifetime_days = lifetime_days
-        self._use_rucio_utils = False
         self._closed_datasets: set[str] = set()
-        try:
-            from swf_common_lib.rucio_utils import create_dataset, add_files_to_dataset
 
-            self._create_dataset = create_dataset
-            self._add_files_to_dataset = add_files_to_dataset
-            self._use_rucio_utils = True
-        except ModuleNotFoundError as exc:
-            if exc.name not in {"swf_common_lib", "swf_common_lib.rucio_utils"}:
-                raise
-            from rucio.common.exception import DataIdentifierAlreadyExists
-            from rucio_comms import DatasetManager, FileManager
+        from swf_common_lib.rucio_utils import create_dataset, add_files_to_dataset
 
-            self.dataset_manager = DatasetManager()
-            self.file_manager = FileManager(rucio_client=self.client)
-            self.data_identifier_already_exists = DataIdentifierAlreadyExists
+        self._create_dataset = create_dataset
+        self._add_files_to_dataset = add_files_to_dataset
 
     def ensure_dataset(self, dataset_did: str, open_dataset: bool = True) -> None:
         if open_dataset and self._dataset_is_closed(dataset_did):
             raise ValueError(f"dataset {dataset_did} is already closed")
-        if self._use_rucio_utils:
-            result = self._create_dataset(
-                dataset_name=dataset_did,
-                lifetime_days=self.lifetime_days,
-                open_dataset=open_dataset,
-                client=self.client,
-            )
-            if not result:
-                raise RuntimeError(f"failed to create dataset {dataset_did}")
-            return
-        try:
-            self.dataset_manager.create_dataset(
-                dataset_name=dataset_did,
-                lifetime_days=self.lifetime_days,
-                open_dataset=open_dataset,
-            )
-        except self.data_identifier_already_exists:
-            return
+        result = self._create_dataset(
+            dataset_name=dataset_did,
+            lifetime_days=self.lifetime_days,
+            open_dataset=open_dataset,
+            client=self.client,
+        )
+        if not result:
+            raise RuntimeError(f"failed to create dataset {dataset_did}")
 
     def attach_file(self, dataset_did: str, file_did: FileDID) -> bool:
         if self._dataset_is_closed(dataset_did):
             raise ValueError(f"dataset {dataset_did} is closed")
         self.ensure_dataset(dataset_did, open_dataset=True)
-        if self._use_rucio_utils:
-            result = self._add_files_to_dataset([str(file_did)], dataset_did, client=self.client)
-        else:
-            result = self.file_manager.add_files_to_dataset([str(file_did)], dataset_did)
+        result = self._add_files_to_dataset([str(file_did)], dataset_did, client=self.client)
         return bool(result)
 
     def close_dataset(self, dataset_did: str) -> None:
