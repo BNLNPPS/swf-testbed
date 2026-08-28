@@ -38,7 +38,6 @@ from rucio.client               import Client as RucioClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.didclient     import DIDClient
 from rucio.client.uploadclient  import UploadClient
-from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 
 # Common lib imports
 from swf_common_lib.rucio_utils import (
