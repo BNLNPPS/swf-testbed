@@ -6,8 +6,7 @@
 # Main functionality is to create Rucio datasets and register files to
 # these datasets. Then, to notify the processing agent that the data is ready.
 # 
-# It uses the mq_comms and rucio_comms packages for MQ and Rucio operations.
-# Both packages are located in the swf-common repository.
+# It uses the swf_common_lib package for MQ and Rucio operations.
 #
 # Datasets are created upon receiving the run_imminent message.
 # Files are registered upon receiving the stf_gen message.
@@ -39,21 +38,12 @@ from rucio.client               import Client as RucioClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.didclient     import DIDClient
 from rucio.client.uploadclient  import UploadClient
-from rucio.common.exception     import DataIdentifierAlreadyExists, RSENotFound
 
-# Common lib imports – prefer the packaged rucio_utils; fall back to legacy rucio_comms
-_USE_RUCIO_UTILS = False
-try:
-    from swf_common_lib.rucio_utils import (
-        calculate_adler32_from_file, register_file_on_rse,
-        create_dataset, add_files_to_dataset,
-    )
-    _USE_RUCIO_UTILS = True
-except ModuleNotFoundError as e:  # Deprecated: legacy rucio_comms imports, to be removed in a future version
-    if e.name not in {"swf_common_lib", "swf_common_lib.rucio_utils"}:
-        raise
-    from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse
-    print('*** Imported rucio helpers from rucio_comms.utils (legacy fallback) ***')
+# Common lib imports
+from swf_common_lib.rucio_utils import (
+    calculate_adler32_from_file, register_file_on_rse,
+    create_dataset, add_files_to_dataset,
+)
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.api_utils import ensure_namespace
 from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
@@ -529,33 +519,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
             
             if self.verbose: print(f'''*** Successfully instantiated the RucioClient, UploadClient, ReplicaClient and DIDClient***''')
         except Exception as e:
-            print(f'*** Failed to instantiate the RucioClient, UploadClient and DIDClient: {e}, exiting... ***')
-            exit(-1)
-
-        if _USE_RUCIO_UTILS:
-            # Using standalone functions from swf_common_lib.rucio_utils –
-            # no DatasetManager / FileManager instances needed.
-            return
-
-        # Deprecated: fall back to legacy rucio_comms class-based managers
-        from rucio_comms import DatasetManager, FileManager
-
-        # A Dataset Manager will be needed for any operation with Rucio datasets
-        if self.verbose: print(f'''*** Instantiating the Dataset Manager ***''')
-        try:
-            self.dataset_manager = DatasetManager()
-            if self.verbose: print(f'''*** Successfully instantiated the Dataset Manager ***''')
-        except Exception as e:
-            print(f'*** Failed to instantiate the Dataset Manager: {e}, exiting... ***')
-            exit(-1)
-
-        # A File Manager will be needed to attach files to Rucio datasets
-        if self.verbose: print(f'''*** Instantiating the File Manager ***''')
-        try:
-            self.file_manager = FileManager(rucio_client = self.rucio_client)
-            if self.verbose: print(f'''*** Successfully instantiated the File Manager ***''')
-        except Exception as e:
-            print(f'*** Failed to instantiate the File Manager: {e}, exiting... ***')
+            print(f'*** Failed to instantiate the RucioClient, UploadClient, ReplicaClient and DIDClient: {e}, exiting... ***')
             exit(-1)
 
 
@@ -735,10 +699,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         if self.verbose: print(f'''*** Current dataset set to {self.dataset}, folder set to {self.folder} ***''')
         
         lifetime = 7 # days
-        if _USE_RUCIO_UTILS:
-            result = create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True, client=self.rucio_client)
-        else:  # Deprecated: legacy rucio_comms class-based managers
-            result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
+        result = create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True, client=self.rucio_client)
         if self.verbose: print(f'''*** Dataset {self.dataset}, creation result: {result} ***''')
         if not result:
             if self.verbose: print('*** Dataset creation failed, marking run failed... ***')
@@ -1034,10 +995,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
 
         # Register the file replica, using the lfn
-        if _USE_RUCIO_UTILS:
-            attachment_success = add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''', client=self.rucio_client)
-        else:  # Deprecated: legacy rucio_comms class-based managers
-            attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
+        attachment_success = add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''', client=self.rucio_client)
         if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
 
         decision = None
