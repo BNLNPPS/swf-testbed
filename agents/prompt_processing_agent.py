@@ -1,4 +1,4 @@
-import os, time, json, re, threading, shutil
+import os, time, json, re, logging, threading, shutil
 from datetime import datetime
 from urllib.parse import urlencode
 from pandaclient import PrunScript, panda_api
@@ -21,6 +21,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                          debug=verbose, config_path=config_path)
 
         self.verbose      = verbose
+        if self.verbose:
+            self.logger.setLevel(logging.DEBUG)
         self.test         = test
         self.run_id       = None  # Current run number
         self.inDS         = None  # Input dataset name
@@ -1734,7 +1736,6 @@ if __name__ == "__main__":
     outDS       = args.outDS
     script      = args.script
 
-    import logging
     logger = logging.getLogger(__name__)
 
     if verbose:

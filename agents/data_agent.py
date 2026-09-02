@@ -27,7 +27,7 @@ xrd_server = 'root://dcintdoor.sdcc.bnl.gov:1094/'
 xrd_folder = '/pnfs/sdcc.bnl.gov/eic/epic/disk/swfdaqtest/'
 
 # Generic imports
-import os, time, json, threading
+import os, time, json, logging, threading
 import requests, urllib3
 import uuid
 from datetime import datetime
@@ -82,6 +82,8 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
                 rse (str): RSE to target for upload; if empty, no data will be uploaded
         '''
         self.verbose                = verbose
+        if self.verbose:
+            self.logger.setLevel(logging.DEBUG)
         self.mqxmit                 = mqxmit
         self.xrdup                  = xrdup
 
@@ -1254,7 +1256,6 @@ if __name__ == "__main__":
     xrdup       = args.xrdup
     mqxmit      = args.mqxmit
 
-    import logging
     logger = logging.getLogger(__name__)
 
     if verbose:
