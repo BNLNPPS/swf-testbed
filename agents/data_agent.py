@@ -169,7 +169,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
             self.fs = client.FileSystem(xrd_server)
         else:
             if self.verbose:
-                self.logger.debug('XRootD upload mode is disabled, will use Rucio for upload') 
+                self.logger.debug('XRootD upload mode is disabled, will use Rucio for upload')
 
 
         if self.verbose:
