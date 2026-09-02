@@ -173,7 +173,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
 
 
         if self.verbose:
-                self.logger.debug(f'DATA class initialized. RSE: {self.rse}')
+            self.logger.debug(f'DATA class initialized. RSE: {self.rse}')
 
         self.rse_is_deterministic = False
         if self.rse and self.rucio_client:
