@@ -1254,6 +1254,9 @@ if __name__ == "__main__":
     xrdup       = args.xrdup
     mqxmit      = args.mqxmit
 
+    import logging
+    logger = logging.getLogger(__name__)
+
     if verbose:
         logger.info(f'{"Verbose mode":<20} {verbose:>20}')
         logger.info(f'{"XRootD mode":<20} {xrdup:>20}')
