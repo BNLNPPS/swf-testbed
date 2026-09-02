@@ -8,7 +8,6 @@ from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProce
 
 from swf_testbed_decision_box.monitor_metadata import execution_id_matches
 from swf_testbed_decision_box.models import Decision, FileDID
-import logging
 
 #################################################################################
 class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
