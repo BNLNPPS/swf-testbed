@@ -8,6 +8,7 @@ from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProce
 
 from swf_testbed_decision_box.monitor_metadata import execution_id_matches
 from swf_testbed_decision_box.models import Decision, FileDID
+import logging
 
 #################################################################################
 class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
@@ -81,7 +82,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             str(prompt_config.get("decision_box_site_dataset_template", "")),
         ).strip() or None
 
-        if self.verbose: print(f'''*** Initialized the PROCESSING class, test mode is {self.test} ***''')
+        if self.verbose:
+            self.logger.debug(f'Initialized the PROCESSING class, test mode is {self.test}')
 
 
     def _decision_box_context_for_run(self, run_id):
@@ -160,7 +162,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         try:
             params = self._build_prun_params(prun_args, self.run_id, "test")
         except Exception as e:
-            print(f"PRUN CRITICAL: - {str(e)}")
+            self.logger.error(f'PRUN CRITICAL: - {str(e)}')
             return None
 
         # Important: to process input files as they are added to the dataset
@@ -179,22 +181,23 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         self.outDS  = f'''swf.{self.run_id}.processed'''    # Output dataset
         
         if self.verbose:
-            print(f"*** Named datasets for run {self.run_id} ***")
-            print(f"*** inDS: {self.inDS} ***")
-            print(f"*** outDS: {self.outDS} ***")
+            self.logger.debug(f'Named datasets for run {self.run_id}')
+            self.logger.debug(f'inDS: {self.inDS}')
+            self.logger.debug(f'outDS: {self.outDS}')
 
 
     # ---
     def panda_submit_task(self, params):
         if self.verbose:
-            print(f"*** PANDA PARAMS ***")
+            self.logger.debug('PANDA PARAMS')
             for k in params.keys():
                 v = params[k]
-                print(f"{k:<20}: {v}")
-            print(f"********************")
+                self.logger.debug(f'{k:<20}: {v}')
+            self.logger.debug('********************')
 
         # Get the PanDA API client
-        if self.verbose: print("*** Getting PanDA API client... ***")
+        if self.verbose:
+            self.logger.debug('Getting PanDA API client...')
         my_api = panda_api.get_api()
 
         # Submit the task
@@ -203,9 +206,9 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
 
         # Check the submission status
         if status == 0:
-            print(result_tuple)
+            self.logger.debug(str(result_tuple))
         else:
-            print(f"Task submission failed. Status: {status}, Message: {result_tuple}")
+            self.logger.error(f'Task submission failed. Status: {status}, Message: {result_tuple}')
 
         return status, result_tuple
 
@@ -1334,11 +1337,11 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 elif msg_type == 'end_run':
                     self.handle_end_run(message_data)
                 else:
-                    print("Ignoring unknown message type", msg_type)
+                    self.logger.debug(f'Ignoring unknown message type {msg_type}')
             else:
-                print("Ignoring other namespaces ", msg_namespace)
+                self.logger.debug(f'Ignoring other namespaces {msg_namespace}')
         except Exception as e:
-            print(f"CRITICAL: Message processing failed - {str(e)}")
+            self.logger.error(f'CRITICAL: Message processing failed - {str(e)}')
 
 
     # ---
@@ -1353,7 +1356,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         
         run_id = message_data.get('run_id')
         
-        print(f"*** MQ: data ready for run {run_id} ***")
+        self.logger.debug(f'MQ: data ready for run {run_id}')
         
         self.run_id = str(run_id)
         self.name_current_datasets()
@@ -1406,7 +1409,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 try:
                     params = self._build_prun_params(prun_args, self.run_id, site_name)
                 except Exception as e:
-                    print(f"PRUN CRITICAL for site {site_name}: - {str(e)}")
+                    self.logger.error(f'PRUN CRITICAL for site {site_name}: - {str(e)}')
                     site_tasks[site_name] = {
                         "site": site_name,
                         "task_id": None,
@@ -1515,7 +1518,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         try:
             params = self._build_prun_params(prun_args, self.run_id, non_decision_box_site)
         except Exception as e:
-            print(f"PRUN CRITICAL: - {str(e)}")
+            self.logger.error(f'PRUN CRITICAL: - {str(e)}')
             return None
 
         # to process input files as they are added to the dataset
@@ -1576,7 +1579,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         """Handle stf gen message"""
         fn = message_data.get('filename')
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
-        print(f"*** MQ: stf_gen {fn} ***")
+        self.logger.debug(f'MQ: stf_gen {fn}')
 
         if run_id:
             task_info = self.active_processing.get(run_id) or self.panda_status.get(run_id) or {}
@@ -1607,7 +1610,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
     def handle_run_imminent(self, message_data):
         """Handle run imminent message"""
         run_id = message_data.get('run_id')
-        print(f"*** MQ: run_imminent {run_id} ***")
+        self.logger.debug(f'MQ: run_imminent {run_id}')
 
         self.logger.info(
             "Processing run_imminent message",
@@ -1627,7 +1630,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
     def handle_start_run(self, message_data):
         """Handle start_run message"""
         run_id = message_data.get('run_id')
-        if self.verbose: print(f"*** MQ: start_run message for run_id: {run_id} ***")
+        if self.verbose:
+            self.logger.debug(f'MQ: start_run message for run_id: {run_id}')
 
         # Agent is now actively processing this run
         # self.set_processing()
@@ -1643,7 +1647,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
     def handle_end_run(self, message_data):
         """Handle end_run message"""
         run_id = message_data.get('run_id')
-        if self.verbose: print(f"*** MQ: end_run message for run_id: {run_id} ***")
+        if self.verbose:
+            self.logger.debug(f'MQ: end_run message for run_id: {run_id}')
 
         if run_id is None:
             self.logger.warning(
@@ -1730,21 +1735,25 @@ if __name__ == "__main__":
     outDS       = args.outDS
     script      = args.script
 
-    if verbose:
-        print(f'''*** {'Verbose mode            ':<20} {verbose:>25} ***''')
-        print(f'''*** {'Test mode               ':<20} {test:>25} ***''')
-        if inDS == '':
-            print("*** No input dataset provided, test mode is dynamic, using upstream data ***")
-        else:
-            print(f'''*** {'inDS (for static testing)     ':<20} {inDS:>25} ***''')
+    import logging
+    logger = logging.getLogger(__name__)
 
-        print(f"*** Top directory:    {top_directory} ***")
-        print(f"*** Test script path: {script} ***")
+    if verbose:
+        logger.info(f'{"Verbose mode":<20} {verbose:>25}')
+        logger.info(f'{"Test mode":<20} {test:>25}')
+        if inDS == '':
+            logger.info("No input dataset provided, test mode is dynamic, using upstream data")
+        else:
+            logger.info(f'{"inDS (for static testing)":<20} {inDS:>25}')
+
+        logger.info(f'Top directory:    {top_directory}')
+        logger.info(f'Test script path: {script}')
 
     processing = PROCESSING(verbose=verbose, test=test)
 
     if inDS != '': # Static test mode, with a provided input dataset
-        if verbose: print(f'''*** Running in the static test mode with inDS: {inDS}, outDS: {outDS} ***''')
+        if verbose:
+            logger.info(f'Running in the static test mode with inDS: {inDS}, outDS: {outDS}')
         processing.test_panda(inDS, outDS, "myout.txt")
         exit(0)
 

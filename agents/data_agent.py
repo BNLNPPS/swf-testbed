@@ -53,7 +53,7 @@ except ModuleNotFoundError as e:  # Deprecated: legacy rucio_comms imports, to b
     if e.name not in {"swf_common_lib", "swf_common_lib.rucio_utils"}:
         raise
     from rucio_comms.utils          import calculate_adler32_from_file, register_file_on_rse
-    print('*** Imported rucio helpers from rucio_comms.utils (legacy fallback) ***')
+    import logging; logging.getLogger(__name__).debug('Imported rucio helpers from rucio_comms.utils (legacy fallback)')
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.api_utils import ensure_namespace
 from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
@@ -165,20 +165,25 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         self.decision_box = None
 
         if self.rucio_scope == '':
-            if self.verbose: print('*** No Rucio scope provided, Rucio operations will be skipped ***')
+            if self.verbose:
+                self.logger.debug('No Rucio scope provided, Rucio operations will be skipped')
         else:
-            if self.verbose: print(f'''*** Rucio scope is set to {self.rucio_scope}, Rucio operations will be performed ***''')
+            if self.verbose:
+                self.logger.debug(f'Rucio scope is set to {self.rucio_scope}, Rucio operations will be performed')
             self.init_rucio()
 
         if self.xrdup:
-            if self.verbose: print('*** XRootD upload mode is enabled, will use XRootD for upload ***')
+            if self.verbose:
+                self.logger.debug('XRootD upload mode is enabled, will use XRootD for upload')
             from XRootD import client
             self.fs = client.FileSystem(xrd_server)
         else:
-            if self.verbose: print('*** XRootD upload mode is disabled, will use Rucio for upload ***') 
+            if self.verbose:
+                self.logger.debug('XRootD upload mode is disabled, will use Rucio for upload') 
 
 
-        if self.verbose: print(f'''*** DATA class initialized. RSE: {self.rse} ***''')
+        if self.verbose:
+                self.logger.debug(f'DATA class initialized. RSE: {self.rse}')
 
         self.rse_is_deterministic = False
         if self.rse and self.rucio_client:
@@ -520,16 +525,18 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         '''
 
         # A Rucio client will be needed for any operation with Rucio
-        if self.verbose: print(f'''*** Instantiating the RucioClient and UploadClient ***''')
+        if self.verbose:
+            self.logger.debug('Instantiating the RucioClient and UploadClient')
         try:
             self.rucio_client           = RucioClient()
             self.rucio_upload_client    = UploadClient(self.rucio_client)
             self.rucio_did_client       = DIDClient()
             self.rucio_replica_client   = ReplicaClient()
             
-            if self.verbose: print(f'''*** Successfully instantiated the RucioClient, UploadClient, ReplicaClient and DIDClient***''')
+            if self.verbose:
+                self.logger.debug('Successfully instantiated the RucioClient, UploadClient, ReplicaClient and DIDClient')
         except Exception as e:
-            print(f'*** Failed to instantiate the RucioClient, UploadClient and DIDClient: {e}, exiting... ***')
+            self.logger.error(f'Failed to instantiate the RucioClient, UploadClient and DIDClient: {e}, exiting...')
             exit(-1)
 
         if _USE_RUCIO_UTILS:
@@ -541,21 +548,25 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         from rucio_comms import DatasetManager, FileManager
 
         # A Dataset Manager will be needed for any operation with Rucio datasets
-        if self.verbose: print(f'''*** Instantiating the Dataset Manager ***''')
+        if self.verbose:
+            self.logger.debug('Instantiating the Dataset Manager')
         try:
             self.dataset_manager = DatasetManager()
-            if self.verbose: print(f'''*** Successfully instantiated the Dataset Manager ***''')
+            if self.verbose:
+                self.logger.debug('Successfully instantiated the Dataset Manager')
         except Exception as e:
-            print(f'*** Failed to instantiate the Dataset Manager: {e}, exiting... ***')
+            self.logger.error(f'Failed to instantiate the Dataset Manager: {e}, exiting...')
             exit(-1)
 
         # A File Manager will be needed to attach files to Rucio datasets
-        if self.verbose: print(f'''*** Instantiating the File Manager ***''')
+        if self.verbose:
+            self.logger.debug('Instantiating the File Manager')
         try:
             self.file_manager = FileManager(rucio_client = self.rucio_client)
-            if self.verbose: print(f'''*** Successfully instantiated the File Manager ***''')
+            if self.verbose:
+                self.logger.debug('Successfully instantiated the File Manager')
         except Exception as e:
-            print(f'*** Failed to instantiate the File Manager: {e}, exiting... ***')
+            self.logger.error(f'Failed to instantiate the File Manager: {e}, exiting...')
             exit(-1)
 
 
@@ -672,11 +683,12 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
                     else:
                         self.handle_end_run(message_data)
                 else:
-                    if self.verbose: print(f"*** Ignoring unknown message type {msg_type} ***")
+                    if self.verbose:
+                        self.logger.debug(f'Ignoring unknown message type {msg_type}')
             else:
-                print("Ignoring other namespaces ", msg_namespace)
+                self.logger.debug(f'Ignoring other namespaces {msg_namespace}')
         except Exception as e:
-            print(f"CRITICAL: Message processing failed - {str(e)}")
+            self.logger.error(f'CRITICAL: Message processing failed - {str(e)}')
 
 
     # ---
@@ -693,7 +705,8 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
         run_conditions = message_data.get('run_conditions', {})
         
-        if self.verbose: print(F'''*** MQ: run_imminent message for run {run_id}***''')
+        if self.verbose:
+            self.logger.debug(f'MQ: run_imminent message for run {run_id}')
 
         self.logger.info("Processing run_imminent message",
                         extra=self._log_extra(simulation_tick=message_data.get('simulation_tick')))
@@ -732,16 +745,19 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
             "non_decision_box_site": non_decision_box_site,
         }
 
-        if self.verbose: print(f'''*** Current dataset set to {self.dataset}, folder set to {self.folder} ***''')
+        if self.verbose:
+            self.logger.debug(f'Current dataset set to {self.dataset}, folder set to {self.folder}')
         
         lifetime = 7 # days
         if _USE_RUCIO_UTILS:
             result = create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True, client=self.rucio_client)
         else:  # Deprecated: legacy rucio_comms class-based managers
             result = self.dataset_manager.create_dataset(dataset_name=f'''{self.rucio_scope}:{self.dataset}''', lifetime_days=lifetime, open_dataset=True)
-        if self.verbose: print(f'''*** Dataset {self.dataset}, creation result: {result} ***''')
+        if self.verbose:
+            self.logger.debug(f'Dataset {self.dataset}, creation result: {result}')
         if not result:
-            if self.verbose: print('*** Dataset creation failed, marking run failed... ***')
+            if self.verbose:
+                self.logger.debug('Dataset creation failed, marking run failed...')
             self.logger.error(
                 f"Dataset creation failed for run {run_id}",
                 extra=self._log_extra(
@@ -755,7 +771,8 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
             self.update_run_status(run_id, 'failed')
             return False
         else:
-            if self.verbose: print(f'*** Dataset {result["scope"]}:{result["name"]} created successfully with DUID: {result["duid"]} ***')
+            if self.verbose:
+                self.logger.debug(f'Dataset {result["scope"]}:{result["name"]} created successfully with DUID: {result["duid"]}')
 
         decision_box = self._decision_box_for_message(message_data, run_id=run_id)
         if decision_box is not None:
@@ -798,11 +815,13 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
                 return False
 
         if self.xrdup: # XRootD upload
-            if self.verbose: print(f'''*** XRootD upload mode is enabled, will create a folder for dataset {self.dataset} ***''')
+            if self.verbose:
+                self.logger.debug(f'XRootD upload mode is enabled, will create a folder for dataset {self.dataset}')
             # Create the folder for the dataset using XRootD
             status, _ = self.fs.mkdir(f"{xrd_folder}/{self.dataset}")
             # FIXME: Check the status
-            if self.verbose: print(f'''*** Created folder {xrd_folder}/{self.dataset} using XRootD ***''')
+            if self.verbose:
+                self.logger.debug(f'Created folder {xrd_folder}/{self.dataset} using XRootD')
 
 
     # ---
@@ -825,7 +844,8 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         """Handle start_run message"""
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
         self.count = 0 # reset file counter for the new run
-        if self.verbose: print(f"*** MQ: start_run message for run_id: {run_id} ***")
+        if self.verbose:
+            self.logger.debug(f'MQ: start_run message for run_id: {run_id}')
 
 
     # ---
@@ -856,7 +876,8 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
     def _handle_end_run(self, message_data):
         """Handle end_run message"""
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
-        if self.verbose: print(f"*** MQ: end_run message for run_id: {run_id} ***")
+        if self.verbose:
+            self.logger.debug(f'MQ: end_run message for run_id: {run_id}')
 
         run_status = 'completed'
         try:
@@ -969,24 +990,29 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
             self.dataset = context.get("dataset") or self.dataset
             self.folder = context.get("folder") or self.folder
             self.data_folder = context.get("data_folder") or self.data_folder
-        if self.verbose: print(f"*** MQ: STF generation for file: {fn}, count {self.count} ***")
+        if self.verbose:
+            self.logger.debug(f'MQ: STF generation for file: {fn}, count {self.count}')
         
         file_path = f'{self.folder}/{fn}'
 
         if not os.path.exists(file_path):
-            if self.verbose: print(f"*** Alert: the path '{file_path}' does not exist. ***")
+            if self.verbose:
+                self.logger.warning(f"Alert: the path '{file_path}' does not exist.")
             return False
             
         if self.rucio_scope == '' or self.data_folder == '' or self.rse == '':
-            if self.verbose: print('*** No Rucio scope, RSE or data container provided, skipping Rucio upload ***')
+            if self.verbose:
+                self.logger.debug('No Rucio scope, RSE or data container provided, skipping Rucio upload')
             return False
 
         if self.run_id is None:
-            if self.verbose: print('*** No run_id set, cannot proceed with Rucio upload ***')
+            if self.verbose:
+                self.logger.debug('No run_id set, cannot proceed with Rucio upload')
             return False
         
         if self.folder == '':
-            if self.verbose: print('*** No source data folder set, cannot proceed with Rucio upload ***')
+            if self.verbose:
+                self.logger.debug('No source data folder set, cannot proceed with Rucio upload')
             return False
         
         # Important: the file must be uploaded to Rucio before it can be attached to a dataset
@@ -1005,22 +1031,25 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         # Upload the file using either XRootD or Rucio
         if self.xrdup: # XRootD upload
 
-            if self.verbose: print(f'''*** XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD ***''')
+            if self.verbose:
+                self.logger.debug(f'XRootD upload mode is enabled, will upload the file {file_path} to RSE {self.rse} using XRootD')
             status = self.fs.copy(file_path, f'{xrd_server}{xrd_folder}/{self.dataset}/{fn}', force=False) # force=True to overwrite
 
-            if self.verbose: print(f"*** xrd copy status type: {type(status)}, status: {status} ***")
+            if self.verbose:
+                self.logger.debug(f'xrd copy status type: {type(status)}, status: {status}')
             register_file_on_rse(self, file_path, fn)
 
         else:          # Rucio upload
             try:
                 result = self.rucio_upload_client.upload([upload_spec])
             except Exception as e:
-                print(f'*** Exception during upload: {e} ***')
+                self.logger.error(f'Exception during upload: {e}')
                 return False
             if result == 0:
-                if self.verbose: print(f"File {file_path} uploaded successfully to Rucio under scope {self.rucio_scope} ***")
+                if self.verbose:
+                    self.logger.debug(f'File {file_path} uploaded successfully to Rucio under scope {self.rucio_scope}')
             else:
-                print(f"File {file_path} upload failed.")
+                self.logger.error(f'File {file_path} upload failed.')
                 return False
 
 
@@ -1031,14 +1060,16 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         self.rucio_did_client.set_metadata(scope=self.rucio_scope, name=fn, key='guid', value=guid)
 
         # Attach the file to the open dataset
-        if self.verbose: print(f'''*** Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset} ***''')
+        if self.verbose:
+            self.logger.debug(f'Adding a file with lfn: {fn} to the scope/dataset: {self.rucio_scope}:{self.dataset}')
 
         # Register the file replica, using the lfn
         if _USE_RUCIO_UTILS:
             attachment_success = add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''', client=self.rucio_client)
         else:  # Deprecated: legacy rucio_comms class-based managers
             attachment_success = self.file_manager.add_files_to_dataset([f'''{self.rucio_scope}:{fn}'''], f'''{self.rucio_scope}:{self.dataset}''')
-        if self.verbose: print(f'''*** File attached to dataset: {attachment_success} ***''')
+        if self.verbose:
+            self.logger.debug(f'File attached to dataset: {attachment_success}')
 
         decision = None
         decision_metadata = {}
@@ -1099,9 +1130,9 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
                 ):
                     ready_sites.add(site_name)
                 if self.verbose and site_name in ready_sites:
-                    print(
-                        f"*** First selected STF for run {self.run_id} at {site_name}, "
-                        "sending site-specific data ready message to MQ ***"
+                    self.logger.debug(
+                        f"First selected STF for run {self.run_id} at {site_name}, "
+                        "sending site-specific data ready message to MQ"
                     )
         elif first_file_for_run:
             if self._send_data_ready_message(
@@ -1109,7 +1140,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
                 decision_box_enabled=False,
                 non_decision_box_site=non_decision_box_site,
             ) and self.verbose:
-                print(f'''*** First file for run {self.run_id} has been processed, sending data ready message to MQ ***''')
+                self.logger.debug(f'First file for run {self.run_id} has been processed, sending data ready message to MQ')
 
         self._remember_completed_stf(run_id or self.run_id, fn)
         return True
@@ -1118,7 +1149,8 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
     # ---
     def handle_data_ready(self, message_data):
         run_id = message_data.get('run_id')
-        if self.verbose: print(f"*** MQ: cross-check - data ready for run {run_id} ***")
+        if self.verbose:
+            self.logger.debug(f'MQ: cross-check - data ready for run {run_id}')
 
 
     def create_run_record(self, run_id, run_conditions):
@@ -1269,11 +1301,11 @@ if __name__ == "__main__":
     mqxmit      = args.mqxmit
 
     if verbose:
-        print(f'''*** {'Verbose mode            ':<20} {verbose:>20} ***''')
-        print(f'''*** {'XRootD mode             ':<20} {xrdup:>20} ***''')
-        print(f'''*** {'Rucio scope             ':<20} {scope:>20} ***''')
-        print(f'''*** {'Data container (folder) ':<20} {datadir:>20} ***''')
-        print(f'''*** {'RSE for upload          ':<20} {rse:>20} ***''')
+        logger.info(f'{"Verbose mode":<20} {verbose:>20}')
+        logger.info(f'{"XRootD mode":<20} {xrdup:>20}')
+        logger.info(f'{"Rucio scope":<20} {scope:>20}')
+        logger.info(f'{"Data container (folder)":<20} {datadir:>20}')
+        logger.info(f'{"RSE for upload":<20} {rse:>20}')
     # ---
 
     data = DATA(
