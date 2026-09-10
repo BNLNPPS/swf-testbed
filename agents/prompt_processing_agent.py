@@ -1341,9 +1341,9 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 elif msg_type == 'end_run':
                     self.handle_end_run(message_data)
                 else:
-                    self.logger.debug(f'Ignoring unknown message type {msg_type}')
+                    logger.debug(f'Ignoring unknown message type {msg_type}')
             else:
-                self.logger.debug(f'Ignoring other namespaces {msg_namespace}')
+                logger.debug(f'Ignoring other namespaces {msg_namespace}')
         except Exception as e:
             self.logger.error(f'CRITICAL: Message processing failed - {str(e)}')
 
