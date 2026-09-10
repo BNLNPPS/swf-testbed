@@ -9,6 +9,8 @@ from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProce
 from swf_testbed_decision_box.monitor_metadata import execution_id_matches
 from swf_testbed_decision_box.models import Decision, FileDID
 
+logger = logging.getLogger(__name__)
+
 #################################################################################
 class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
     ''' The PROCESSING class is the main task management class.
@@ -23,6 +25,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         self.verbose      = verbose
         if self.verbose:
             self.logger.setLevel(logging.DEBUG)
+            logger.setLevel(logging.DEBUG)
         self.test         = test
         self.run_id       = None  # Current run number
         self.inDS         = None  # Input dataset name
@@ -1357,7 +1360,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         
         run_id = message_data.get('run_id')
         
-        self.logger.debug(f'MQ: data ready for run {run_id}')
+        logger.debug(f'MQ: data ready for run {run_id}')
         
         self.run_id = str(run_id)
         self.name_current_datasets()
@@ -1580,7 +1583,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         """Handle stf gen message"""
         fn = message_data.get('filename')
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
-        self.logger.debug(f'MQ: stf_gen {fn}')
+        logger.debug(f'MQ: stf_gen {fn}')
 
         if run_id:
             task_info = self.active_processing.get(run_id) or self.panda_status.get(run_id) or {}
@@ -1631,7 +1634,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         """Handle start_run message"""
         run_id = message_data.get('run_id')
         if self.verbose:
-            self.logger.debug(f'MQ: start_run message for run_id: {run_id}')
+            logger.debug(f'MQ: start_run message for run_id: {run_id}')
 
         # Agent is now actively processing this run
         # self.set_processing()
@@ -1648,7 +1651,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         """Handle end_run message"""
         run_id = message_data.get('run_id')
         if self.verbose:
-            self.logger.debug(f'MQ: end_run message for run_id: {run_id}')
+            logger.debug(f'MQ: end_run message for run_id: {run_id}')
 
         if run_id is None:
             self.logger.warning(
@@ -1734,8 +1737,6 @@ if __name__ == "__main__":
     inDS        = args.inDS
     outDS       = args.outDS
     script      = args.script
-
-    logger = logging.getLogger(__name__)
 
     if verbose:
         logger.info(f'{"Verbose mode":<20} {verbose:>25}')

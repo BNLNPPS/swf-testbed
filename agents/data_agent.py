@@ -54,6 +54,8 @@ from swf_testbed_decision_box.models import FileDID, Site
 from swf_testbed_decision_box.policy import build_policy
 from swf_testbed_decision_box.service import DecisionBox
 
+logger = logging.getLogger(__name__)
+
 #################################################################################
 class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
     ''' The DATA class is the main data management class.
@@ -84,6 +86,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         self.verbose                = verbose
         if self.verbose:
             self.logger.setLevel(logging.DEBUG)
+            logger.setLevel(logging.DEBUG)
         self.mqxmit                 = mqxmit
         self.xrdup                  = xrdup
 
@@ -799,7 +802,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
         self.count = 0 # reset file counter for the new run
         if self.verbose:
-            self.logger.debug(f'MQ: start_run message for run_id: {run_id}')
+            logger.debug(f'MQ: start_run message for run_id: {run_id}')
 
 
     # ---
@@ -943,7 +946,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
             self.folder = context.get("folder") or self.folder
             self.data_folder = context.get("data_folder") or self.data_folder
         if self.verbose:
-            self.logger.debug(f'MQ: STF generation for file: {fn}, count {self.count}')
+            logger.debug(f'MQ: STF generation for file: {fn}, count {self.count}')
         
         file_path = f'{self.folder}/{fn}'
 
@@ -1099,7 +1102,7 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
     def handle_data_ready(self, message_data):
         run_id = message_data.get('run_id')
         if self.verbose:
-            self.logger.debug(f'MQ: cross-check - data ready for run {run_id}')
+            logger.debug(f'MQ: cross-check - data ready for run {run_id}')
 
 
     def create_run_record(self, run_id, run_conditions):
@@ -1248,8 +1251,6 @@ if __name__ == "__main__":
     rse         = args.rse
     xrdup       = args.xrdup
     mqxmit      = args.mqxmit
-
-    logger = logging.getLogger(__name__)
 
     if verbose:
         logger.info(f'{"Verbose mode":<20} {verbose:>20}')
