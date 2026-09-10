@@ -1611,7 +1611,6 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
     def handle_run_imminent(self, message_data):
         """Handle run imminent message"""
         run_id = message_data.get('run_id')
-        self.logger.debug(f'MQ: run_imminent {run_id}')
 
         self.logger.info(
             "Processing run_imminent message",

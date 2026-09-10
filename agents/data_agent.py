@@ -667,9 +667,6 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
         run_conditions = message_data.get('run_conditions', {})
         
-        if self.verbose:
-            self.logger.debug(f'MQ: run_imminent message for run {run_id}')
-
         self.logger.info("Processing run_imminent message",
                         extra=self._log_extra(simulation_tick=message_data.get('simulation_tick')))
 
@@ -715,8 +712,6 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
         if self.verbose:
             self.logger.debug(f'Dataset {self.dataset}, creation result: {result}')
         if not result:
-            if self.verbose:
-                self.logger.debug('Dataset creation failed, marking run failed...')
             self.logger.error(
                 f"Dataset creation failed for run {run_id}",
                 extra=self._log_extra(
@@ -835,8 +830,6 @@ class DATA(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAgent):
     def _handle_end_run(self, message_data):
         """Handle end_run message"""
         run_id = str(message_data.get('run_id')) if message_data.get('run_id') is not None else None
-        if self.verbose:
-            self.logger.debug(f'MQ: end_run message for run_id: {run_id}')
 
         run_status = 'completed'
         try:
