@@ -1,0 +1,78 @@
+"""
+Example Snakemake workflow triggered by the Snakemake Agent.
+
+All fields from the incoming ActiveMQ message are available via
+config["key"].  For example, when the prompt_processing_agent publishes
+an stf_processed message the following keys are available:
+
+    config["msg_type"]         # "stf_processed"
+    config["run_id"]           # run number
+    config["panda_task_id"]    # PanDA task ID
+    config["task_status"]      # e.g. "done", "failed"
+    config["processed"]        # number of processed files
+    config["failed"]           # number of failed files
+    config["timed_out"]        # "True" / "False"
+    config["input_dataset"]    # input Rucio dataset
+    config["output_dataset"]   # output Rucio dataset
+    config["execution_id"]     # workflow execution ID
+    config["trigger_timestamp"]# ISO timestamp of when the agent received the message
+
+Note: All values arrive as strings.  Cast as needed.
+"""
+
+# ---------------------------------------------------------------------------
+# Configuration with sensible defaults
+# ---------------------------------------------------------------------------
+RUN_ID        = config.get("run_id", "unknown")
+TASK_STATUS   = config.get("task_status", "unknown")
+OUTPUT_DATASET = config.get("output_dataset", "none")
+TIMESTAMP     = config.get("trigger_timestamp", "no-timestamp")
+
+
+# ---------------------------------------------------------------------------
+# Default target
+# ---------------------------------------------------------------------------
+rule all:
+    input:
+        f"results/run_{RUN_ID}/summary.txt",
+        f"results/run_{RUN_ID}/status.json",
+
+
+# ---------------------------------------------------------------------------
+# Rules
+# ---------------------------------------------------------------------------
+rule generate_summary:
+    """Create a human-readable summary of the processing result."""
+    output:
+        f"results/run_{RUN_ID}/summary.txt",
+    params:
+        run_id=RUN_ID,
+        task_status=TASK_STATUS,
+        output_dataset=OUTPUT_DATASET,
+        processed=config.get("processed", "0"),
+        failed=config.get("failed", "0"),
+        timestamp=TIMESTAMP,
+    run:
+        import os
+        os.makedirs(os.path.dirname(output[0]), exist_ok=True)
+        with open(output[0], "w") as fh:
+            fh.write(f"=== Processing Summary ===\n")
+            fh.write(f"Run ID         : {params.run_id}\n")
+            fh.write(f"Task status    : {params.task_status}\n")
+            fh.write(f"Output dataset : {params.output_dataset}\n")
+            fh.write(f"Processed      : {params.processed}\n")
+            fh.write(f"Failed         : {params.failed}\n")
+            fh.write(f"Triggered at   : {params.timestamp}\n")
+
+
+rule generate_status_json:
+    """Create a machine-readable JSON status file."""
+    output:
+        f"results/run_{RUN_ID}/status.json",
+    run:
+        import json, os
+        os.makedirs(os.path.dirname(output[0]), exist_ok=True)
+        status = {k: v for k, v in config.items()}
+        status["workflow"] = "example_Snakefile"
+        with open(output[0], "w") as fh:
+            json.dump(status, fh, indent=2)
