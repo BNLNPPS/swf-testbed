@@ -36,6 +36,16 @@ on:
         required: false
         type: string
         default: main
+      panda_compose_repo:
+        description: 'owner/repo of panda-compose to check out'
+        required: false
+        type: string
+        default: PanDAWMS/panda-compose
+      panda_compose_ref:
+        description: 'Git ref of panda-compose to check out'
+        required: false
+        type: string
+        default: main
   workflow_dispatch:
     inputs:
       swf_testbed_repo:
@@ -65,6 +75,16 @@ on:
         default: BNLNPPS/swf-common-lib
       swf_common_lib_ref:
         description: 'Git ref of swf-common-lib to check out'
+        required: false
+        type: string
+        default: main
+      panda_compose_repo:
+        description: 'owner/repo of panda-compose to check out'
+        required: false
+        type: string
+        default: PanDAWMS/panda-compose
+      panda_compose_ref:
+        description: 'Git ref of panda-compose to check out'
         required: false
         type: string
         default: main
@@ -126,6 +146,13 @@ jobs:
           ref: ${{ inputs.swf_common_lib_ref }}
           path: swf-common-lib
 
+      - name: Checkout panda-compose
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.panda_compose_repo }}
+          ref: ${{ inputs.panda_compose_ref }}
+          path: panda-compose
+
       # ---- 2. Create the .env file that web & testbed containers need ----
       #
       # Both services declare  env_file: ../swf-monitor/.env  in compose.
@@ -148,12 +175,57 @@ jobs:
           # Strip leading whitespace that YAML block-scalar indentation adds
           sed -i 's/^[[:space:]]*//' swf-monitor/.env
 
+      # ---- 2b. Create panda-compose .env ----
+      #
+      # panda-compose needs its own .env for PostgreSQL, ActiveMQ, PanDA, Harvester, Rucio.
+      - name: Create panda-compose .env
+        run: |
+          cat > panda-compose/.env <<'EOF'
+          # PostgreSQL (PanDA server + JEDI)
+          PANDA_DB_BACKEND=postgres
+          PANDA_DB_HOST=postgres
+          PANDA_DB_PORT=5432
+          PANDA_DB_USER=panda
+          PANDA_DB_PASSWORD=panda_secret
+          PANDA_DB_NAME=panda_db
+          PANDA_DB_SCHEMAPANDA=DOMA_PANDA
+          PANDA_DB_SCHEMAMETA=DOMA_PANDAMETA
+          PANDA_DB_SCHEMAPANDAARCH=DOMA_PANDAARCH
+          PANDA_DB_SCHEMAJEDI=DOMA_PANDA
+          PANDA_DB_SCHEMADEFT=DOMA_DEFT
+          POSTGRES_PASSWORD=postgres_secret
+          
+          # ActiveMQ
+          PANDA_ACTIVEMQ_LIST=activemq:61613
+          PANDA_ACTIVEMQ_PASSWD_panda=panda_mq_secret
+          PANDA_ACTIVEMQ_PASSWD_jedi=jedi_mq_secret
+          
+          # PanDA server
+          PANDA_URL=http://panda-server:80/server/panda
+          PANDA_URL_SSL=https://panda-server:443/server/panda
+          PANDA_VERIFY_HOST=off
+          PANDA_BEHIND_REAL_LB=1
+          PANDA_AUTH=None
+          
+          # Harvester
+          HARVESTER_EXPERIMENT=wlcg
+          
+          # Rucio
+          RUCIO_DB_USER=rucio
+          RUCIO_DB_NAME=rucio
+          RUCIO_DB_PASSWORD=secret
+          RUCIO_USERNAME=ddmlab
+          RUCIO_PASSWORD=secret
+          RUCIO_TAG=latest
+          EOF
+          sed -i 's/^[[:space:]]*//' panda-compose/.env
+
       # ---- 3. Build and start the full stack ----
       - name: Docker Compose up (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
-        run: docker compose up -d --build
+        run: docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml up -d --build
 
       # ---- 4. Wait for the success marker in testbed logs ----
       - name: Wait for workflow completion (${{ matrix.testbed_workflow }})
@@ -163,7 +235,7 @@ jobs:
 
           # Stream testbed logs to a temp file in the background
           LOG_FILE="$(mktemp)"
-          docker compose logs -f testbed > "$LOG_FILE" 2>&1 &
+          docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs -f testbed > "$LOG_FILE" 2>&1 &
           LOGS_PID=$!
 
           ELAPSED=0
@@ -180,12 +252,12 @@ jobs:
             fi
 
             # Bail early if the container died
-            if ! docker compose ps testbed --format '{{.State}}' 2>/dev/null | grep -qi running; then
+            if ! docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml ps testbed --format '{{.State}}' 2>/dev/null | grep -qi running; then
               echo ""
               echo "=========================================="
               echo "❌  FAILURE — testbed container stopped unexpectedly"
               echo "=========================================="
-              docker compose logs --tail=100 testbed || true
+              docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=100 testbed || true
               kill $LOGS_PID 2>/dev/null || true
               rm -f "$LOG_FILE"
               exit 1
@@ -200,7 +272,7 @@ jobs:
           echo "=========================================="
           echo "❌  TIMEOUT — '$SUCCESS_MARKER' not seen within ${TIMEOUT}s"
           echo "=========================================="
-          docker compose logs --tail=200 testbed || true
+          docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=200 testbed || true
           kill $LOGS_PID 2>/dev/null || true
           rm -f "$LOG_FILE"
           exit 1
@@ -211,11 +283,11 @@ jobs:
         working-directory: swf-testbed
         run: |
           echo "::group::All service logs"
-          docker compose logs --tail=500
+          docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=500
           echo "::endgroup::"
 
       # ---- 6. Tear everything down ----
       - name: Docker Compose down
         if: always()
         working-directory: swf-testbed
-        run: docker compose down -v --remove-orphans
+        run: docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml down -v --remove-orphans
