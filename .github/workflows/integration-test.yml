@@ -220,12 +220,84 @@ jobs:
           EOF
           sed -i 's/^[[:space:]]*//' panda-compose/.env
 
-      # ---- 3. Build and start the full stack ----
-      - name: Docker Compose up (${{ matrix.testbed_workflow }})
+      # ---- 3. Build all images ----
+      #
+      # Build first so the staged startup is fast.
+      - name: Docker Compose build
+        working-directory: swf-testbed
+        run: docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml build
+
+      # ---- 3b. Start infrastructure (both PostgreSQL instances + both ActiveMQ) ----
+      #
+      # The panda-database image runs init scripts on first start which causes a
+      # container restart (briefly unhealthy). The testbed's db starts fast.
+      # We bring up all four infra services first and wait for both PostgreSQL
+      # instances to reach a *stable* healthy state before starting dependents.
+      - name: Start infrastructure (db, panda-postgres, activemq, testbed-activemq)
+        working-directory: swf-testbed
+        run: |
+          compose() {
+            docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
+          }
+          compose up -d db postgres testbed-activemq activemq
+
+      # ---- 3c. Wait for both PostgreSQL instances to be stably healthy ----
+      #
+      # panda-database restarts during init (RestartCount=1); we require
+      # two consecutive healthy reads to avoid catching it mid-restart.
+      - name: Wait for PostgreSQL stability
+        working-directory: swf-testbed
+        run: |
+          compose() {
+            docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
+          }
+          echo "Waiting for testbed db (swf-testbed-db-1) to be stably healthy..."
+          stable=0
+          for _ in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' swf-testbed-db-1 2>/dev/null || echo starting)
+            echo "  db health=$status"
+            if [ "$status" = healthy ]; then
+              stable=$((stable + 1))
+              [ "$stable" -ge 2 ] && break
+            else
+              stable=0
+            fi
+            sleep 5
+          done
+          if [ "$stable" -lt 2 ]; then
+            echo "ERROR: testbed db did not reach stable healthy state" >&2
+            docker logs swf-testbed-db-1 2>&1 | tail -n 80 || true
+            exit 1
+          fi
+          echo "Waiting for panda postgres (swf-testbed-postgres-1) to be stably healthy..."
+          stable=0
+          for _ in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' swf-testbed-postgres-1 2>/dev/null || echo starting)
+            restarts=$(docker inspect --format '{{.RestartCount}}' swf-testbed-postgres-1 2>/dev/null || echo 0)
+            echo "  postgres health=$status restarts=$restarts"
+            if [ "$status" = healthy ]; then
+              stable=$((stable + 1))
+              [ "$stable" -ge 2 ] && break
+            else
+              stable=0
+            fi
+            sleep 5
+          done
+          if [ "$stable" -lt 2 ]; then
+            echo "ERROR: panda postgres did not reach stable healthy state" >&2
+            docker logs swf-testbed-postgres-1 2>&1 | tail -n 80 || true
+            exit 1
+          fi
+
+      # ---- 3d. Start the rest of the stack ----
+      #
+      # Infrastructure is stable; dependents' health conditions are satisfied.
+      - name: Start application stack (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
-        run: docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml up -d --build
+        run: docker compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml up -d
+
 
       # ---- 4. Wait for the success marker in testbed logs ----
       - name: Wait for workflow completion (${{ matrix.testbed_workflow }})
