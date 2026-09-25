@@ -166,10 +166,15 @@ services:
       # (invoked to build task params) does NOT try to generate a grid proxy,
       # which would otherwise prompt for a passphrase and hang in CI.
       PANDA_AUTH: x509_no_grid
+      # x509_no_grid derives the user nickname from PANDA_NICKNAME (PsubUtils
+      # get_proxy_info); PrunScript sys.exit()s if it is empty. Use the Rucio
+      # account so task ownership / Rucio accounting line up.
+      PANDA_NICKNAME: root
       PANDA_VERIFY_HOST: off
-      # The panda-compose stack (queues + harvester) runs under the wlcg VO;
-      # match it so submitted tasks broker to the E1_BNL / E1_JLAB queues.
-      SWF_PANDA_VO: wlcg
+      # panda-compose's JEDI only refines/brokers vo=epic tasks
+      # (panda_jedi.cfg: taskrefine procConfig=epic:test, jobbroker epic:any),
+      # so submit under epic and register the E1_* queues with vo=epic to match.
+      SWF_PANDA_VO: epic
       # Rucio Configuration (for data_agent). The rucio Python client reads a
       # config file, not these vars; RUCIO_CONFIG points at the client cfg baked
       # into the image (config/rucio.cfg -> /app/config/rucio.cfg). The agent
