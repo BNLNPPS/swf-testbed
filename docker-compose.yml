@@ -15,6 +15,10 @@
 # =============================================================================
 
 networks:
+  # Name the project default network so the merged panda-compose services
+  # (which declare no networks and therefore attach to the default) share it
+  # with the testbed agents. Without this, testbed and panda-compose land on
+  # separate networks and agents cannot reach rucio / panda-server by name.
   default:
     name: swf-network
     driver: bridge
@@ -153,10 +157,18 @@ services:
       REDIS_URL: redis://redis:6379/0
       # PanDA Configuration (for prompt_processing_agent)
       PANDA_URL: http://panda-server:80/server/panda
+      # Dev stack has no TLS: point the SSL URL at http too so panda-client
+      # requests skip all SSL/cert handling (Client._build_ssl_context returns
+      # False for non-https URLs).
       PANDA_URL_SSL: http://panda-server:80/server/panda
       X509_USER_PROXY: /dev/null
-      PANDA_AUTH: None
+      # x509_no_grid makes PsubUtils.check_proxy() return early, so PrunScript
+      # (invoked to build task params) does NOT try to generate a grid proxy,
+      # which would otherwise prompt for a passphrase and hang in CI.
+      PANDA_AUTH: x509_no_grid
       PANDA_VERIFY_HOST: off
+      # The panda-compose stack (queues + harvester) runs under the wlcg VO;
+      # match it so submitted tasks broker to the E1_BNL / E1_JLAB queues.
       SWF_PANDA_VO: wlcg
       # Rucio Configuration (for data_agent). The rucio Python client reads a
       # config file, not these vars; RUCIO_CONFIG points at the client cfg baked
