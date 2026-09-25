@@ -15,7 +15,8 @@
 # =============================================================================
 
 networks:
-  swf-network:
+  default:
+    name: swf-network
     driver: bridge
 
 services:
@@ -31,8 +32,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks:
-      - swf-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -47,8 +46,6 @@ services:
       - "6379:6379"
     volumes:
       - redisdata:/data
-    networks:
-      - swf-network
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -68,8 +65,6 @@ services:
       ARTEMIS_PASSWORD: admin
     volumes:
       - amqdata:/var/lib/artemis-instance
-    networks:
-      - swf-network
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8161/console/ || exit 1"]
       interval: 10s
@@ -108,8 +103,6 @@ services:
       DJANGO_SUPERUSER_USERNAME:  ${DJANGO_SUPERUSER_USERNAME:-admin}
       DJANGO_SUPERUSER_EMAIL:     ${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
       DJANGO_SUPERUSER_PASSWORD:  ${DJANGO_SUPERUSER_PASSWORD:-changeme}
-    networks:
-      - swf-network
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
       interval: 5s
@@ -183,8 +176,6 @@ services:
       # Shared with the panda-compose rucio server so posix-RSE uploads land
       # where the server can see them (both RSEs use prefix /tmp/rucio_rse).
       - rucio-rse-data:/tmp/rucio_rse
-    networks:
-      - swf-network
 
 volumes:
   pgdata:
