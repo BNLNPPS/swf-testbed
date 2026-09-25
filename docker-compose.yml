@@ -163,12 +163,15 @@ services:
       PANDA_URL_SSL: https://panda-server:443/server/panda
       PANDA_AUTH: None
       PANDA_VERIFY_HOST: off
-      # Rucio Configuration (for data_agent)
-      RUCIO_HOST: http://rucio
-      RUCIO_AUTH_URL: http://rucio/auth
+      # Rucio Configuration (for data_agent). The rucio Python client reads a
+      # config file, not these vars; RUCIO_CONFIG points at the client cfg baked
+      # into the image (config/rucio.cfg -> /app/config/rucio.cfg). The agent
+      # itself defaults to scope group.daq and RSE DAQ_DISK_3 (see
+      # agents.supervisord.conf); the CI bootstrap provisions both.
+      RUCIO_CONFIG: /app/config/rucio.cfg
       RUCIO_ACCOUNT: root
       RUCIO_SCOPE: group.daq
-      RUCIO_RSE: MOCK-POSIX
+      RUCIO_RSE: DAQ_DISK_3
       # Decision Box / Prompt Processing
       SWF_DECISION_BOX_ENABLED: "false"
       SWF_DECISION_BOX_RUCIO_SCOPE: group.daq
@@ -176,6 +179,10 @@ services:
       SWF_DECISION_BOX_POLICY: round-robin
       SWF_NON_DECISION_BOX_SITE: E1_BNL
       SWF_PROMPT_PROCESSING_BACKGROUND: "false"
+    volumes:
+      # Shared with the panda-compose rucio server so posix-RSE uploads land
+      # where the server can see them (both RSEs use prefix /tmp/rucio_rse).
+      - rucio-rse-data:/tmp/rucio_rse
     networks:
       - swf-network
 

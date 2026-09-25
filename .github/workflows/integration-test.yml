@@ -295,9 +295,52 @@ jobs:
             exit 1
           fi
 
-      # ---- 3d. Start the rest of the stack ----
+      # ---- 3d. Start PanDA + Rucio servers (and their dependencies) ----
       #
-      # Infrastructure is stable; dependents' health conditions are satisfied.
+      # Bring these up before the testbed application container so we can
+      # bootstrap Rucio (create RSEs/scopes/quota) *before* the data agent
+      # starts. The data agent calls get_rse() at init and crash-loops into a
+      # supervisor FATAL state if its target RSE does not yet exist.
+      - name: Start PanDA and Rucio servers
+        working-directory: swf-testbed
+        run: |
+          compose() {
+            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
+          }
+          compose up -d panda-server rucio
+
+      # ---- 3e. Wait for Rucio, then bootstrap RSEs / scopes / quota ----
+      #
+      # The data agent defaults to scope group.daq and RSE DAQ_DISK_3; the
+      # harvester RucioStager expects MOCK-POSIX. Provision both. bootstrap-rucio.sh
+      # is idempotent (accepts HTTP 409 already-exists).
+      - name: Bootstrap Rucio
+        working-directory: swf-testbed
+        run: |
+          rucio_container=swf-testbed-rucio-1
+          echo "Waiting for Rucio ($rucio_container) to become healthy..."
+          for _ in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$rucio_container" 2>/dev/null || echo starting)
+            echo "  rucio health=$status"
+            [ "$status" = healthy ] && break
+            sleep 5
+          done
+          if [ "$status" != healthy ]; then
+            echo "ERROR: Rucio did not become healthy" >&2
+            docker logs "$rucio_container" 2>&1 | tail -n 80 || true
+            exit 1
+          fi
+          # MOCK-POSIX (harvester stager) + the extra scopes it uses.
+          SCOPES="user.alice mock group.daq" \
+            bash ../panda-compose/scripts/bootstrap-rucio.sh "$rucio_container"
+          # DAQ_DISK_3 (data agent default target RSE) under scope group.daq.
+          RSE_NAME=DAQ_DISK_3 SCOPES="group.daq" \
+            bash ../panda-compose/scripts/bootstrap-rucio.sh "$rucio_container"
+
+      # ---- 3f. Start the rest of the stack ----
+      #
+      # Infrastructure and Rucio are ready; dependents' health conditions are
+      # satisfied and the RSEs/scopes the data agent needs already exist.
       - name: Start application stack (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
         env:
