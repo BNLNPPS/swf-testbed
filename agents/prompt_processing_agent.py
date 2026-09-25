@@ -61,6 +61,10 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             "SWF_PROMPT_PROCESSING_BACKGROUND",
             False,
         )
+        self.panda_vo = os.getenv(
+            "SWF_PANDA_VO",
+            str(prompt_config.get("panda_vo", "epic")),
+        ).strip()
         self.non_decision_box_site = os.getenv(
             "SWF_NON_DECISION_BOX_SITE",
             str(prompt_config.get("non_decision_box_site", "E1_BNL")),
@@ -153,7 +157,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         "--inDS",   inDS,
         "--outDS",  outDS,
         "--nJobs",  "1",
-        "--vo",     "epic",
+        "--vo",     self.panda_vo,
         "--site",   "E1_BNL",
         "--prodSourceLabel",    "test",
         "--workingGroup",       "EIC",
@@ -1402,7 +1406,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 "--inDS", input_dataset,
                 "--outDS", output_dataset,
                 "--nJobs", "1",
-                "--vo", "epic",
+                "--vo", self.panda_vo,
                 "--site", site_name,
                 "--prodSourceLabel", "test",
                 "--workingGroup", "EIC",
@@ -1510,7 +1514,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         "--inDS",   f"group.daq:{self.inDS}",
         "--outDS",  f"user.{username}.{self.outDS}",
         "--nJobs", "1",
-        "--vo", "epic",
+        "--vo", self.panda_vo,
         "--site", non_decision_box_site,
         "--prodSourceLabel", "test",
         "--workingGroup", "EIC",

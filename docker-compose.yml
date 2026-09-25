@@ -156,6 +156,7 @@ services:
       PANDA_URL_SSL: https://panda-server:443/server/panda
       PANDA_AUTH: None
       PANDA_VERIFY_HOST: off
+      SWF_PANDA_VO: wlcg
       # Rucio Configuration (for data_agent). The rucio Python client reads a
       # config file, not these vars; RUCIO_CONFIG points at the client cfg baked
       # into the image (config/rucio.cfg -> /app/config/rucio.cfg). The agent
