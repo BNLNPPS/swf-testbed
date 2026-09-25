@@ -153,7 +153,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       # PanDA Configuration (for prompt_processing_agent)
       PANDA_URL: http://panda-server:80/server/panda
-      PANDA_URL_SSL: https://panda-server:443/server/panda
+      PANDA_URL_SSL: http://panda-server:80/server/panda
+      X509_USER_PROXY: /dev/null
       PANDA_AUTH: None
       PANDA_VERIFY_HOST: off
       SWF_PANDA_VO: wlcg
