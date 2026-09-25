@@ -45,7 +45,7 @@ on:
         description: 'Git ref of panda-compose to check out'
         required: false
         type: string
-        default: main
+        default: feat/configurable-queues
   workflow_dispatch:
     inputs:
       swf_testbed_repo:
@@ -87,7 +87,7 @@ on:
         description: 'Git ref of panda-compose to check out'
         required: false
         type: string
-        default: main
+        default: feat/configurable-queues
 
 env:
   DB_NAME:     swfdb
@@ -215,6 +215,11 @@ jobs:
           
           # Harvester
           HARVESTER_EXPERIMENT=wlcg
+          
+          # Compute queues: the decision box fans work out to E1_BNL / E1_JLAB,
+          # plus the built-in local queue. Registered in schedconfig and managed
+          # by the harvester (panda-compose PANDA_QUEUES knob).
+          PANDA_QUEUES=PANDA_COMPOSE_LOCAL E1_BNL E1_JLAB
           
           # Rucio
           RUCIO_DB_USER=rucio
