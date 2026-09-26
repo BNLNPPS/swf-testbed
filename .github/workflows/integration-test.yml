@@ -336,7 +336,10 @@ jobs:
             exit 1
           fi
           # MOCK-POSIX (harvester stager) + the extra scopes it uses.
-          SCOPES="user.alice mock group.daq" \
+          # user.root: JEDI registers task output datasets/containers under the
+          # submitter's scope (PANDA_NICKNAME=root -> user.root.*); without it,
+          # GenTaskRefiner cannot register the output and the task stays 'waiting'.
+          SCOPES="user.alice user.root mock group.daq" \
             bash ../panda-compose/scripts/bootstrap-rucio.sh "$rucio_container"
           # DAQ_DISK_3 (data agent default target RSE) under scope group.daq.
           RSE_NAME=DAQ_DISK_3 SCOPES="group.daq" \
@@ -427,6 +430,12 @@ jobs:
         run: |
           echo "::group::All service logs"
           docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=500
+          echo "::endgroup::"
+          # JEDI/server daemons log to files inside panda-server, not stdout, so
+          # they are invisible in the compose logs above. Dump them explicitly for
+          # diagnosing stuck tasks (refine/brokerage/contents-feeder failures).
+          echo "::group::panda-server /var/log/panda"
+          docker exec swf-testbed-panda-server-1 sh -c 'tail -n 200 /var/log/panda/*.log 2>/dev/null' || true
           echo "::endgroup::"
 
       # ---- 6. Tear everything down ----
