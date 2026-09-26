@@ -36,6 +36,16 @@ on:
         required: false
         type: string
         default: main
+      panda_compose_repo:
+        description: 'owner/repo of panda-compose to check out'
+        required: false
+        type: string
+        default: PanDAWMS/panda-compose
+      panda_compose_ref:
+        description: 'Git ref of panda-compose to check out'
+        required: false
+        type: string
+        default: feat/jedi-task-submission
   workflow_dispatch:
     inputs:
       swf_testbed_repo:
@@ -68,6 +78,16 @@ on:
         required: false
         type: string
         default: main
+      panda_compose_repo:
+        description: 'owner/repo of panda-compose to check out'
+        required: false
+        type: string
+        default: PanDAWMS/panda-compose
+      panda_compose_ref:
+        description: 'Git ref of panda-compose to check out'
+        required: false
+        type: string
+        default: feat/jedi-task-submission
 
 env:
   DB_NAME:     swfdb
@@ -78,6 +98,12 @@ env:
   DJANGO_SUPERUSER_PASSWORD:  changeme
   # Maximum time (seconds) to wait for the success message
   TIMEOUT: 600
+  # Stable project name so container names stay <project>-<service>-1 regardless
+  # of the --project-directory override used on each compose command. That
+  # override points at ../panda-compose so panda-compose's relative volume
+  # paths (./config, ./scripts) resolve against its own checkout rather than
+  # swf-testbed's; swf-testbed's own ../sibling paths resolve the same either way.
+  COMPOSE_PROJECT_NAME: swf-testbed
 
 jobs:
   integration:
@@ -126,6 +152,13 @@ jobs:
           ref: ${{ inputs.swf_common_lib_ref }}
           path: swf-common-lib
 
+      - name: Checkout panda-compose
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.panda_compose_repo }}
+          ref: ${{ inputs.panda_compose_ref }}
+          path: panda-compose
+
       # ---- 2. Create the .env file that web & testbed containers need ----
       #
       # Both services declare  env_file: ../swf-monitor/.env  in compose.
@@ -148,62 +181,252 @@ jobs:
           # Strip leading whitespace that YAML block-scalar indentation adds
           sed -i 's/^[[:space:]]*//' swf-monitor/.env
 
-      # ---- 3. Build and start the full stack ----
-      - name: Docker Compose up (${{ matrix.testbed_workflow }})
+      # ---- 2b. Create panda-compose .env ----
+      #
+      # panda-compose needs its own .env for PostgreSQL, ActiveMQ, PanDA, Harvester, Rucio.
+      - name: Create panda-compose .env
+        run: |
+          cat > panda-compose/.env <<'EOF'
+          # PostgreSQL (PanDA server + JEDI)
+          PANDA_DB_BACKEND=postgres
+          PANDA_DB_HOST=postgres
+          PANDA_DB_PORT=5432
+          PANDA_DB_USER=panda
+          PANDA_DB_PASSWORD=panda_secret
+          PANDA_DB_NAME=panda_db
+          PANDA_DB_SCHEMAPANDA=DOMA_PANDA
+          PANDA_DB_SCHEMAMETA=DOMA_PANDAMETA
+          PANDA_DB_SCHEMAPANDAARCH=DOMA_PANDAARCH
+          PANDA_DB_SCHEMAJEDI=DOMA_PANDA
+          PANDA_DB_SCHEMADEFT=DOMA_DEFT
+          POSTGRES_PASSWORD=postgres_secret
+          
+          # ActiveMQ
+          PANDA_ACTIVEMQ_LIST=activemq:61613
+          PANDA_ACTIVEMQ_PASSWD_panda=panda_mq_secret
+          PANDA_ACTIVEMQ_PASSWD_jedi=jedi_mq_secret
+          
+          # PanDA server
+          PANDA_URL=http://panda-server:80/server/panda
+          PANDA_URL_SSL=https://panda-server:443/server/panda
+          PANDA_VERIFY_HOST=off
+          PANDA_BEHIND_REAL_LB=1
+          PANDA_AUTH=None
+          
+          # Harvester
+          HARVESTER_EXPERIMENT=wlcg
+          
+          # Compute queues: the decision box fans work out to E1_BNL / E1_JLAB,
+          # plus the built-in local queue. Registered in schedconfig and managed
+          # by the harvester (panda-compose PANDA_QUEUES knob).
+          PANDA_QUEUES=PANDA_COMPOSE_LOCAL E1_BNL E1_JLAB
+          
+          # JEDI task path: VO/label the seeded work-queue + global-share use.
+          # Must match the agent's SWF_PANDA_VO (epic) so submitted tasks refine.
+          PANDA_TASK_VO=epic
+          PANDA_TASK_LABEL=test
+          
+          # Rucio
+          RUCIO_DB_USER=rucio
+          RUCIO_DB_NAME=rucio
+          RUCIO_DB_PASSWORD=secret
+          RUCIO_USERNAME=ddmlab
+          RUCIO_PASSWORD=secret
+          RUCIO_TAG=latest
+          EOF
+          sed -i 's/^[[:space:]]*//' panda-compose/.env
+
+      # ---- 3. Build all images ----
+      #
+      # Build first so the staged startup is fast.
+      - name: Docker Compose build
+        working-directory: swf-testbed
+        run: docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml build
+
+      # ---- 3b. Start infrastructure (both PostgreSQL instances + both ActiveMQ) ----
+      #
+      # The panda-database image runs init scripts on first start which causes a
+      # container restart (briefly unhealthy). The testbed's db starts fast.
+      # We bring up all four infra services first and wait for both PostgreSQL
+      # instances to reach a *stable* healthy state before starting dependents.
+      - name: Start infrastructure (db, panda-postgres, activemq, testbed-activemq)
+        working-directory: swf-testbed
+        run: |
+          compose() {
+            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
+          }
+          compose up -d db postgres testbed-activemq activemq
+
+      # ---- 3c. Wait for both PostgreSQL instances to be stably healthy ----
+      #
+      # panda-database restarts during init (RestartCount=1); we require
+      # two consecutive healthy reads to avoid catching it mid-restart.
+      - name: Wait for PostgreSQL stability
+        working-directory: swf-testbed
+        run: |
+          compose() {
+            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
+          }
+          echo "Waiting for testbed db (swf-testbed-db-1) to be stably healthy..."
+          stable=0
+          for _ in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' swf-testbed-db-1 2>/dev/null || echo starting)
+            echo "  db health=$status"
+            if [ "$status" = healthy ]; then
+              stable=$((stable + 1))
+              [ "$stable" -ge 2 ] && break
+            else
+              stable=0
+            fi
+            sleep 5
+          done
+          if [ "$stable" -lt 2 ]; then
+            echo "ERROR: testbed db did not reach stable healthy state" >&2
+            docker logs swf-testbed-db-1 2>&1 | tail -n 80 || true
+            exit 1
+          fi
+          echo "Waiting for panda postgres (swf-testbed-postgres-1) to be stably healthy..."
+          stable=0
+          for _ in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' swf-testbed-postgres-1 2>/dev/null || echo starting)
+            restarts=$(docker inspect --format '{{.RestartCount}}' swf-testbed-postgres-1 2>/dev/null || echo 0)
+            echo "  postgres health=$status restarts=$restarts"
+            if [ "$status" = healthy ]; then
+              stable=$((stable + 1))
+              [ "$stable" -ge 2 ] && break
+            else
+              stable=0
+            fi
+            sleep 5
+          done
+          if [ "$stable" -lt 2 ]; then
+            echo "ERROR: panda postgres did not reach stable healthy state" >&2
+            docker logs swf-testbed-postgres-1 2>&1 | tail -n 80 || true
+            exit 1
+          fi
+
+      # ---- 3d. Start PanDA + Rucio servers (and their dependencies) ----
+      #
+      # Bring these up before the testbed application container so we can
+      # bootstrap Rucio (create RSEs/scopes/quota) *before* the data agent
+      # starts. The data agent calls get_rse() at init and crash-loops into a
+      # supervisor FATAL state if its target RSE does not yet exist.
+      - name: Start PanDA and Rucio servers
+        working-directory: swf-testbed
+        run: |
+          compose() {
+            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
+          }
+          compose up -d panda-server rucio
+
+      # ---- 3e. Wait for Rucio, then bootstrap RSEs / scopes / quota ----
+      #
+      # The data agent defaults to scope group.daq and RSE DAQ_DISK_3; the
+      # harvester RucioStager expects MOCK-POSIX. Provision both. bootstrap-rucio.sh
+      # is idempotent (accepts HTTP 409 already-exists).
+      - name: Bootstrap Rucio
+        working-directory: swf-testbed
+        run: |
+          rucio_container=swf-testbed-rucio-1
+          echo "Waiting for Rucio ($rucio_container) to become healthy..."
+          for _ in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$rucio_container" 2>/dev/null || echo starting)
+            echo "  rucio health=$status"
+            [ "$status" = healthy ] && break
+            sleep 5
+          done
+          if [ "$status" != healthy ]; then
+            echo "ERROR: Rucio did not become healthy" >&2
+            docker logs "$rucio_container" 2>&1 | tail -n 80 || true
+            exit 1
+          fi
+          # MOCK-POSIX (harvester stager) + the extra scopes it uses.
+          # user.root: JEDI registers task output datasets/containers under the
+          # submitter's scope (PANDA_NICKNAME=root -> user.root.*); without it,
+          # GenTaskRefiner cannot register the output and the task stays 'waiting'.
+          SCOPES="user.alice user.root mock group.daq" \
+            bash ../panda-compose/scripts/bootstrap-rucio.sh "$rucio_container"
+          # DAQ_DISK_3 (data agent default target RSE) under scope group.daq.
+          RSE_NAME=DAQ_DISK_3 SCOPES="group.daq" \
+            bash ../panda-compose/scripts/bootstrap-rucio.sh "$rucio_container"
+
+      # ---- 3f. Start the rest of the stack ----
+      #
+      # Infrastructure and Rucio are ready; dependents' health conditions are
+      # satisfied and the RSEs/scopes the data agent needs already exist.
+      - name: Start application stack (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
-        run: docker compose up -d --build
+        run: docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml up -d
+
 
       # ---- 4. Wait for the success marker in testbed logs ----
       - name: Wait for workflow completion (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
+        env:
+          TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
         run: |
-          SUCCESS_MARKER="Workflow completed:"
+          set -euo pipefail
+          WORKFLOW="${TESTBED_WORKFLOW}"
+          TIMEOUT=${TIMEOUT:-600}
 
-          # Stream testbed logs to a temp file in the background
-          LOG_FILE="$(mktemp)"
-          docker compose logs -f testbed > "$LOG_FILE" 2>&1 &
-          LOGS_PID=$!
+          if [ "$WORKFLOW" = "stf_datataking" ]; then
+            # stf_datataking: wait for DAQ simulation completion marker
+            SUCCESS_MARKER="Workflow completed:"
+            LOG_FILE="$(mktemp)"
+            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs -f testbed > "$LOG_FILE" 2>&1 &
+            LOGS_PID=$!
 
-          ELAPSED=0
-          INTERVAL=5
-          while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
-            if grep -qF "$SUCCESS_MARKER" "$LOG_FILE" 2>/dev/null; then
-              echo ""
-              echo "=========================================="
-              echo "✅  SUCCESS — Found '$SUCCESS_MARKER'"
-              echo "=========================================="
-              kill $LOGS_PID 2>/dev/null || true
-              rm -f "$LOG_FILE"
-              exit 0
-            fi
+            ELAPSED=0
+            INTERVAL=5
+            while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
+              if grep -qF "$SUCCESS_MARKER" "$LOG_FILE" 2>/dev/null; then
+                echo ""
+                echo "=========================================="
+                echo "✅  SUCCESS — Found '$SUCCESS_MARKER'"
+                echo "=========================================="
+                kill $LOGS_PID 2>/dev/null || true
+                rm -f "$LOG_FILE"
+                exit 0
+              fi
 
-            # Bail early if the container died
-            if ! docker compose ps testbed --format '{{.State}}' 2>/dev/null | grep -qi running; then
-              echo ""
-              echo "=========================================="
-              echo "❌  FAILURE — testbed container stopped unexpectedly"
-              echo "=========================================="
-              docker compose logs --tail=100 testbed || true
-              kill $LOGS_PID 2>/dev/null || true
-              rm -f "$LOG_FILE"
-              exit 1
-            fi
+              if ! docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml ps testbed --format '{{.State}}' 2>/dev/null | grep -qi running; then
+                echo ""
+                echo "=========================================="
+                echo "❌  FAILURE — testbed container stopped unexpectedly"
+                echo "=========================================="
+                docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=100 testbed || true
+                kill $LOGS_PID 2>/dev/null || true
+                rm -f "$LOG_FILE"
+                exit 1
+              fi
 
-            sleep "$INTERVAL"
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
+              sleep "$INTERVAL"
+              ELAPSED=$((ELAPSED + INTERVAL))
+            done
 
-          # Timeout
-          echo ""
-          echo "=========================================="
-          echo "❌  TIMEOUT — '$SUCCESS_MARKER' not seen within ${TIMEOUT}s"
-          echo "=========================================="
-          docker compose logs --tail=200 testbed || true
-          kill $LOGS_PID 2>/dev/null || true
-          rm -f "$LOG_FILE"
-          exit 1
+            echo ""
+            echo "=========================================="
+            echo "❌  TIMEOUT — '$SUCCESS_MARKER' not seen within ${TIMEOUT}s"
+            echo "=========================================="
+            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=200 testbed || true
+            kill $LOGS_PID 2>/dev/null || true
+            rm -f "$LOG_FILE"
+            exit 1
+
+          elif [ "$WORKFLOW" = "prompt_processing" ]; then
+            # prompt_processing: wait for stf_processed message on ActiveMQ
+            # (validates end-to-end PanDA task submission + execution)
+            echo "Waiting for stf_processed message (PanDA task completion)..."
+            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml \
+              exec -T testbed \
+              python3 /app/scripts/listen_stf_processed.py
+            exit $?
+          else
+            echo "Unknown workflow: $WORKFLOW" >&2
+            exit 1
+          fi
 
       # ---- 5. Always dump logs for post-mortem debugging ----
       - name: Dump all service logs
@@ -211,11 +434,34 @@ jobs:
         working-directory: swf-testbed
         run: |
           echo "::group::All service logs"
-          docker compose logs --tail=500
+          docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=500
+          echo "::endgroup::"
+          # JEDI/server daemons log to files inside panda-server, not stdout, so
+          # they are invisible in the compose logs above. Dump them explicitly for
+          # diagnosing stuck tasks (refine/brokerage/contents-feeder failures).
+          echo "::group::panda-server /var/log/panda"
+          docker exec swf-testbed-panda-server-1 sh -c 'tail -n 200 /var/log/panda/*.log 2>/dev/null' || true
+          echo "::endgroup::"
+          # Harvester also logs to files, not stdout. Its fetcher/submitter/stager
+          # logs show whether jobs were pulled, run, and staged out.
+          echo "::group::harvester /var/log/harvester"
+          docker exec swf-testbed-harvester-1 sh -c 'tail -n 150 /var/log/harvester/*.log 2>/dev/null' || true
+          echo "::endgroup::"
+          # PanDA job/task status straight from the DB, so we can see exactly which
+          # pipeline stage a stalled job sits at (defined/activated/running/holding
+          # /transferring/finished/failed) without guessing from logs.
+          echo "::group::PanDA job + task status (DB)"
+          docker exec -e PGPASSWORD=panda_secret swf-testbed-postgres-1 \
+            psql -h localhost -U panda -d panda_db -c "
+              SELECT jeditaskid, status, errordialog FROM doma_panda.jedi_tasks ORDER BY jeditaskid;
+              SELECT 'defined' src, pandaid, jobstatus, computingsite FROM doma_panda.jobsdefined4
+              UNION ALL SELECT 'active', pandaid, jobstatus, computingsite FROM doma_panda.jobsactive4
+              UNION ALL SELECT 'archived', pandaid, jobstatus, computingsite FROM doma_panda.jobsarchived4
+              ORDER BY pandaid;" 2>/dev/null || true
           echo "::endgroup::"
 
       # ---- 6. Tear everything down ----
       - name: Docker Compose down
         if: always()
         working-directory: swf-testbed
-        run: docker compose down -v --remove-orphans
+        run: docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml down -v --remove-orphans
