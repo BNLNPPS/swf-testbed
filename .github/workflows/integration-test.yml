@@ -442,6 +442,23 @@ jobs:
           echo "::group::panda-server /var/log/panda"
           docker exec swf-testbed-panda-server-1 sh -c 'tail -n 200 /var/log/panda/*.log 2>/dev/null' || true
           echo "::endgroup::"
+          # Harvester also logs to files, not stdout. Its fetcher/submitter/stager
+          # logs show whether jobs were pulled, run, and staged out.
+          echo "::group::harvester /var/log/harvester"
+          docker exec swf-testbed-harvester-1 sh -c 'tail -n 150 /var/log/harvester/*.log 2>/dev/null' || true
+          echo "::endgroup::"
+          # PanDA job/task status straight from the DB, so we can see exactly which
+          # pipeline stage a stalled job sits at (defined/activated/running/holding
+          # /transferring/finished/failed) without guessing from logs.
+          echo "::group::PanDA job + task status (DB)"
+          docker exec -e PGPASSWORD=panda_secret swf-testbed-postgres-1 \
+            psql -h localhost -U panda -d panda_db -c "
+              SELECT jeditaskid, status, errordialog FROM doma_panda.jedi_tasks ORDER BY jeditaskid;
+              SELECT 'defined' src, pandaid, jobstatus, computingsite FROM doma_panda.jobsdefined4
+              UNION ALL SELECT 'active', pandaid, jobstatus, computingsite FROM doma_panda.jobsactive4
+              UNION ALL SELECT 'archived', pandaid, jobstatus, computingsite FROM doma_panda.jobsarchived4
+              ORDER BY pandaid;" 2>/dev/null || true
+          echo "::endgroup::"
 
       # ---- 6. Tear everything down ----
       - name: Docker Compose down
