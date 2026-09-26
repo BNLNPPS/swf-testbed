@@ -45,7 +45,7 @@ on:
         description: 'Git ref of panda-compose to check out'
         required: false
         type: string
-        default: feat/configurable-queues
+        default: feat/jedi-task-submission
   workflow_dispatch:
     inputs:
       swf_testbed_repo:
@@ -87,7 +87,7 @@ on:
         description: 'Git ref of panda-compose to check out'
         required: false
         type: string
-        default: feat/configurable-queues
+        default: feat/jedi-task-submission
 
 env:
   DB_NAME:     swfdb
@@ -220,6 +220,11 @@ jobs:
           # plus the built-in local queue. Registered in schedconfig and managed
           # by the harvester (panda-compose PANDA_QUEUES knob).
           PANDA_QUEUES=PANDA_COMPOSE_LOCAL E1_BNL E1_JLAB
+          
+          # JEDI task path: VO/label the seeded work-queue + global-share use.
+          # Must match the agent's SWF_PANDA_VO (epic) so submitted tasks refine.
+          PANDA_TASK_VO=epic
+          PANDA_TASK_LABEL=test
           
           # Rucio
           RUCIO_DB_USER=rucio
