@@ -459,6 +459,39 @@ jobs:
               UNION ALL SELECT 'archived', pandaid, jobstatus, computingsite FROM doma_panda.jobsarchived4
               ORDER BY pandaid;" 2>/dev/null || true
           echo "::endgroup::"
+          # Investigate the defined->activated stall (#2): a job with
+          # dispatchdblock=NULL is a no-input job the Setupper would activate
+          # immediately; a set dispatchdblock means it waits for a Rucio->PanDA
+          # DDM callback. Also show input-file readiness the activator checks.
+          echo "::group::defined-job dispatch/activation details (DB)"
+          docker exec -e PGPASSWORD=panda_secret swf-testbed-postgres-1 \
+            psql -h localhost -U panda -d panda_db -x -c "
+              SELECT pandaid, jobstatus, computingsite, dispatchdblock,
+                     creationtime, proddbupdatetime
+              FROM doma_panda.jobsdefined4 ORDER BY pandaid;" 2>/dev/null || true
+          docker exec -e PGPASSWORD=panda_secret swf-testbed-postgres-1 \
+            psql -h localhost -U panda -d panda_db -c "
+              SELECT pandaid, type, status, scope, lfn, dispatchdblock
+              FROM doma_panda.filestable4
+              WHERE pandaid IN (SELECT pandaid FROM doma_panda.jobsdefined4)
+              ORDER BY pandaid, type;" 2>/dev/null || true
+          echo "::endgroup::"
+          # Which component last touched the stuck jobs, and did the DDM callback /
+          # Setupper / Activator path run at all?
+          echo "::group::panda logs: setupper/activator/DDM + stuck PandaIDs"
+          docker exec swf-testbed-panda-server-1 sh -c '
+            grep -rEin "setupper|activator|ddm_handler|DDMHandler|to activate|activateJobs|dataset .*(complete|available)|callback" /var/log/panda/ 2>/dev/null | tail -n 80;
+            echo "----- PandaID mentions -----";
+            grep -rEn "PandaID=(1|2|3)([^0-9]|$)" /var/log/panda/ 2>/dev/null | tail -n 60
+          ' || true
+          echo "::endgroup::"
+          # Confirm the pg_cron jobs actually succeed (return_message empty = OK).
+          echo "::group::pg_cron run history"
+          docker exec -e PGPASSWORD=postgres_secret swf-testbed-postgres-1 \
+            psql -h 127.0.0.1 -U postgres -d postgres -c "
+              SELECT jobid, status, return_message, start_time
+              FROM cron.job_run_details ORDER BY runid DESC LIMIT 15;" 2>/dev/null || true
+          echo "::endgroup::"
 
       # ---- 6. Tear everything down ----
       - name: Docker Compose down
