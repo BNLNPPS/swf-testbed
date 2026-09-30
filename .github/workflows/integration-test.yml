@@ -493,6 +493,35 @@ jobs:
               FROM cron.job_run_details ORDER BY runid DESC LIMIT 15;" 2>/dev/null || true
           echo "::endgroup::"
 
+      # ---- 5b. Probe the defined->activated stall on the real stalled jobs ----
+      # Runs the exact JEDI activation trigger (Client.reassign_jobs) and the
+      # server-side Setupper directly on whatever jobs are stuck in 'defined',
+      # capturing setupper.log + status transitions. This tells us whether the
+      # blocker is the reassign trigger not invoking the Setupper, or the Setupper
+      # sending jobs to 'assigned' (waiting on a DDM callback) vs 'activated'.
+      - name: Probe defined->activated (reassign + Setupper)
+        if: always()
+        working-directory: swf-testbed
+        run: |
+          PS=swf-testbed-panda-server-1
+          PG=swf-testbed-postgres-1
+          IDS=$(docker exec -e PGPASSWORD=panda_secret "$PG" \
+            psql -h 127.0.0.1 -U panda -d panda_db -tAc \
+            "SELECT pandaid FROM doma_panda.jobsdefined4 WHERE jobstatus='defined' ORDER BY pandaid" \
+            2>/dev/null | tr '\n' ' ')
+          echo "defined PandaIDs: [$IDS]"
+          if [ -z "$IDS" ]; then echo "no jobs in 'defined'; nothing to probe"; exit 0; fi
+          echo "::group::panda-setupper.log BEFORE"
+          docker exec "$PS" sh -c 'wc -l /var/log/panda/panda-setupper.log 2>/dev/null; tail -n 20 /var/log/panda/panda-setupper.log 2>/dev/null' || true
+          echo "::endgroup::"
+          echo "::group::probe (reassign + direct Setupper)"
+          docker cp scripts/ci_probe_setupper.py "$PS":/tmp/ci_probe_setupper.py
+          docker exec "$PS" /opt/panda/bin/python /tmp/ci_probe_setupper.py $IDS || true
+          echo "::endgroup::"
+          echo "::group::panda-setupper.log AFTER"
+          docker exec "$PS" sh -c 'tail -n 150 /var/log/panda/panda-setupper.log 2>/dev/null' || true
+          echo "::endgroup::"
+
       # ---- 6. Tear everything down ----
       - name: Docker Compose down
         if: always()
