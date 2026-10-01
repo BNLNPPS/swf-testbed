@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 from pandaclient import PrunScript, panda_api
 from pandaclient.Client import getTaskStatus, getPandaIDsWithTaskID, getFullJobStatus
 from swf_common_lib.base_agent import BaseAgent
+from swf_common_lib.rest_logging import RestLogHandler
 from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
 
 from swf_testbed_decision_box.monitor_metadata import execution_id_matches
@@ -26,6 +27,10 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         if self.verbose:
             self.logger.setLevel(logging.DEBUG)
             logger.setLevel(logging.DEBUG)
+        # Limit monitor traffic while retaining DEBUG output via the root console handler.
+        for handler in self.logger.handlers:
+            if isinstance(handler, RestLogHandler):
+                handler.setLevel(logging.INFO)
         self.test         = test
         self.run_id       = None  # Current run number
         self.inDS         = None  # Input dataset name
@@ -252,41 +257,38 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
     def _panda_ids_for_task(self, task_id):
         if not task_id:
             return []
-        try:
-            status, data = getPandaIDsWithTaskID(task_id)
-        except Exception as e:
-            self.logger.warning(
-                f"Failed to query PanDA job IDs for task {task_id}: {e}",
-                extra=self._log_extra(run_id=self.run_id, panda_task_id=task_id)
-            )
-            return []
-        if status != 0 or not data:
-            return []
+        status, data = getPandaIDsWithTaskID(task_id)
+        if status != 0:
+            raise RuntimeError(f"PanDA job ID lookup failed for task {task_id}: {status}")
         if isinstance(data, dict):
             for key in ("PandaID", "pandaIDs", "panda_ids", "ids"):
                 if isinstance(data.get(key), list):
                     return [str(panda_id) for panda_id in data[key]]
-            return []
+            raise RuntimeError(f"Invalid PanDA job ID response for task {task_id}")
         if isinstance(data, (list, tuple, set)):
             return [str(panda_id) for panda_id in data]
-        return [str(data)]
+        raise RuntimeError(f"Invalid PanDA job ID response for task {task_id}")
 
 
     def _full_job_statuses(self, panda_ids):
-        if not panda_ids:
-            return []
-        try:
-            int_ids = [int(pid) for pid in panda_ids]
-            status, jobs = getFullJobStatus(int_ids)
-        except Exception as e:
-            self.logger.warning(
-                f"Failed to query PanDA job status: {e}",
-                extra=self._log_extra(run_id=self.run_id)
-            )
-            return []
-        if status != 0 or not jobs:
-            return []
-        return jobs if isinstance(jobs, list) else [jobs]
+        all_jobs = []
+        # PanDA truncates getFullJobStatus requests to 5,500 IDs.
+        batch_size = 5500
+        for offset in range(0, len(panda_ids), batch_size):
+            batch_ids = [int(pid) for pid in panda_ids[offset:offset + batch_size]]
+            status, jobs = getFullJobStatus(batch_ids)
+            if status != 0 or not jobs:
+                raise RuntimeError("PanDA job status lookup failed")
+            jobs = jobs if isinstance(jobs, list) else [jobs]
+            returned_ids = {str(getattr(job, "PandaID", "")) for job in jobs if job is not None}
+            if returned_ids != {str(pid) for pid in batch_ids} or any(
+                job is None or not getattr(job, "jobStatus", None)
+                or str(getattr(job, "jobStatus", "")).lower() == "null"
+                for job in jobs
+            ):
+                raise RuntimeError("Incomplete PanDA job status response; retrying on the next poll")
+            all_jobs.extend(jobs)
+        return all_jobs
 
 
     def _job_status_records(self, task_id):
@@ -303,10 +305,38 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                     input_files.append(lfn)
             records.append({
                 "panda_id": panda_id,
+                "attempt_nr": getattr(job, "attemptNr", None),
+                "max_attempt": getattr(job, "maxAttempt", None),
                 "status": job_status,
                 "input_files": input_files,
             })
         return records
+
+
+    @staticmethod
+    def _job_attempt_key(job):
+        """Order attempts numerically; tolerate unset PanDA attributes."""
+        def number(value):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return -1
+        return number(job.get("attempt_nr")), number(job.get("panda_id"))
+
+
+    @staticmethod
+    def _job_retry_limit_reached(job):
+        """Check the job retry limit, not whether JEDI can create a new job.
+
+        Failed rows remain eligible for reconciliation if a newer job appears.
+        PanDA's NULL/missing limits must not be interpreted as zero.
+        """
+        try:
+            attempt = int(str(job.get("attempt_nr")))
+            limit = int(str(job.get("max_attempt")))
+        except (TypeError, ValueError):
+            return False
+        return attempt >= 0 and limit >= 0 and attempt >= limit
 
 
     def _stf_stem(self, filename):
@@ -583,7 +613,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             metadata["workflow_execution_id"] = execution_id
         if matched_input_files is not None:
             metadata["matched_input_files"] = matched_input_files
-        if reason:
+        if reason is not None:
             metadata["panda_poll_reason"] = reason
         if extra_metadata:
             metadata.update(extra_metadata)
@@ -650,11 +680,13 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         })
         if matched_input_files is not None:
             site_entry["matched_input_files"] = matched_input_files
-        if reason:
+        if reason is not None:
             site_entry["reason"] = reason
         if job:
             site_entry["panda_job_id"] = job.get("panda_id")
             site_entry["panda_job_status"] = job.get("status")
+            site_entry["panda_attempt_nr"] = job.get("attempt_nr")
+            site_entry["panda_max_attempt"] = job.get("max_attempt")
         site_statuses[site_name] = site_entry
         selected_sites = list(site_inputs.keys()) or list((metadata.get("panda_site_task_ids") or {}).keys())
         aggregate_status = self._aggregate_decision_status(site_statuses, selected_sites)
@@ -700,7 +732,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 continue
             if self._patch_stf_file(stf_file, "processing", panda_task_id=panda_task_id, run_number=run_number, execution_id=execution_id):
                 updated += 1
-        self.logger.info(
+        log_method = self.logger.info if updated else self.logger.debug
+        log_method(
             f"Marked {updated} STF files processing for run {run_number}",
             extra=self._log_extra(run_id=run_number, panda_task_id=panda_task_id)
         )
@@ -878,6 +911,16 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         active_statuses = {"registered", "processing"}
         task_status = self._task_status(panda_task_id) if panda_task_id else None
         job_records = self._job_status_records(panda_task_id)
+        terminal_job_snapshot = (
+            task_status in task_terminal
+            and bool(job_records)
+            and all(job.get("status") in (job_success | job_failure) for job in job_records)
+        )
+        terminal_success_snapshot = (
+            task_status in task_terminal
+            and bool(job_records)
+            and all(job.get("status") in job_success for job in job_records)
+        )
         if decision_box_enabled is None:
             decision_box_enabled = self._decision_box_enabled_for_message({}, run_id=run_number)
 
@@ -889,96 +932,171 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             decision_box_enabled=decision_box_enabled,
         )
 
+        # Reconcile terminal rows too: a newer attempt can supersede their result.
         stf_files = [
-            f for f in self._monitor_stf_files_for_run(run_number, status="processing", execution_id=execution_id)
-            if self._recoverable_by_this_agent(f, execution_id=execution_id, panda_task_id=panda_task_id)
+            f for f in self._monitor_stf_files_for_run(run_number, execution_id=execution_id)
+            if f.get("status") in {"registered", "processing", "processed", "failed"}
+            and self._recoverable_by_this_agent(f, execution_id=execution_id, panda_task_id=panda_task_id)
         ]
         processed = 0
         failed = 0
         matched_file_ids = set()
+        unresolved_terminal_failed_rows = set()
+        incomplete_snapshot = False
         for stf_file in stf_files:
             matching_jobs = [
                 job for job in job_records
                 if self._input_matches_stf(stf_file.get("stf_filename", ""), job.get("input_files", []))
             ]
+            old_metadata = stf_file.get("metadata") or {}
+            previous_job = old_metadata
+            if decision_box_enabled:
+                selected_site = self._site_name_for_task_id(old_metadata, panda_task_id, fallback_site=site_name)
+                previous_job = (old_metadata.get("panda_site_statuses") or {}).get(selected_site) or {}
+            preserve_failed_terminal = (
+                terminal_job_snapshot
+                and not terminal_success_snapshot
+                and stf_file.get("status") == "failed"
+                and previous_job.get("panda_job_status") in job_failure
+            )
             if not matching_jobs:
+                no_job_tasks = old_metadata.get("panda_no_job_terminal_tasks") or {}
+                legacy_reason = previous_job.get("reason") if decision_box_enabled else old_metadata.get("panda_poll_reason")
+                legacy_status = previous_job.get("status") if decision_box_enabled else stf_file.get("status")
+                legacy_task_id = previous_job.get("task_id") if decision_box_enabled else old_metadata.get("panda_task_id")
+                if (task_status in task_terminal
+                        and legacy_status == "failed"
+                        and str(legacy_task_id) == str(panda_task_id)
+                        and legacy_reason == f"no PanDA job found before task became {task_status}"
+                        and not previous_job.get("panda_job_id")
+                        and no_job_tasks.get(str(panda_task_id)) != task_status):
+                    no_job_tasks = dict(no_job_tasks)
+                    no_job_tasks[str(panda_task_id)] = task_status
+                    if not self._patch_stf_file(
+                        stf_file, stf_file.get("status"), panda_task_id,
+                        run_number=run_number, execution_id=execution_id,
+                        extra_metadata={"panda_no_job_terminal_tasks": no_job_tasks},
+                    ):
+                        incomplete_snapshot = True
+                    matched_file_ids.add(stf_file.get("file_id"))
+                    continue
+                if (task_status in task_terminal
+                        and no_job_tasks.get(str(panda_task_id)) == task_status
+                        and not previous_job.get("panda_job_id")):
+                    matched_file_ids.add(stf_file.get("file_id"))
+                    continue
+                if (previous_job.get("panda_job_id") or stf_file.get("status") == "failed") and not (
+                    task_status in task_terminal and stf_file.get("status") == "processed"
+                ):
+                    if terminal_job_snapshot and stf_file.get("status") == "failed":
+                        site_still_unresolved = (
+                            decision_box_enabled
+                            and previous_job.get("status") in active_statuses
+                        )
+                        if not preserve_failed_terminal or site_still_unresolved:
+                            unresolved_terminal_failed_rows.add(stf_file.get("file_id"))
+                    elif not preserve_failed_terminal:
+                        incomplete_snapshot = True
+                    matched_file_ids.add(stf_file.get("file_id"))
                 continue
 
             matched_file_ids.add(stf_file.get("file_id"))
-            success_jobs = [job for job in matching_jobs if job.get("status") in job_success]
-            failed_jobs = [job for job in matching_jobs if job.get("status") in job_failure]
-            if success_jobs:
-                job = success_jobs[-1]
-                matched_inputs = sorted(job.get("input_files", []))
-                patch_status = "processed"
-                patch_metadata = {
-                    "panda_job_id": job.get("panda_id"),
-                    "panda_job_status": job.get("status"),
-                    "matched_input_files": matched_inputs,
-                }
-                patch_output_dataset = None
-                if decision_box_enabled:
-                    patch_status, site_metadata = self._decision_site_poll_metadata(
-                        stf_file,
-                        panda_task_id,
-                        "processed",
-                        run_number=run_number,
-                        site_name=site_name,
-                        matched_input_files=matched_inputs,
-                        job=job,
-                    )
-                    patch_metadata.update(site_metadata)
-                    selected_site = site_metadata.get("panda_selected_site")
-                    site_outputs = (stf_file.get("metadata") or {}).get("panda_site_output_datasets") or {}
-                    patch_output_dataset = site_outputs.get(selected_site)
-                if self._patch_stf_file(
-                    stf_file,
-                    patch_status,
-                    panda_task_id,
-                    matched_inputs,
-                    run_number=run_number,
-                    execution_id=execution_id,
-                    extra_metadata=patch_metadata,
-                    output_dataset=patch_output_dataset,
-                ):
-                    processed += 1
-            elif stf_file.get("status") != "processed" and failed_jobs and all(job.get("status") in job_failure for job in matching_jobs):
-                job = failed_jobs[-1]
-                matched_inputs = sorted(job.get("input_files", []))
+            job = max(matching_jobs, key=self._job_attempt_key)
+            previous_key = self._job_attempt_key({
+                "attempt_nr": previous_job.get("panda_attempt_nr"),
+                "panda_id": previous_job.get("panda_job_id"),
+            })
+            current_key = self._job_attempt_key(job)
+            older_attempt = (
+                current_key[1] < previous_key[1]
+                if current_key[0] < 0 or previous_key[0] < 0
+                else current_key < previous_key
+            )
+            if older_attempt or (
+                str(job.get("panda_id")) == str(previous_job.get("panda_job_id"))
+                and previous_job.get("panda_job_status") == "finished"
+                and job.get("status") != "finished"
+            ):
+                if not (task_status in task_terminal and stf_file.get("status") == "processed"):
+                    if terminal_job_snapshot and stf_file.get("status") == "failed":
+                        site_still_unresolved = (
+                            decision_box_enabled
+                            and previous_job.get("status") in active_statuses
+                        )
+                        if not preserve_failed_terminal or site_still_unresolved:
+                            unresolved_terminal_failed_rows.add(stf_file.get("file_id"))
+                    elif not preserve_failed_terminal:
+                        incomplete_snapshot = True
+                continue
+            matched_inputs = sorted(job.get("input_files", []))
+            site_status = "processing"
+            reason = ""
+            if job.get("status") in job_success:
+                site_status = "processed"
+            elif job.get("status") in job_failure:
                 reason = f"panda job {job.get('panda_id')} {job.get('status')}"
-                patch_status = "failed"
-                patch_metadata = {
-                    "panda_job_id": job.get("panda_id"),
-                    "panda_job_status": job.get("status"),
-                    "matched_input_files": matched_inputs,
-                }
-                patch_output_dataset = None
-                if decision_box_enabled:
-                    patch_status, site_metadata = self._decision_site_poll_metadata(
-                        stf_file,
-                        panda_task_id,
-                        "failed",
-                        run_number=run_number,
-                        site_name=site_name,
-                        matched_input_files=matched_inputs,
-                        reason=reason,
-                        job=job,
-                    )
-                    patch_metadata.update(site_metadata)
-                    selected_site = site_metadata.get("panda_selected_site")
-                    site_outputs = (stf_file.get("metadata") or {}).get("panda_site_output_datasets") or {}
-                    patch_output_dataset = site_outputs.get(selected_site)
-                if self._patch_stf_file(
+                if self._job_retry_limit_reached(job) or task_status in task_terminal:
+                    site_status = "failed"
+            patch_status = site_status
+            patch_metadata = {
+                "panda_job_id": job.get("panda_id"),
+                "panda_job_status": job.get("status"),
+                "panda_attempt_nr": job.get("attempt_nr"),
+                "panda_max_attempt": job.get("max_attempt"),
+                "matched_input_files": matched_inputs,
+                "panda_poll_reason": reason,
+            }
+            old_metadata = stf_file.get("metadata") or {}
+            no_job_tasks = dict(old_metadata.get("panda_no_job_terminal_tasks") or {})
+            if str(panda_task_id) in no_job_tasks:
+                no_job_tasks.pop(str(panda_task_id))
+                patch_metadata["panda_no_job_terminal_tasks"] = no_job_tasks
+            previous_status = stf_file.get("status")
+            patch_output_dataset = None
+            if decision_box_enabled:
+                patch_status, site_metadata = self._decision_site_poll_metadata(
                     stf_file,
-                    patch_status,
                     panda_task_id,
-                    reason=reason,
+                    site_status,
                     run_number=run_number,
-                    execution_id=execution_id,
-                    extra_metadata=patch_metadata,
-                    output_dataset=patch_output_dataset,
-                ):
-                    failed += 1
+                    site_name=site_name,
+                    matched_input_files=matched_inputs,
+                    reason=reason,
+                    job=job,
+                )
+                patch_metadata.update(site_metadata)
+                selected_site = site_metadata.get("panda_selected_site")
+                old_site = (old_metadata.get("panda_site_statuses") or {}).get(selected_site) or {}
+                previous_status = old_site.get("status")
+                new_site = (site_metadata.get("panda_site_statuses") or {}).get(selected_site)
+                if new_site is not None:
+                    # Ignore poll timestamps and other sites' scalar metadata
+                    # when deciding whether this site's result changed.
+                    if stf_file.get("status") == patch_status and all(
+                        old_site.get(key) == value
+                        for key, value in new_site.items() if key != "polled_at"
+                    ):
+                        continue
+                patch_output_dataset = (old_metadata.get("panda_site_output_datasets") or {}).get(selected_site)
+            elif stf_file.get("status") == patch_status and all(
+                old_metadata.get(key) == value for key, value in patch_metadata.items()
+            ):
+                continue
+            if self._patch_stf_file(
+                stf_file,
+                patch_status,
+                panda_task_id,
+                matched_inputs,
+                reason=reason,
+                run_number=run_number,
+                execution_id=execution_id,
+                extra_metadata=patch_metadata,
+                output_dataset=patch_output_dataset,
+            ):
+                processed += int(site_status == "processed" and previous_status != "processed")
+                failed += int(site_status == "failed" and previous_status != "failed")
+            else:
+                incomplete_snapshot = True
 
         is_task_terminal = task_status in task_terminal
         refreshed_stf_files = [
@@ -997,7 +1115,9 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             for stf_file in unmatched:
                 reason = f"no PanDA job found before task became {task_status}"
                 patch_status = "failed"
-                patch_metadata = {}
+                no_job_tasks = dict((stf_file.get("metadata") or {}).get("panda_no_job_terminal_tasks") or {})
+                no_job_tasks[str(panda_task_id)] = task_status
+                patch_metadata = {"panda_no_job_terminal_tasks": no_job_tasks}
                 patch_output_dataset = None
                 if decision_box_enabled:
                     patch_status, site_metadata = self._decision_site_poll_metadata(
@@ -1039,16 +1159,49 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
 
         self.processing_stats["total_processed"] += processed
         self.processing_stats["failed_count"] += failed
-        complete = is_task_terminal and not unfinished
+        complete = is_task_terminal and not unfinished and not incomplete_snapshot
+        if complete:
+            task_key = str(panda_task_id)
+            for stf_file in self._monitor_stf_files_for_run(run_number, execution_id=execution_id):
+                if stf_file.get("status") != "failed":
+                    continue
+                if not self._recoverable_by_this_agent(
+                    stf_file, execution_id=execution_id, panda_task_id=panda_task_id
+                ):
+                    continue
+                metadata = stf_file.get("metadata") or {}
+                reconciled_tasks = dict(metadata.get("panda_terminal_reconciled_tasks") or {})
+                marker_value = (
+                    f"{task_status}_unresolved"
+                    if stf_file.get("file_id") in unresolved_terminal_failed_rows
+                    else task_status
+                )
+                if reconciled_tasks.get(task_key) == marker_value:
+                    continue
+                reconciled_tasks[task_key] = marker_value
+                if not self._patch_stf_file(
+                    stf_file,
+                    stf_file.get("status"),
+                    panda_task_id,
+                    run_number=run_number,
+                    execution_id=execution_id,
+                    extra_metadata={"panda_terminal_reconciled_tasks": reconciled_tasks},
+                ):
+                    complete = False
+
         target = f"task_id={panda_task_id}"
         if site_name:
             target += f", site={site_name}"
         if input_dataset:
             target += f", input_dataset={input_dataset}"
-        self.logger.info(
+        log_method = self.logger.debug if complete and processed == 0 and failed == 0 else self.logger.info
+        log_method(
             f"PanDA polling updated STF files for run {run_number} ({target}): "
             f"processed={processed}, failed={failed}, task_status={task_status}, "
-            f"jobs_seen={len(job_records)}, unfinished={len(unfinished)}, unmatched={len(unmatched)}",
+            f"jobs_seen={len(job_records)}, unfinished={len(unfinished)}, unmatched={len(unmatched)}, "
+            f"terminal_success={terminal_success_snapshot}, "
+            f"unresolved_terminal={len(unresolved_terminal_failed_rows)}, "
+            f"incomplete_snapshot={incomplete_snapshot}",
             extra=self._log_extra(run_id=run_number, panda_task_id=panda_task_id)
         )
         return {
@@ -1058,6 +1211,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             "jobs_seen": len(job_records),
             "unfinished": len(unfinished),
             "unmatched": len(unmatched),
+            "unresolved_terminal": len(unresolved_terminal_failed_rows),
             "complete": complete,
         }
 
@@ -1071,6 +1225,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         input_dataset=None,
         output_dataset=None,
         decision_box_enabled=None,
+        recovered=False,
+        completion_pending=False,
     ):
         """Add a run/task to the polling scheduler."""
         if not panda_task_id:
@@ -1096,6 +1252,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 "input_dataset": input_dataset,
                 "output_dataset": output_dataset,
                 "decision_box_enabled": decision_box_enabled,
+                "recovered": recovered,
+                "completion_pending": completion_pending,
                 "started_at": time.time(),
                 "last_poll": 0,
             }
@@ -1105,7 +1263,8 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             target += f", site={site_name}"
         if input_dataset:
             target += f", input_dataset={input_dataset}"
-        self.logger.info(
+        register_log = self.logger.debug if recovered else self.logger.info
+        register_log(
             f"Registered PanDA polling for run {run_key} ({target})",
             extra=self._log_extra(run_id=run_key, panda_task_id=panda_task_id, execution_id=execution_id)
         )
@@ -1140,6 +1299,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 if now - task.get("last_poll", 0) < interval_seconds:
                     continue
                 task["last_poll"] = now
+                result = {"complete": False, "processed": 0, "failed": 0, "task_status": None}
                 try:
                     result = self.poll_processed_stf_files_once(
                         task["run_number"],
@@ -1149,27 +1309,6 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                         input_dataset=task.get("input_dataset"),
                         decision_box_enabled=task.get("decision_box_enabled"),
                     )
-                    timed_out = timeout_seconds > 0 and now - task.get("started_at", now) > timeout_seconds
-                    if result.get("complete") or timed_out:
-                        with self.polling_lock:
-                            self.polling_tasks.pop(poll_key, None)
-                            still_polling_run = any(
-                                remaining_task.get("run_number") == task["run_number"]
-                                for remaining_task in self.polling_tasks.values()
-                            )
-                        if not still_polling_run:
-                            self.active_processing.pop(task["run_number"], None)
-                        if timed_out and not result.get("complete"):
-                            self.logger.warning(
-                                f"PanDA polling timed out for run {task['run_number']}, task_id={task.get('panda_task_id')}",
-                                extra=self._log_extra(
-                                    run_id=task["run_number"],
-                                    panda_task_id=task.get("panda_task_id"),
-                                    execution_id=task.get("execution_id")
-                                )
-                            )
-                        # Publish stf_processed message to ActiveMQ
-                        self._publish_stf_processed(task, result, timed_out)
                 except Exception as e:
                     self.logger.error(
                         f"PanDA polling failed for run {task['run_number']}, task_id={task.get('panda_task_id')}: {e}",
@@ -1179,6 +1318,33 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                             execution_id=task.get("execution_id")
                         )
                     )
+                # Retain updates from earlier polls until completion is published.
+                task["has_updates"] = bool(
+                    task.get("has_updates") or result.get("processed") or result.get("failed")
+                )
+                # Enforce the deadline even when the PanDA lookup raised.
+                timed_out = timeout_seconds > 0 and time.time() - task.get("started_at", now) > timeout_seconds
+                if result.get("complete") or timed_out:
+                    with self.polling_lock:
+                        self.polling_tasks.pop(poll_key, None)
+                        still_polling_run = any(
+                            remaining_task.get("run_number") == task["run_number"]
+                            for remaining_task in self.polling_tasks.values()
+                        )
+                    if not still_polling_run:
+                        self.active_processing.pop(task["run_number"], None)
+                    if timed_out and not result.get("complete"):
+                        self.logger.warning(
+                            f"PanDA polling timed out for run {task['run_number']}, task_id={task.get('panda_task_id')}",
+                            extra=self._log_extra(
+                                run_id=task["run_number"],
+                                panda_task_id=task.get("panda_task_id"),
+                                execution_id=task.get("execution_id")
+                            )
+                        )
+                    if (not task.get("recovered") or timed_out
+                            or task.get("completion_pending") or task["has_updates"]):
+                        self._publish_stf_processed(task, result, timed_out)
             self.polling_stop_event.wait(1)
 
 
@@ -1228,46 +1394,67 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
 
 
     def recover_active_panda_polling(self):
-        """Restart polling for processing STF rows left by an earlier agent."""
-        stf_files = self._monitor_stf_files()
+        """Reconcile tracked tasks after restart, including those finished offline."""
         runs_to_poll = {}
         recovered_task_context = {}
-        for stf_file in stf_files:
-            if stf_file.get("status") != "processing":
+        pending_completion_tasks = set()
+        run_numbers = {}
+        for stf_file in self._monitor_stf_files():
+            if stf_file.get("status") not in {"processing", "failed"}:
                 continue
             metadata = stf_file.get("metadata") or {}
             execution_id = metadata.get("workflow_execution_id")
-            if not execution_id:
+            if not execution_id or metadata.get("panda_tracking_namespace") != self.namespace:
                 continue
-            run_number = self._monitor_run_number_by_id(stf_file.get("run"))
+            monitor_run_id = stf_file.get("run")
+            if monitor_run_id not in run_numbers:
+                run_numbers[monitor_run_id] = self._monitor_run_number_by_id(monitor_run_id)
+            run_number = run_numbers[monitor_run_id]
             site_task_ids = metadata.get("panda_site_task_ids") or {}
             site_input_datasets = metadata.get("panda_site_input_datasets") or {}
             site_output_datasets = metadata.get("panda_site_output_datasets") or {}
             panda_task_ids = [task_id for task_id in site_task_ids.values() if task_id]
             if metadata.get("panda_task_id"):
                 panda_task_ids.append(metadata.get("panda_task_id"))
-            for site_name, task_id in site_task_ids.items():
-                if task_id:
-                    recovered_task_context[str(task_id)] = {
-                        "site_name": site_name,
-                        "input_dataset": site_input_datasets.get(site_name),
-                        "output_dataset": site_output_datasets.get(site_name) or metadata.get("panda_output_dataset"),
-                        "decision_box_enabled": True,
-                    }
             for panda_task_id in {str(task_id) for task_id in panda_task_ids if task_id}:
+                if stf_file.get("status") == "failed":
+                    reconciled_marker = (metadata.get("panda_terminal_reconciled_tasks") or {}).get(panda_task_id)
+                    site_name = self._site_name_for_task_id(metadata, panda_task_id)
+                    site_status = (metadata.get("panda_site_statuses") or {}).get(site_name, {}).get("status")
+                    unresolved_site = site_status in {"registered", "processing"}
+                    if reconciled_marker in {
+                        "done", "finished", "failed", "aborted", "cancelled", "closed",
+                        "done_unresolved", "finished_unresolved", "failed_unresolved",
+                        "aborted_unresolved", "cancelled_unresolved", "closed_unresolved",
+                    }:
+                        if reconciled_marker.endswith("_unresolved") or not unresolved_site:
+                            continue
                 if not self._recoverable_by_this_agent(stf_file, execution_id=execution_id, panda_task_id=panda_task_id):
                     continue
-                runs_to_poll.setdefault((run_number, panda_task_id, execution_id), 0)
-                runs_to_poll[(run_number, panda_task_id, execution_id)] += 1
+                key = (run_number, panda_task_id, execution_id)
+                runs_to_poll[key] = runs_to_poll.get(key, 0) + 1
+                # Recovered tasks still need a completion notification,
+                # even if it makes no further STF updates.
+                pending_completion_tasks.add(key)
+                for site_name, task_id in site_task_ids.items():
+                    if task_id and str(task_id) == panda_task_id:
+                        recovered_task_context[key] = {
+                            "site_name": site_name,
+                            "input_dataset": site_input_datasets.get(site_name),
+                            "output_dataset": site_output_datasets.get(site_name) or metadata.get("panda_output_dataset"),
+                            "decision_box_enabled": True,
+                        }
 
-        for (run_number, panda_task_id, execution_id), count in runs_to_poll.items():
-            task_context = recovered_task_context.get(str(panda_task_id), {})
-            self.logger.info(
+        recovered = 0
+        for key, count in runs_to_poll.items():
+            run_number, panda_task_id, execution_id = key
+            task_context = recovered_task_context.get(key, {})
+            self.logger.debug(
                 f"Recovering PanDA polling for run {run_number}: task_id={panda_task_id}, "
                 f"site={task_context.get('site_name') or '-'}, execution_id={execution_id}, stf_files={count}",
                 extra=self._log_extra(run_id=run_number, panda_task_id=panda_task_id, execution_id=execution_id)
             )
-            self.start_processed_stf_polling(
+            if self.start_processed_stf_polling(
                 run_number,
                 panda_task_id,
                 execution_id=execution_id,
@@ -1275,9 +1462,12 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                 input_dataset=task_context.get("input_dataset"),
                 output_dataset=task_context.get("output_dataset"),
                 decision_box_enabled=task_context.get("decision_box_enabled", False),
-            )
+                recovered=True,
+                completion_pending=key in pending_completion_tasks,
+            ):
+                recovered += 1
 
-        return len(runs_to_poll)
+        return recovered
 
 
     def run(self):
