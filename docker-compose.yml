@@ -196,6 +196,15 @@ services:
       # where the server can see them (both RSEs use prefix /tmp/rucio_rse).
       - rucio-rse-data:/tmp/rucio_rse
 
+  # Merged with panda-compose's panda-server service. Overlay the patched
+  # setupper dummy plugin so the DDM-free dev stack marks JEDI input files
+  # ready; otherwise DBProxy.activateJob keeps jobs in 'defined' forever.
+  # Mounted from first boot (no restart) to avoid disrupting JEDI's lockfile.
+  # Temporary until the fix lands upstream in PanDAWMS/panda-server.
+  panda-server:
+    volumes:
+      - ${SETUPPER_PATCH:-./patches/setupper_dummy_plugin.py}:/opt/panda/lib/python3.11/site-packages/pandaserver/dataservice/setupper_dummy_plugin.py:ro
+
 volumes:
   pgdata:
   redisdata:
