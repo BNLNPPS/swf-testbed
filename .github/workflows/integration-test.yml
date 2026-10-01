@@ -225,6 +225,11 @@ jobs:
           # Must match the agent's SWF_PANDA_VO (epic) so submitted tasks refine.
           PANDA_TASK_VO=epic
           PANDA_TASK_LABEL=test
+
+          # Overlay the patched setupper dummy plugin onto panda-server (marks
+          # JEDI input files ready in this DDM-free stack). Absolute path so the
+          # bind mount resolves regardless of compose project-directory.
+          SETUPPER_PATCH=${{ github.workspace }}/swf-testbed/patches/setupper_dummy_plugin.py
           
           # Rucio
           RUCIO_DB_USER=rucio
@@ -349,34 +354,6 @@ jobs:
           # DAQ_DISK_3 (data agent default target RSE) under scope group.daq.
           RSE_NAME=DAQ_DISK_3 SCOPES="group.daq" \
             bash ../panda-compose/scripts/bootstrap-rucio.sh "$rucio_container"
-
-      # ---- 3e-bis. Patch the PanDA setupper dummy plugin ----
-      #
-      # In this DDM-free dev stack nothing marks JEDI input files 'ready', so
-      # DBProxy.activateJob keeps jobs in 'defined' forever (it only promotes
-      # defined->activated once every input file is ready/cached). The dummy
-      # setupper plugin is the DDM-free code path, so patch it to mark inputs
-      # ready, then restart panda-server so JEDI reloads the module before the
-      # workflow submits tasks. Temporary until the fix lands in panda-server.
-      - name: Patch PanDA setupper dummy plugin
-        working-directory: swf-testbed
-        run: |
-          PS=swf-testbed-panda-server-1
-          TARGET=$(docker exec "$PS" /opt/panda/bin/python -c \
-            "import pandaserver.dataservice.setupper_dummy_plugin as m; print(m.__file__)")
-          echo "patching $TARGET"
-          docker cp patches/setupper_dummy_plugin.py "$PS:$TARGET"
-          docker exec "$PS" /opt/panda/bin/python -c \
-            "import py_compile; py_compile.compile('$TARGET', doraise=True); print('compiled OK')"
-          docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml restart panda-server
-          # wait for panda-server to come back before the agents submit tasks
-          for i in $(seq 1 30); do
-            if docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml ps panda-server --format '{{.State}}' 2>/dev/null | grep -qi running; then
-              echo "panda-server running (attempt $i)"; break
-            fi
-            sleep 5
-          done
-          sleep 20
 
       # ---- 3f. Start the rest of the stack ----
       #
