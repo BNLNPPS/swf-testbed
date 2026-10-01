@@ -464,6 +464,23 @@ jobs:
               UNION ALL SELECT 'archived', pandaid, jobstatus, computingsite FROM doma_panda.jobsarchived4
               ORDER BY pandaid;" 2>/dev/null || true
           echo "::endgroup::"
+          # Why do jobs fail at execution? Show the pilot/exe error fields the
+          # archived jobs carry, then the logs of the harvester-spawned worker
+          # containers that actually run the pilot (separate from compose).
+          echo "::group::failed-job error fields (DB)"
+          docker exec -e PGPASSWORD=panda_secret swf-testbed-postgres-1 \
+            psql -h localhost -U panda -d panda_db -x -c "
+              SELECT pandaid, jobstatus, computingsite, piloterrorcode, piloterrordiag,
+                     exeerrorcode, exeerrordiag, ddmerrorcode, ddmerrordiag,
+                     transexitcode, superrordiag
+              FROM doma_panda.jobsarchived4 ORDER BY pandaid;" 2>/dev/null || true
+          echo "::endgroup::"
+          echo "::group::harvester worker containers (logs)"
+          for c in $(docker ps -a --format '{{.Names}}' | grep -i 'harvester-worker' | head -6); do
+            echo "----- $c -----"
+            docker logs --tail=80 "$c" 2>&1 || true
+          done
+          echo "::endgroup::"
           # Investigate the defined->activated stall (#2): a job with
           # dispatchdblock=NULL is a no-input job the Setupper would activate
           # immediately; a set dispatchdblock means it waits for a Rucio->PanDA
