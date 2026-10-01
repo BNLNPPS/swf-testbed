@@ -82,3 +82,31 @@ except Exception as exc:
     traceback.print_exc()
 for pid in ids:
     print(f"after Setupper {pid} -> {status(pid)}")
+
+print("=== actual update_jobs source in THIS image ===", flush=True)
+try:
+    import inspect
+    from pandaserver.dataservice import setupper as _su
+
+    for name in ("update_jobs", "run"):
+        fn = getattr(_su.Setupper, name, None)
+        if fn is not None:
+            print(f"--- Setupper.{name} ---")
+            print(inspect.getsource(fn))
+except Exception as exc:
+    print("source dump EXC:", exc)
+    traceback.print_exc()
+
+print("=== calling taskBuffer.activateJobs directly (fresh peek) ===", flush=True)
+try:
+    fresh = []
+    for pid in ids:
+        js = taskBuffer.peekJobs([pid], fromDefined=True, fromActive=False, fromArchived=False, fromWaiting=False)
+        if js and js[0] is not None and js[0].jobStatus != "unknown":
+            fresh.append(js[0])
+    print(f"activateJobs on {len(fresh)} jobs -> {taskBuffer.activateJobs(fresh)}")
+except Exception as exc:
+    print("activateJobs EXC:", exc)
+    traceback.print_exc()
+for pid in ids:
+    print(f"after activateJobs {pid} -> {status(pid)}")
