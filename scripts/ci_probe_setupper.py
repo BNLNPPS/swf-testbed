@@ -97,6 +97,19 @@ except Exception as exc:
     print("source dump EXC:", exc)
     traceback.print_exc()
 
+print("=== DBProxy.activateJob source in THIS image ===", flush=True)
+try:
+    import inspect
+
+    proxy = taskBuffer.proxyPool.getProxy()
+    try:
+        print(inspect.getsource(proxy.activateJob))
+    finally:
+        taskBuffer.proxyPool.putProxy(proxy)
+except Exception as exc:
+    print("activateJob source EXC:", exc)
+    traceback.print_exc()
+
 print("=== calling taskBuffer.activateJobs directly (fresh peek) ===", flush=True)
 try:
     fresh = []
