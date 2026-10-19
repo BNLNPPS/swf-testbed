@@ -44,6 +44,12 @@ repositories since the v44 notes.
 - A trial needs no campaign plan: composing, locking and submitting a trial skip the event target,
   priority and per-job count, and a trial sizes its job from its own event count.
 
+### Payload canaries (site-canary)
+
+- A payload canary run records its job's peak memory (maxrss, maxpss) against the memory it requested
+  and, for a finished run, the payload report's per-stage memory peaks and trend: the groundwork for
+  reproducing memory-killed jobs.
+
 ### Acknowledgments
 
 - **Sakib Rahman**: the report of 10/8 that led to background mixing following the k tag, and the
