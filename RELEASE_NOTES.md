@@ -2,10 +2,12 @@
 
 ## v44 (2026-10-19)
 
-This release covers seven weeks of work since v43 (2026-08-27): ePIC production now runs its own in-job
-payload, places and regulates its own work, records and recovers its own data, and diagnoses its own
-failures. The payload preserves every output before the catalog is asked anything, with a failover stash
-at BNL; the node harness brings the Event Service to Perlmutter, the npps0 test queue and Google Cloud;
+v44 is the first publicized release since v43. It covers seven weeks of work since v43 (2026-08-27),
+with the fixes that the CI and Copilot review of its release PRs called for. ePIC production now runs
+its own in-job payload, places and regulates its own work, records and recovers its own data, and
+diagnoses its own failures. The payload preserves every output before the catalog is asked anything,
+with a failover stash at BNL; the node harness brings the Event Service to Perlmutter, the npps0 test
+queue and Google Cloud;
 a pressure front, a job throttler and a node guard place work and keep it off broken resources; a
 segfault program inventories, reproduces and reads payload crashes. Access to the system is governed by
 recorded authority, and collaborators reach it through a reduced user view, an external MCP relay and
@@ -138,20 +140,24 @@ repositories.
   testbed status and system state tools; starting or stopping a user testbed returns that reason
   instead of sending into a control queue nobody reads.
 - BaseAgent runs background work in a pool per queue, so slow work on one queue cannot starve another.
-  It reconnects on a fresh, time-bounded STOMP connection; reusing the old one raced its exiting
-  receiver thread. A stop drains until idle and is bounded whatever a doer is doing: it consumes
-  nothing more, starts no queued task past its drain limit, and cannot be held by a logging lock.
+  It reconnects on a fresh STOMP connection with a 60 s timeout, so a silent broker cannot block a
+  connect or TLS handshake; reusing the old connection raced its exiting receiver thread, and a
+  detached listener no longer fails every later reconnect. A stop drains until idle and is bounded
+  whatever a doer is doing: it consumes nothing more, starts no queued task past its drain limit, and
+  cannot be held by a logging lock. The in-process stop test, built around the single pool the
+  per-queue pools replace, is removed.
 - Agent console log lines lead with the time and name their thread, so an agent's log tells a fresh
   failure from an old one.
 - Testbed checks never enter the production health verdict.
 
-### Review fixes (swf-monitor)
+### Review fixes (swf-monitor, swf-common-lib, swf-testbed)
 
-- From Copilot's review of this release: the TLS served-chain alarm keeps an active alarm when its
+- From Copilot's review of the release PRs: the TLS served-chain alarm keeps an active alarm when its
   probe reaches no verdict; error-label corrections honor their queue scope; a ping with zero lead days
   waits for its due date; the sandbox keepalive's manifest harvest skips tasks without a sandbox
-  instead of spending its nightly cap on them; the segfault API rejects non-positive limits; a token
-  write of a segfault finding needs no CSRF cookie.
+  instead of spending its nightly cap on them; the pings alarm is seeded with email off; the segfault
+  API rejects non-positive limits; a token write of a segfault finding needs no CSRF cookie. The
+  BaseAgent stop and the agent manager's connect fixes above answer the same review.
 
 ### Deployment (swf-monitor, swf-epicprod, swf-remote)
 
