@@ -40,12 +40,12 @@ on:
         description: 'owner/repo of panda-compose to check out'
         required: false
         type: string
-        default: veprbl/panda-compose
+        default: PanDAWMS/panda-compose
       panda_compose_ref:
         description: 'Git ref of panda-compose to check out'
         required: false
         type: string
-        default: feat/cric-render-ddm-endpoints
+        default: main
   workflow_dispatch:
     inputs:
       swf_testbed_repo:
@@ -82,12 +82,12 @@ on:
         description: 'owner/repo of panda-compose to check out'
         required: false
         type: string
-        default: veprbl/panda-compose
+        default: PanDAWMS/panda-compose
       panda_compose_ref:
         description: 'Git ref of panda-compose to check out'
         required: false
         type: string
-        default: feat/cric-render-ddm-endpoints
+        default: main
 
 env:
   DB_NAME:     swfdb
