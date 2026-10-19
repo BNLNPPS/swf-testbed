@@ -1,5 +1,56 @@
 # Release Notes
 
+## v45 (2026-10-19)
+
+v45 follows v44 the same day. It replaces the STOMP client release that lost a few percent of broker
+connections, shows the pressure front's ready buffer on every production page, and carries two PCS
+changes: background mixing follows the dataset's background tag, and a trial needs no campaign plan.
+These notes cover the coordinated baseline repositories and the relevant `main` work in their peer
+repositories since the v44 notes.
+
+### Messaging (swf-common-lib, swf-monitor)
+
+- stomp.py 9.0.0 is required. Release 8.2 read a TLS connection on its receiver thread while the caller
+  wrote to it, which OpenSSL does not support. Against the broker's TLS 1.3, whose session tickets arrive
+  just after the handshake, about 4% of connects lost their CONNECT frame and were closed by the broker
+  at its 10 s handshake limit (Artemis AMQ224088, 80 to 250 a day, every one from a client on the
+  testbed host). 9.0.0 does all TLS I/O on one thread; in the same test, 90 of 90 immediate reconnects
+  succeeded. The fix reaches every STOMP client: the agents, the user agent managers, the monitor, and
+  the ops-message cron triggers, thousands of whose first attempts had needed a retry and two of which
+  were lost.
+- swf-common-lib requires Python 3.10, as stomp.py 9.0 does. Deployments and user testbed installations
+  need stomp.py 9.0.0; the full deploy refuses an environment without it.
+
+### The ready buffer (swf-epicprod)
+
+- A queue whose feed switch is off is never recommended; a person can still choose it explicitly.
+  BNL_ePIC_GOOGLE and BNL_ePIC_GOOGLE_es are closed to production.
+- Work waiting for the pressure front is "in the ready buffer" on every page. The compose page's task
+  list and the catalog gain a Queue column and filter: the ready buffer, else the queue of the task's
+  PanDA submission or the queue placed on it. The task header marks a buffered task. The Site control
+  states who put the task in the buffer and when, what the front does next, the front's reading of the
+  queue, and what keeps the task itself from being fed, with a button that takes it out; with no queue
+  open, Submit puts the task in the buffer with no queue yet. The front page's table is the Ready buffer.
+- The catalog's string filters derive from one list, so the Queue filter and the PWG filter are read
+  from a bookmarked URL.
+
+### PCS (swf-epicprod)
+
+- Background mixing follows the dataset's background tag: a k tag over a real signal turns mixing on in
+  the task's effective configuration, recorded as "background tag kNN", over the configuration and the
+  task's overrides; standalone samples (p6001) never mix; readiness requires the tag's background files
+  and prefix; the task page shows the task's own mixing. The k16 and k17 tags carry their background
+  files and prefixes.
+- A trial needs no campaign plan: composing, locking and submitting a trial skip the event target,
+  priority and per-job count, and a trial sizes its job from its own event count.
+
+### Acknowledgments
+
+- **Sakib Rahman**: the report of 10/8 that led to background mixing following the k tag, and the
+  question that exposed an off queue in the recommendation and led to the ready buffer on every page.
+
+No contributor work was merged to `main` since v44.
+
 ## v44 (2026-10-19)
 
 v44 is the first publicized release since v43. It covers seven weeks of work since v43 (2026-08-27),
