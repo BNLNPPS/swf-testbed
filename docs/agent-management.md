@@ -77,9 +77,12 @@ nohup testbed agent-manager &   # Run in background
 ```
 
 The daemon:
-- Listens on `/queue/testbed.{username}.control`
-- Sends heartbeats to the monitor
+- Listens on `/queue/agent_control.{username}`
+- Sends heartbeats to the monitor every 30 s, reporting its ActiveMQ connection (`mq_connected`)
+- Reconnects to ActiveMQ on every heartbeat cycle while disconnected, until it succeeds
 - Executes start/stop commands via supervisorctl
+
+A manager that has lost ActiveMQ still heartbeats over REST but receives no commands. The MCP tools therefore treat it as not alive: `check_agent_manager` reports `alive: false` with the reason, and `start_user_testbed` and `stop_user_testbed` return that error instead of sending a command nobody reads.
 
 ```mermaid
 flowchart LR
@@ -88,7 +91,7 @@ flowchart LR
     end
 
     subgraph AMQ["ActiveMQ"]
-        CQ["Control Queue<br/>/queue/testbed.{user}.control"]
+        CQ["Control Queue<br/>/queue/agent_control.{user}"]
     end
 
     subgraph Local["User's Session"]

@@ -76,6 +76,7 @@ class UserAgentManager(stomp.ConnectionListener):
         self.running = True
         self.last_heartbeat = None
         self.agents_running = False
+        self.mq_connected = False  # True only while subscribed to the control queue
         self.namespace = None  # Set when config is loaded
         self.config = None  # Current testbed config
 
@@ -89,25 +90,7 @@ class UserAgentManager(stomp.ConnectionListener):
         if env_config:
             self.load_config(env_config)
 
-        # Set up connection (matching BaseAgent configuration)
-        self.conn = stomp.Connection(
-            host_and_ports=[(self.mq_host, self.mq_port)],
-            vhost=self.mq_host,
-            try_loopback_connect=False,
-            heartbeats=(30000, 30000),
-            auto_content_length=False
-        )
-
-        # Configure SSL if enabled
-        if self.use_ssl and self.ssl_ca_certs:
-            import ssl
-            self.conn.transport.set_ssl(
-                for_hosts=[(self.mq_host, self.mq_port)],
-                ca_certs=self.ssl_ca_certs,
-                ssl_version=ssl.PROTOCOL_TLS_CLIENT
-            )
-
-        self.conn.set_listener('', self)
+        self.conn = self._new_connection()
 
         # Signal handling
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -123,6 +106,29 @@ class UserAgentManager(stomp.ConnectionListener):
         """SIGUSR1 triggers immediate heartbeat refresh."""
         self.send_heartbeat()
 
+    def _new_connection(self):
+        """Build a STOMP connection with this manager as its listener."""
+        # Matching BaseAgent configuration
+        conn = stomp.Connection(
+            host_and_ports=[(self.mq_host, self.mq_port)],
+            vhost=self.mq_host,
+            try_loopback_connect=False,
+            heartbeats=(30000, 30000),
+            auto_content_length=False
+        )
+
+        # Configure SSL if enabled
+        if self.use_ssl and self.ssl_ca_certs:
+            import ssl
+            conn.transport.set_ssl(
+                for_hosts=[(self.mq_host, self.mq_port)],
+                ca_certs=self.ssl_ca_certs,
+                ssl_version=ssl.PROTOCOL_TLS_CLIENT
+            )
+
+        conn.set_listener('', self)
+        return conn
+
     def connect(self):
         """Connect to ActiveMQ and subscribe to control queue."""
         self.logger.info(f"Connecting to ActiveMQ at {self.mq_host}:{self.mq_port}...")
@@ -130,8 +136,30 @@ class UserAgentManager(stomp.ConnectionListener):
 
         self.logger.info(f"Subscribing to {self.control_queue}...")
         self.conn.subscribe(destination=self.control_queue, id='control', ack='auto')
+        self.mq_connected = True
 
         self.logger.info(f"User Agent Manager ready for {self.username}")
+
+    def _reconnect(self):
+        """Reconnect to ActiveMQ and resubscribe. Called every heartbeat cycle while disconnected.
+
+        Uses a fresh connection: reconnecting the old one races its exiting
+        receiver thread (bad file descriptor, or a CONNECT that never completes).
+        The old one is detached first so its late disconnect event is not ours.
+        """
+        old = self.conn
+        old.remove_listener('')
+        try:
+            if old.is_connected():
+                old.disconnect()
+        except Exception as e:
+            self.logger.warning(f"Closing old ActiveMQ connection: {e}")
+        self.conn = self._new_connection()
+        try:
+            self.connect()
+            self.logger.info("Reconnected to ActiveMQ")
+        except Exception as e:
+            self.logger.error(f"Reconnect failed, retrying in {HEARTBEAT_INTERVAL}s: {e}")
 
     def disconnect(self):
         """Disconnect from ActiveMQ."""
@@ -170,14 +198,10 @@ class UserAgentManager(stomp.ConnectionListener):
         self.logger.error(f"STOMP error: {frame.body}")
 
     def on_disconnected(self):
-        """Handle disconnection."""
+        """Handle disconnection. The main loop reconnects; this only records it."""
+        self.mq_connected = False
         if self.running:
-            self.logger.info("Disconnected from ActiveMQ, attempting reconnect...")
-            time.sleep(5)
-            try:
-                self.connect()
-            except Exception as e:
-                self.logger.error(f"Reconnect failed: {e}")
+            self.logger.error("Disconnected from ActiveMQ; reconnecting from the main loop")
 
     def load_config(self, config_name: str = None) -> dict:
         """Load testbed config and update namespace.
@@ -564,10 +588,10 @@ class UserAgentManager(stomp.ConnectionListener):
             desc_parts = [f'Agent manager for {self.username}']
             if self.namespace:
                 desc_parts.append(f'namespace: {self.namespace}')
-            desc_parts.append('MQ: connected')
+            desc_parts.append(f"MQ: {'connected' if self.mq_connected else 'disconnected'}")
 
             if sv_health['healthy']:
-                status = 'OK'
+                status = 'OK' if self.mq_connected else 'WARNING'
                 state = sv_health.get('state', 'running')
                 desc_parts.append(f"supervisord: {state}")
             else:
@@ -584,6 +608,7 @@ class UserAgentManager(stomp.ConnectionListener):
                 'pid': os.getpid(),
                 'hostname': os.uname().nodename,
                 'description': '. '.join(desc_parts),
+                'mq_connected': self.mq_connected,
                 'metadata': {'supervisord_healthy': sv_health['healthy']},
             }
 
@@ -601,7 +626,10 @@ class UserAgentManager(stomp.ConnectionListener):
 
     def run(self):
         """Main run loop."""
-        self.connect()
+        try:
+            self.connect()
+        except Exception as e:
+            self.logger.error(f"ActiveMQ connect failed, retrying in {HEARTBEAT_INTERVAL}s: {e}")
 
         # Send immediate heartbeat so MCP can detect us quickly
         self.send_heartbeat()
@@ -615,6 +643,8 @@ class UserAgentManager(stomp.ConnectionListener):
                 # Send periodic heartbeat
                 now = time.time()
                 if now - last_heartbeat_time >= HEARTBEAT_INTERVAL:
+                    if not self.mq_connected:
+                        self._reconnect()
                     self.send_heartbeat()
                     last_heartbeat_time = now
 
