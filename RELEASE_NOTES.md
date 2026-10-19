@@ -1,63 +1,13 @@
 # Release Notes
 
-## v45 (2026-10-19)
-
-v45 is the first publicized release since v43 (2026-08-27). It is an immediate follow-up to v44,
-released the same day: the v44 entry below covers the seven weeks of work since v43, and this entry
-the fixes that followed it. v45 addresses the CI and AI review findings on v44 and folds in the
-contributor work merged to `main` while v44 was under review.
-
-### Agents and the shared library (swf-common-lib, swf-testbed)
-
-- BaseAgent runs background work in a pool per queue, so slow work on one queue cannot starve another,
-  fitted to v44's bounded stop: a stop drains and shuts every queue's pool.
-- A stop no longer takes in its successor's work: every entry into the stop path is a stop, and a
-  reconnect during the drain publishes only. Past the drain limit a queued task is not started, so no
-  doer outlives the stop, and the hard-exit guard writes to stderr directly, so a held logging lock
-  cannot keep it from exiting.
-- BaseAgent's reconnect no longer fails for good after a detached listener, and its STOMP connection
-  carries a 60 s timeout, so a silent broker cannot block a connect or TLS handshake.
-- The user agent manager connects on its own thread, one bounded attempt at a time, so its heartbeats
-  never stop; connected means the transport is up.
-- Agent log lines name their thread as well as the time.
-- CI stays green with the per-queue pools: the stop test, which built its agent around the single pool
-  they replace and left hard-exit timers armed in the test process, is removed.
-
-### Monitor fixes (swf-monitor)
-
-- The TLS served-chain alarm keeps an active alarm when its probe reaches no verdict, instead of
-  clearing it as resolved.
-- Error-label corrections honor their queue scope.
-- A ping with zero lead days waits for its due date.
-- The sandbox keepalive's manifest harvest skips tasks without a sandbox instead of spending its nightly
-  cap on them.
-- The pings alarm is seeded with email off, as every alarm is until an operator turns it on.
-- The segfault API rejects non-positive limits with a 400, and a token write of a segfault finding
-  needs no CSRF cookie.
-
-### Documentation (swf-monitor)
-
-- ALARM_AI_DELIVERY.md designs alarm delivery into every subscribed running Claude Code and Codex
-  session: receiver-initiated streams, and personal feeds on an authenticated, owner-scoped path.
-- The API reference is generated from the OpenAPI schema with widdershins and reslate and published by
-  a GitHub Pages workflow.
-
-### Acknowledgments
-
-Folded in from `main`:
-
-- **Wen Guan**: BaseAgent's per-queue background pools and thread names in agent logs (swf-common-lib
-  #48).
-- **Dmitry Kalinkin**: the API reference workflow (swf-monitor #33).
-
-Most of the fixes above answer GitHub Copilot's review of the v44 pull requests.
-
 ## v44 (2026-10-19)
 
-This release covers seven weeks of work since v43 (2026-08-27): ePIC production now runs its own in-job
-payload, places and regulates its own work, records and recovers its own data, and diagnoses its own
-failures. The payload preserves every output before the catalog is asked anything, with a failover stash
-at BNL; the node harness brings the Event Service to Perlmutter, the npps0 test queue and Google Cloud;
+v44 is the first publicized release since v43. It covers seven weeks of work since v43 (2026-08-27),
+with the fixes that the CI and Copilot review of its release PRs called for. ePIC production now runs
+its own in-job payload, places and regulates its own work, records and recovers its own data, and
+diagnoses its own failures. The payload preserves every output before the catalog is asked anything,
+with a failover stash at BNL; the node harness brings the Event Service to Perlmutter, the npps0 test
+queue and Google Cloud;
 a pressure front, a job throttler and a node guard place work and keep it off broken resources; a
 segfault program inventories, reproduces and reads payload crashes. Access to the system is governed by
 recorded authority, and collaborators reach it through a reduced user view, an external MCP relay and
@@ -177,19 +127,37 @@ repositories.
   quiet, and a live watch reviews what reaches it.
 - Site compute usage breaks the OSG pool down by execute site. The inclusive and narrowing filters are
   the house facet filters (INCLUSIVE_FILTER.md).
+- ALARM_AI_DELIVERY.md designs alarm delivery into every subscribed running Claude Code and Codex
+  session: receiver-initiated streams, and personal feeds on an authenticated, owner-scoped path.
 
 ### Testbed and shared library (swf-testbed, swf-common-lib, swf-monitor)
 
-- The user agent manager reconnects to ActiveMQ on every heartbeat cycle until it succeeds, on a fresh
-  connection, and starts even when the broker is down. Its heartbeat reports whether it holds the
-  broker, and the monitor records that with the rest of the agent's reported metadata, which it had
-  been discarding. A manager that heartbeats without the broker is reported not alive, with the reason,
-  by the agent-manager check, the testbed status and system state tools; starting or stopping a user
-  testbed returns that reason instead of sending into a control queue nobody reads.
-- BaseAgent reconnects on a fresh STOMP connection; reusing the old one raced its exiting receiver
-  thread. A BaseAgent stop drains until idle and is bounded whatever a doer is doing.
-- Agent console log lines lead with the time, so an agent's log tells a fresh failure from an old one.
+- The user agent manager connects to ActiveMQ on its own thread, one bounded attempt at a time, until it
+  succeeds, so its heartbeats never stop, and it starts even when the broker is down. Connected means
+  the transport is up. Its heartbeat reports whether it holds the broker, and the monitor records that
+  with the rest of the agent's reported metadata, which it had been discarding. A manager that
+  heartbeats without the broker is reported not alive, with the reason, by the agent-manager check, the
+  testbed status and system state tools; starting or stopping a user testbed returns that reason
+  instead of sending into a control queue nobody reads.
+- BaseAgent runs background work in a pool per queue, so slow work on one queue cannot starve another.
+  It reconnects on a fresh STOMP connection with a 60 s timeout, so a silent broker cannot block a
+  connect or TLS handshake; reusing the old connection raced its exiting receiver thread, and a
+  detached listener no longer fails every later reconnect. A stop drains until idle and is bounded
+  whatever a doer is doing: it consumes nothing more, starts no queued task past its drain limit, and
+  cannot be held by a logging lock. The in-process stop test, built around the single pool the
+  per-queue pools replace, is removed.
+- Agent console log lines lead with the time and name their thread, so an agent's log tells a fresh
+  failure from an old one.
 - Testbed checks never enter the production health verdict.
+
+### Review fixes (swf-monitor, swf-common-lib, swf-testbed)
+
+- From Copilot's review of the release PRs: the TLS served-chain alarm keeps an active alarm when its
+  probe reaches no verdict; error-label corrections honor their queue scope; a ping with zero lead days
+  waits for its due date; the sandbox keepalive's manifest harvest skips tasks without a sandbox
+  instead of spending its nightly cap on them; the pings alarm is seeded with email off; the segfault
+  API rejects non-positive limits; a token write of a segfault finding needs no CSRF cookie. The
+  BaseAgent stop and the agent manager's connect fixes above answer the same review.
 
 ### Deployment (swf-monitor, swf-epicprod, swf-remote)
 
@@ -202,11 +170,13 @@ repositories.
 
 Folded in from `main`:
 
-- **Wen Guan**: TF-slice query optimization in swf-monitor (PR #47), and streaming mode, multiple
-  namespaces and run ids in workflow names in swf-panda-workers.
+- **Wen Guan**: TF-slice query optimization in swf-monitor (PR #47), BaseAgent's per-queue background
+  pools and thread names in agent logs (swf-common-lib #48), and streaming mode, multiple namespaces and
+  run ids in workflow names in swf-panda-workers.
 - **Dmitry Kalinkin**: the `snakemake_agent` (swf-testbed #76), proper logging in the agents (#75), the
   retirement of `rucio_comms` (swf-testbed #74, swf-common-lib #47), `stf_processed` published at the end
-  of processing, and integer job ids to `getFullJobStatus`.
+  of processing, integer job ids to `getFullJobStatus`, and the API reference generated from the
+  OpenAPI schema with widdershins and reslate (swf-monitor #33).
 - **Zhaoyu Yang**: the decision box for the prompt processing workflow (swf-testbed #67), and the report
   that exposed the agent manager's silent loss of the broker.
 - **Sakib Rahman**: Ag107 among the ion species (swf-epicprod #3).
