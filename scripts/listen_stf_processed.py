@@ -27,7 +27,11 @@ class Listener(stomp.ConnectionListener):
         self.connected.set()
 
     def on_disconnected(self):
-        pass
+        # A silent broker-side disconnect (see heartbeats note in main)
+        # must not leave the waiter blocking for the full timeout on a
+        # dead connection.
+        self.error = "connection lost before a message arrived"
+        self.received.set()
 
     def on_message(self, frame):
         try:
@@ -49,7 +53,13 @@ def main():
     password = os.getenv("ACTIVEMQ_PASSWORD", "admin")
     timeout = int(os.getenv("LISTEN_TIMEOUT", "600"))
 
-    conn = stomp.Connection([(host, port)])
+    # Artemis closes idle STOMP connections after connection-ttl-override
+    # (default 60s) unless the client sends heartbeats. The workflow's
+    # stf_processed messages arrive several minutes after subscribe, by
+    # which time a heartbeat-less connection is gone and the messages are
+    # missed. Match BaseAgent's heartbeat settings (swf-common-lib) so the
+    # subscription stays live for the whole wait.
+    conn = stomp.Connection([(host, port)], heartbeats=(30000, 30000))
     listener = Listener()
     conn.set_listener("", listener)
 
@@ -71,6 +81,12 @@ def main():
     if not listener.received.wait(timeout):
         print("Timeout waiting for stf_processed", file=sys.stderr)
         return 1
+
+    # on_disconnected sets received without a message; fail loudly rather
+    # than dereferencing None below.
+    if listener.message is None:
+        print(f"Connection lost: {listener.error}", file=sys.stderr)
+        return 2
 
     msg = listener.message
     task_status = msg.get("task_status", "unknown")
