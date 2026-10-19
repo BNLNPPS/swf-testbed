@@ -125,19 +125,33 @@ repositories.
   quiet, and a live watch reviews what reaches it.
 - Site compute usage breaks the OSG pool down by execute site. The inclusive and narrowing filters are
   the house facet filters (INCLUSIVE_FILTER.md).
+- ALARM_AI_DELIVERY.md designs alarm delivery into every subscribed running Claude Code and Codex
+  session: receiver-initiated streams, and personal feeds on an authenticated, owner-scoped path.
 
 ### Testbed and shared library (swf-testbed, swf-common-lib, swf-monitor)
 
-- The user agent manager reconnects to ActiveMQ on every heartbeat cycle until it succeeds, on a fresh
-  connection, and starts even when the broker is down. Its heartbeat reports whether it holds the
-  broker, and the monitor records that with the rest of the agent's reported metadata, which it had
-  been discarding. A manager that heartbeats without the broker is reported not alive, with the reason,
-  by the agent-manager check, the testbed status and system state tools; starting or stopping a user
-  testbed returns that reason instead of sending into a control queue nobody reads.
-- BaseAgent reconnects on a fresh STOMP connection; reusing the old one raced its exiting receiver
-  thread. A BaseAgent stop drains until idle and is bounded whatever a doer is doing.
-- Agent console log lines lead with the time, so an agent's log tells a fresh failure from an old one.
+- The user agent manager connects to ActiveMQ on its own thread, one bounded attempt at a time, until it
+  succeeds, so its heartbeats never stop, and it starts even when the broker is down. Connected means
+  the transport is up. Its heartbeat reports whether it holds the broker, and the monitor records that
+  with the rest of the agent's reported metadata, which it had been discarding. A manager that
+  heartbeats without the broker is reported not alive, with the reason, by the agent-manager check, the
+  testbed status and system state tools; starting or stopping a user testbed returns that reason
+  instead of sending into a control queue nobody reads.
+- BaseAgent runs background work in a pool per queue, so slow work on one queue cannot starve another.
+  It reconnects on a fresh, time-bounded STOMP connection; reusing the old one raced its exiting
+  receiver thread. A stop drains until idle and is bounded whatever a doer is doing: it consumes
+  nothing more, starts no queued task past its drain limit, and cannot be held by a logging lock.
+- Agent console log lines lead with the time and name their thread, so an agent's log tells a fresh
+  failure from an old one.
 - Testbed checks never enter the production health verdict.
+
+### Review fixes (swf-monitor)
+
+- From Copilot's review of this release: the TLS served-chain alarm keeps an active alarm when its
+  probe reaches no verdict; error-label corrections honor their queue scope; a ping with zero lead days
+  waits for its due date; the sandbox keepalive's manifest harvest skips tasks without a sandbox
+  instead of spending its nightly cap on them; the segfault API rejects non-positive limits; a token
+  write of a segfault finding needs no CSRF cookie.
 
 ### Deployment (swf-monitor, swf-epicprod, swf-remote)
 
@@ -150,11 +164,13 @@ repositories.
 
 Folded in from `main`:
 
-- **Wen Guan**: TF-slice query optimization in swf-monitor (PR #47), and streaming mode, multiple
-  namespaces and run ids in workflow names in swf-panda-workers.
+- **Wen Guan**: TF-slice query optimization in swf-monitor (PR #47), BaseAgent's per-queue background
+  pools and thread names in agent logs (swf-common-lib #48), and streaming mode, multiple namespaces and
+  run ids in workflow names in swf-panda-workers.
 - **Dmitry Kalinkin**: the `snakemake_agent` (swf-testbed #76), proper logging in the agents (#75), the
   retirement of `rucio_comms` (swf-testbed #74, swf-common-lib #47), `stf_processed` published at the end
-  of processing, and integer job ids to `getFullJobStatus`.
+  of processing, integer job ids to `getFullJobStatus`, and the API reference generated from the
+  OpenAPI schema with widdershins and reslate (swf-monitor #33).
 - **Zhaoyu Yang**: the decision box for the prompt processing workflow (swf-testbed #67), and the report
   that exposed the agent manager's silent loss of the broker.
 - **Sakib Rahman**: Ag107 among the ion species (swf-epicprod #3).
