@@ -167,8 +167,7 @@ class FastProcessingAgent(BaseAgent):
 
         try:
             logging.info("Attempting to reconnect to ActiveMQ...")
-            if self.conn.is_connected():
-                self.conn.disconnect()
+            self._fresh_connection()
 
             self.conn.connect(
                 self.mq_user,

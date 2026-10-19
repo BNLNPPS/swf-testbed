@@ -609,7 +609,10 @@ class UserAgentManager(stomp.ConnectionListener):
                 'hostname': os.uname().nodename,
                 'description': '. '.join(desc_parts),
                 'mq_connected': self.mq_connected,
-                'metadata': {'supervisord_healthy': sv_health['healthy']},
+                'metadata': {
+                    'supervisord_healthy': sv_health['healthy'],
+                    'agents_running': bool(sv_health.get('running_agents')),
+                },
             }
 
             response = self.api.post(
