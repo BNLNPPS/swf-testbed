@@ -1,5 +1,186 @@
 # Release Notes
 
+## v44 (2026-10-19)
+
+v44 is the first publicized release since v43. It covers seven weeks of work since v43 (2026-08-27),
+with the fixes that the CI and Copilot review of its release PRs called for. ePIC production now runs
+its own in-job payload, places and regulates its own work, records and recovers its own data, and
+diagnoses its own failures. The payload preserves every output before the catalog is asked anything,
+with a failover stash at BNL; the node harness brings the Event Service to Perlmutter, the npps0 test
+queue and Google Cloud;
+a pressure front, a job throttler and a node guard place work and keep it off broken resources; a
+segfault program inventories, reproduces and reads payload crashes. Access to the system is governed by
+recorded authority, and collaborators reach it through a reduced user view, an external MCP relay and
+embedded TeamComms. Contributor work merged to `main` since v42 is folded in and credited below. These
+notes cover the coordinated baseline repositories and the relevant `main` work in their peer
+repositories.
+
+### The epicprod payload (swf-epicprod)
+
+- The production team's payload runs as our own in-job runner (`swf_epicprod/payload`, versions 0.1 to
+  0.24), recorded on every submission. EPICPROD_PAYLOAD.md is the design.
+- Outputs are preserved first: a file is home in storage before the catalog is consulted, and an output
+  JLab will not take goes to the failover stash at BNL-XRD, registered in place and drained home later.
+  Registration can no longer cost a job, and a log upload never kills one.
+- Every stage is measured, with its memory trend, and the payload report leaves the job as each stage
+  ends, so a dying job has already spoken. A crash ships its stage-log tail and uploads its logs.
+- Event generation runs as a payload stage for eSTARlight, DJANGOH charged-current DIS, eicMesonSFGen and
+  a pythia8 DIS composer on the collaboration's cards (EPICPROD_INTERNAL_EVGEN.md).
+- The landing check reads the node guard's exclusions and the write door's certificate; npsim and
+  EICrecon take their thread counts from the task's cores; background-merger adapters are opt-in.
+
+### Event Service and the node event dispatcher (swf-epicprod, swf-monitor)
+
+- The node harness runs EICrecon resident on every core, takes event ranges as they are needed, and
+  closes merged podio files at a set cadence, so an allocation does work to its wall and saves as it goes.
+  NODE_EVENT_DISPATCHER.md records the deadline drain, preemption close-out and the measured unit.
+- Event Service runs on Perlmutter through our pilot launcher, on the npps0 test queue
+  (BNL_NPPS_GPU), and on Google Cloud through a GKE pilot flow run by the ops agent. Our canary pilot is
+  published in CVMFS.
+- Job, task, queue and allocation pages show Event Service units, closes and the slot occupancy plot. A
+  preempted job is closed out unattended from the record it shipped; an `es_no_progress` alarm names a
+  file whose jobs keep losing their node.
+
+### Data registration and storage (swf-epicprod, swf-monitor, snapper-ai)
+
+- EVGEN inputs register in JLab Rucio from a coverage worklist (per row, in bulk from pasted paths), with
+  event counts recorded on the DIDs. Output datasets are created at submission and recorded with the
+  attempt.
+- The registrar completes what a job left pending, the stash drain registers what was stashed, log
+  rescue moves held logs to their datasets, and pilots whose log transfer failed get upload grants.
+- The storage record crawls every location incrementally, guided by production activity, and feeds the
+  Snapper Storage view (capacity, replica state, ghosts, consequences) and the Storage exceptions page.
+  STORAGE.md and SNAPPER_STORAGE.md are the designs.
+- A storage door canary probes the doors production writes through, with the credential production
+  writes with; a dead write door is never read as a black-hole node.
+- The delivered-output record states what each task produced: a file counts when it is attached to its
+  dataset, and a failed upload's DID does not.
+
+### Placement, regulation and continuous production (swf-epicprod, swf-monitor, site-canary)
+
+- We place production work, never PanDA brokerage: the compose page's Site control recommends and places,
+  Move remaining work reassigns with attempt repayment, and the pressure front feeds ready work to queues
+  by priority against measured capacity (CONTINUOUS_PRODUCTION.md).
+- A per-queue census, readiness checks and the priority line in the live task specification inform the
+  front; the ePIC job throttler in JEDI (in observe mode) and a pilot regulator over the harvester's
+  queue limits (in shadow mode) regulate the queue side.
+- The node guard excludes black-hole nodes from evidence, attributes failures contemporaneously, sets
+  aside declared downtime and dead doors, and publishes its exclusion; it runs live (NODE_GUARD.md).
+- Declared downtime is read from CRIC; the NERSC allocation balance closes a queue at 90% used; a closed
+  queue takes no production work; site probes run ahead of production at priority 951.
+
+### Failure diagnosis (swf-monitor, swf-epicprod, site-canary)
+
+- The segfault program inventories crash-class jobs, catalogs signatures, digs traces from payload logs,
+  reproduces crashes as payload canaries on two queues, and keeps curated findings with permanent ids,
+  with a nightly notice and study (SEGFAULT_DIAGNOSIS.md).
+- Unreliable PanDA error labels are corrected at the per-job root, and job diagnosis reads the batch state
+  behind a taskbuffer 300 in plain words. Condor event logs are captured nightly and read by a learned
+  parser; landing declines are counted per node.
+- Harvester host reporters on the submit hosts and the PanDA server host show each queue's launch limits,
+  workers and why workers did not finish; harvester stdout is kept 30 days and the NERSC queues' worker
+  records are copied nightly.
+- The Snapper errors record carries exit codes and wasted core-hours, and the Platform view gains the
+  submit hosts, the PanDA server host and the batch pool.
+
+### Campaign planning and PCS (swf-epicprod, swf-monitor)
+
+- Campaign completion is shown on the production home, the user view and the campaign plan, rolled up by
+  priority; the campaign assembly view turns AI proposals into the plan by approval.
+- A configuration is proved by a trial before it goes to scale, and a trial's cost sizes its jobs.
+  Physics configurations ingest from legacy submission lines; a registered sample becomes a task through
+  the intake executor.
+- Rerun Residual runs the attempt's own rows from a recorded manifest; Move this task to PCS adopts a
+  legacy task; issued tags and physics configurations are permanent, with database delete guards.
+- Request priorities are set by physics analysis coordinators (the PAC role) on every surface; a request
+  size plot shows how large requests are; Jev ranks configurations for plain-language requests
+  (experimental).
+- Physics tags gain beam polarization and accept any ion species; EVGEN tags gain the afterburner
+  preset.
+
+### Retries (swf-epicprod, swf-monitor)
+
+- EPICPROD_RETRIES.md states the four recovery levels. A retry of failures takes changed memory, wall time
+  and target queue; Finish is a single operation; the task page counts retries as attempts that followed
+  a failure.
+- A job that failed on memory is retried at the next memory step (`increase_memory` rules on cgroup
+  out-of-memory kills and OSG glidein evictions), so a retry is never doomed on the same slot size.
+
+### Snapper (snapper-ai, swf-monitor)
+
+- New components and views: Storage, the JLab Rucio Catalog, and the Platform view's submit and server
+  hosts. The observatory gains integrated panels over event-flow families, weighted events with a second
+  bin measure, section bands with a jump list, declared default windows and remembered focus.
+- Component data has one size limit, 1 MiB; a publication that reaches it raises a Capcom alarm.
+
+### Access, collaboration and notices (swf-monitor, swf-remote)
+
+- Authority records who may act on the system and is enforced on every write, including MCP; sign-in
+  records the GitHub account and its eic membership, and Ops and PAC are roles.
+- The user view is a reduced epicprod face behind one URL parameter (USER_VIEW.md). External clients
+  reach an MCP tool set through the swf-remote relay with per-user tokens, read-only except for
+  proposing a ping.
+- TeamComms is embedded with devcloud authentication; pings are dated obligations in the alarm system,
+  entered by hand or proposed by AI; AI proposals gain campaign-plan, ping and sample categories.
+- Alarms cover agent liveness, the served TLS chain, storage headroom and harvester contact, with email
+  off unless turned on by hand. `epicprod-live` carries findings and recoveries while maintenance stays
+  quiet, and a live watch reviews what reaches it.
+- Site compute usage breaks the OSG pool down by execute site. The inclusive and narrowing filters are
+  the house facet filters (INCLUSIVE_FILTER.md).
+- ALARM_AI_DELIVERY.md designs alarm delivery into every subscribed running Claude Code and Codex
+  session: receiver-initiated streams, and personal feeds on an authenticated, owner-scoped path.
+
+### Testbed and shared library (swf-testbed, swf-common-lib, swf-monitor)
+
+- The user agent manager connects to ActiveMQ on its own thread, one bounded attempt at a time, until it
+  succeeds, so its heartbeats never stop, and it starts even when the broker is down. Connected means
+  the transport is up. Its heartbeat reports whether it holds the broker, and the monitor records that
+  with the rest of the agent's reported metadata, which it had been discarding. A manager that
+  heartbeats without the broker is reported not alive, with the reason, by the agent-manager check, the
+  testbed status and system state tools; starting or stopping a user testbed returns that reason
+  instead of sending into a control queue nobody reads.
+- BaseAgent runs background work in a pool per queue, so slow work on one queue cannot starve another.
+  It reconnects on a fresh STOMP connection with a 60 s timeout, so a silent broker cannot block a
+  connect or TLS handshake; reusing the old connection raced its exiting receiver thread, and a
+  detached listener no longer fails every later reconnect. A stop drains until idle and is bounded
+  whatever a doer is doing: it consumes nothing more, starts no queued task past its drain limit, and
+  cannot be held by a logging lock. The in-process stop test, built around the single pool the
+  per-queue pools replace, is removed.
+- Agent console log lines lead with the time and name their thread, so an agent's log tells a fresh
+  failure from an old one.
+- Testbed checks never enter the production health verdict.
+
+### Review fixes (swf-monitor, swf-common-lib, swf-testbed)
+
+- From Copilot's review of the release PRs: the TLS served-chain alarm keeps an active alarm when its
+  probe reaches no verdict; error-label corrections honor their queue scope; a ping with zero lead days
+  waits for its due date; the sandbox keepalive's manifest harvest skips tasks without a sandbox
+  instead of spending its nightly cap on them; the pings alarm is seeded with email off; the segfault
+  API rejects non-positive limits; a token write of a segfault finding needs no CSRF cookie. The
+  BaseAgent stop and the agent manager's connect fixes above answer the same review.
+
+### Deployment (swf-monitor, swf-epicprod, swf-remote)
+
+- swf-epicprod deploys itself on every push to `main` (AUTODEPLOY.md). The swf-monitor deploy restarts
+  each agent through systemd, steps a working agent down instead of killing its work, refuses to restart
+  the ops agent during the nightly chain, and fails unless every restarted agent reaches READY.
+- swf-remote restarts only its own daemon group; epic-devcloud.org runs ePIC's own Apache behind Caddy.
+
+### Acknowledgments
+
+Folded in from `main`:
+
+- **Wen Guan**: TF-slice query optimization in swf-monitor (PR #47), BaseAgent's per-queue background
+  pools and thread names in agent logs (swf-common-lib #48), and streaming mode, multiple namespaces and
+  run ids in workflow names in swf-panda-workers.
+- **Dmitry Kalinkin**: the `snakemake_agent` (swf-testbed #76), proper logging in the agents (#75), the
+  retirement of `rucio_comms` (swf-testbed #74, swf-common-lib #47), `stf_processed` published at the end
+  of processing, integer job ids to `getFullJobStatus`, and the API reference generated from the
+  OpenAPI schema with widdershins and reslate (swf-monitor #33).
+- **Zhaoyu Yang**: the decision box for the prompt processing workflow (swf-testbed #67), and the report
+  that exposed the agent manager's silent loss of the broker.
+- **Sakib Rahman**: Ag107 among the ion species (swf-epicprod #3).
+
 ## v43 (2026-08-27)
 
 This release adds two Snapper views: Errors, recording PanDA job errors as five-minute interval
