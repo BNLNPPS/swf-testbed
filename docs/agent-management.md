@@ -79,7 +79,7 @@ nohup testbed agent-manager &   # Run in background
 The daemon:
 - Listens on `/queue/agent_control.{username}`
 - Sends heartbeats to the monitor every 30 s, reporting its ActiveMQ connection (`mq_connected`)
-- Reconnects to ActiveMQ on every heartbeat cycle while disconnected, until it succeeds
+- Reconnects to ActiveMQ on every heartbeat cycle while disconnected, until it succeeds. Each attempt runs off the heartbeat loop, one at a time, bounded by a 60 s socket timeout, so a stalled broker never stops the heartbeats. "Connected" means subscribed with the transport still up.
 - Executes start/stop commands via supervisorctl
 
 A manager that has lost ActiveMQ still heartbeats over REST but receives no commands. The MCP tools therefore treat it as not alive: `check_agent_manager` reports `alive: false` with the reason, and `start_user_testbed` and `stop_user_testbed` return that error instead of sending a command nobody reads.

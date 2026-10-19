@@ -16,6 +16,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 import tomllib
 from datetime import datetime
@@ -26,6 +27,14 @@ from swf_common_lib.rest_logging import setup_rest_logging
 
 # Heartbeat interval in seconds
 HEARTBEAT_INTERVAL = 30
+
+# STOMP heart-beating with the broker, milliseconds each way
+STOMP_HEARTBEAT_MS = 30000
+
+# Socket timeout in seconds: bounds a connect attempt (TCP, TLS handshake, the
+# wait for CONNECTED). Twice the STOMP heart-beat, so a healthy connection,
+# which hears from the broker at least every heart-beat, never times out idle.
+MQ_SOCKET_TIMEOUT = 2 * STOMP_HEARTBEAT_MS / 1000
 
 # Supervisord config for agents
 AGENTS_CONF = 'agents.supervisord.conf'
@@ -76,7 +85,8 @@ class UserAgentManager(stomp.ConnectionListener):
         self.running = True
         self.last_heartbeat = None
         self.agents_running = False
-        self.mq_connected = False  # True only while subscribed to the control queue
+        self.mq_connected = False  # True only while subscribed to the control queue; read via _mq_ok()
+        self._connect_thread = None  # the one connect attempt in flight, if any
         self.namespace = None  # Set when config is loaded
         self.config = None  # Current testbed config
 
@@ -113,8 +123,9 @@ class UserAgentManager(stomp.ConnectionListener):
             host_and_ports=[(self.mq_host, self.mq_port)],
             vhost=self.mq_host,
             try_loopback_connect=False,
-            heartbeats=(30000, 30000),
-            auto_content_length=False
+            heartbeats=(STOMP_HEARTBEAT_MS, STOMP_HEARTBEAT_MS),
+            auto_content_length=False,
+            timeout=MQ_SOCKET_TIMEOUT
         )
 
         # Configure SSL if enabled
@@ -140,26 +151,51 @@ class UserAgentManager(stomp.ConnectionListener):
 
         self.logger.info(f"User Agent Manager ready for {self.username}")
 
-    def _reconnect(self):
-        """Reconnect to ActiveMQ and resubscribe. Called every heartbeat cycle while disconnected.
+    def _mq_ok(self):
+        """Subscribed and the transport still up.
 
-        Uses a fresh connection: reconnecting the old one races its exiting
-        receiver thread (bad file descriptor, or a CONNECT that never completes).
-        The old one is detached first so its late disconnect event is not ours.
+        A disconnect that lands between SUBSCRIBE and the flag being set is
+        overwritten by it; checking the transport here clears such a stale
+        flag, so the main loop reconnects instead of trusting a dead connection.
         """
-        old = self.conn
-        old.remove_listener('')
+        if self.mq_connected and not self.conn.is_connected():
+            self.mq_connected = False
+        return self.mq_connected
+
+    def _start_reconnect(self):
+        """Start a connect attempt on its own thread unless one is in flight.
+
+        Off the main loop, so heartbeats keep flowing while a connect stalls;
+        never two attempts at once.
+        """
+        if self._connect_thread is not None and self._connect_thread.is_alive():
+            return
+        self._connect_thread = threading.Thread(
+            target=self._reconnect, name='mq-reconnect', daemon=True)
+        self._connect_thread.start()
+
+    def _reconnect(self):
+        """Connect to ActiveMQ and subscribe on a fresh connection; one attempt.
+
+        Reconnecting the old connection races its exiting receiver thread (bad
+        file descriptor, or a CONNECT that never completes), so the old one is
+        detached first, keeping its late disconnect event from being ours. The
+        socket timeout (MQ_SOCKET_TIMEOUT) bounds a stalled attempt.
+        """
         try:
-            if old.is_connected():
-                old.disconnect()
-        except Exception as e:
-            self.logger.warning(f"Closing old ActiveMQ connection: {e}")
-        self.conn = self._new_connection()
-        try:
+            old = self.conn
+            if old.get_listener('') is not None:
+                old.remove_listener('')
+            try:
+                if old.is_connected():
+                    old.disconnect()
+            except Exception as e:
+                self.logger.warning(f"Closing old ActiveMQ connection: {e}")
+            self.conn = self._new_connection()
             self.connect()
-            self.logger.info("Reconnected to ActiveMQ")
+            self.logger.info("Connected to ActiveMQ")
         except Exception as e:
-            self.logger.error(f"Reconnect failed, retrying in {HEARTBEAT_INTERVAL}s: {e}")
+            self.logger.error(f"ActiveMQ connect failed, retrying in {HEARTBEAT_INTERVAL}s: {e!r}")
 
     def disconnect(self):
         """Disconnect from ActiveMQ."""
@@ -588,10 +624,11 @@ class UserAgentManager(stomp.ConnectionListener):
             desc_parts = [f'Agent manager for {self.username}']
             if self.namespace:
                 desc_parts.append(f'namespace: {self.namespace}')
-            desc_parts.append(f"MQ: {'connected' if self.mq_connected else 'disconnected'}")
+            mq_ok = self._mq_ok()
+            desc_parts.append(f"MQ: {'connected' if mq_ok else 'disconnected'}")
 
             if sv_health['healthy']:
-                status = 'OK' if self.mq_connected else 'WARNING'
+                status = 'OK' if mq_ok else 'WARNING'
                 state = sv_health.get('state', 'running')
                 desc_parts.append(f"supervisord: {state}")
             else:
@@ -608,7 +645,7 @@ class UserAgentManager(stomp.ConnectionListener):
                 'pid': os.getpid(),
                 'hostname': os.uname().nodename,
                 'description': '. '.join(desc_parts),
-                'mq_connected': self.mq_connected,
+                'mq_connected': mq_ok,
                 'metadata': {
                     'supervisord_healthy': sv_health['healthy'],
                     'agents_running': bool(sv_health.get('running_agents')),
@@ -629,10 +666,7 @@ class UserAgentManager(stomp.ConnectionListener):
 
     def run(self):
         """Main run loop."""
-        try:
-            self.connect()
-        except Exception as e:
-            self.logger.error(f"ActiveMQ connect failed, retrying in {HEARTBEAT_INTERVAL}s: {e}")
+        self._start_reconnect()
 
         # Send immediate heartbeat so MCP can detect us quickly
         self.send_heartbeat()
@@ -646,8 +680,8 @@ class UserAgentManager(stomp.ConnectionListener):
                 # Send periodic heartbeat
                 now = time.time()
                 if now - last_heartbeat_time >= HEARTBEAT_INTERVAL:
-                    if not self.mq_connected:
-                        self._reconnect()
+                    if not self._mq_ok():
+                        self._start_reconnect()
                     self.send_heartbeat()
                     last_heartbeat_time = now
 
