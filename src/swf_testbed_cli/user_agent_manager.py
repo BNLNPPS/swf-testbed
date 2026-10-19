@@ -172,7 +172,7 @@ class UserAgentManager(stomp.ConnectionListener):
             message = json.loads(frame.body)
             command = message.get('command')
 
-            self.logger.info(f"[{datetime.now().strftime('%H:%M:%S')}] Received command: {command}")
+            self.logger.info(f"Received command: {command}")
 
             if command == 'start_testbed':
                 config_name = message.get('config_name')
