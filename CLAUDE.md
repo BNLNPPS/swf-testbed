@@ -50,3 +50,9 @@ swf_list_logs(execution_id='...')         # Workflow logs
 **MCP query limits:** Always filter queries. Unbounded `swf_list_agents(status='all')` or `swf_list_logs()` can exceed context limits.
 
 Docs: See `README.md`, `docs/` in each repo, and [MCP.md](../swf-monitor/docs/MCP.md) for tool reference.
+
+## TeamComms
+
+Developers' LLM sessions message each other through TeamComms, for questions
+and answers across people and providers (Claude Code, Codex). Joining and use:
+<https://github.com/eic/epic-wfms-docs/blob/main/docs/teamcomms.md>.
