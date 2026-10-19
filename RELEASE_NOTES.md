@@ -2,10 +2,10 @@
 
 ## v45 (2026-10-19)
 
-v45 is the first published release since v43 (2026-08-27). It is an immediate follow-up to v44, which
-was cut and deployed the same day without a release of its own: the v44 entry below covers the seven
-weeks of work since v43, and this entry the fixes that followed it. v45 addresses the review and CI
-findings on v44 and folds in the contributor work merged to `main` while v44 was under review.
+v45 is the first publicized release since v43 (2026-08-27). It is an immediate follow-up to v44,
+released the same day: the v44 entry below covers the seven weeks of work since v43, and this entry
+the fixes that followed it. v45 addresses the CI and AI review findings on v44 and folds in the
+contributor work merged to `main` while v44 was under review.
 
 ### Agents and the shared library (swf-common-lib, swf-testbed)
 
