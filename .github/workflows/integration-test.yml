@@ -104,6 +104,10 @@ env:
   # paths (./config, ./scripts) resolve against its own checkout rather than
   # swf-testbed's; swf-testbed's own ../sibling paths resolve the same either way.
   COMPOSE_PROJECT_NAME: swf-testbed
+  # Merge swf-testbed's compose file with panda-compose's on every command.
+  # Paths are relative to the working directory of each compose invocation
+  # (always swf-testbed). Validated byte-identical to the -f/-f invocation.
+  COMPOSE_FILE: docker-compose.yml:../panda-compose/docker-compose.yml
 
 jobs:
   integration:
@@ -196,7 +200,7 @@ jobs:
       # Build first so the staged startup is fast.
       - name: Docker Compose build
         working-directory: swf-testbed
-        run: docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml build
+        run: docker compose --project-directory ../panda-compose build
 
       # ---- 3b. Start infrastructure (both PostgreSQL instances + both ActiveMQ) ----
       #
@@ -207,10 +211,7 @@ jobs:
       - name: Start infrastructure (db, panda-postgres, activemq, testbed-activemq)
         working-directory: swf-testbed
         run: |
-          compose() {
-            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
-          }
-          compose up -d db postgres testbed-activemq activemq
+          docker compose --project-directory ../panda-compose up -d db postgres testbed-activemq activemq
 
       # ---- 3c. Wait for both PostgreSQL instances to be stably healthy ----
       #
@@ -219,46 +220,32 @@ jobs:
       - name: Wait for PostgreSQL stability
         working-directory: swf-testbed
         run: |
-          compose() {
-            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
+          # Require two consecutive healthy reads so we don't catch the
+          # panda-database container mid-restart during its first init.
+          wait_healthy_stable() {
+            container=$1
+            stable=0
+            for _ in $(seq 1 60); do
+              status=$(docker inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || echo starting)
+              echo "  $container health=$status"
+              if [ "$status" = healthy ]; then
+                stable=$((stable + 1))
+                [ "$stable" -ge 2 ] && break
+              else
+                stable=0
+              fi
+              sleep 5
+            done
+            if [ "$stable" -lt 2 ]; then
+              echo "ERROR: $container did not reach stable healthy state" >&2
+              docker logs "$container" 2>&1 | tail -n 80 || true
+              exit 1
+            fi
           }
           echo "Waiting for testbed db (swf-testbed-db-1) to be stably healthy..."
-          stable=0
-          for _ in $(seq 1 60); do
-            status=$(docker inspect --format '{{.State.Health.Status}}' swf-testbed-db-1 2>/dev/null || echo starting)
-            echo "  db health=$status"
-            if [ "$status" = healthy ]; then
-              stable=$((stable + 1))
-              [ "$stable" -ge 2 ] && break
-            else
-              stable=0
-            fi
-            sleep 5
-          done
-          if [ "$stable" -lt 2 ]; then
-            echo "ERROR: testbed db did not reach stable healthy state" >&2
-            docker logs swf-testbed-db-1 2>&1 | tail -n 80 || true
-            exit 1
-          fi
+          wait_healthy_stable swf-testbed-db-1
           echo "Waiting for panda postgres (swf-testbed-postgres-1) to be stably healthy..."
-          stable=0
-          for _ in $(seq 1 60); do
-            status=$(docker inspect --format '{{.State.Health.Status}}' swf-testbed-postgres-1 2>/dev/null || echo starting)
-            restarts=$(docker inspect --format '{{.RestartCount}}' swf-testbed-postgres-1 2>/dev/null || echo 0)
-            echo "  postgres health=$status restarts=$restarts"
-            if [ "$status" = healthy ]; then
-              stable=$((stable + 1))
-              [ "$stable" -ge 2 ] && break
-            else
-              stable=0
-            fi
-            sleep 5
-          done
-          if [ "$stable" -lt 2 ]; then
-            echo "ERROR: panda postgres did not reach stable healthy state" >&2
-            docker logs swf-testbed-postgres-1 2>&1 | tail -n 80 || true
-            exit 1
-          fi
+          wait_healthy_stable swf-testbed-postgres-1
 
       # ---- 3d. Start PanDA + Rucio servers (and their dependencies) ----
       #
@@ -269,10 +256,7 @@ jobs:
       - name: Start PanDA and Rucio servers
         working-directory: swf-testbed
         run: |
-          compose() {
-            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml "$@"
-          }
-          compose up -d panda-server rucio
+          docker compose --project-directory ../panda-compose up -d panda-server rucio
 
       # ---- 3e. Wait for Rucio, then bootstrap RSEs / scopes / quota ----
       #
@@ -313,7 +297,7 @@ jobs:
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
-        run: docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml up -d
+        run: docker compose --project-directory ../panda-compose up -d
 
 
       # ---- 4. Wait for the success marker in testbed logs ----
@@ -330,7 +314,7 @@ jobs:
             # stf_datataking: wait for DAQ simulation completion marker
             SUCCESS_MARKER="Workflow completed:"
             LOG_FILE="$(mktemp)"
-            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs -f testbed > "$LOG_FILE" 2>&1 &
+            docker compose --project-directory ../panda-compose logs -f testbed > "$LOG_FILE" 2>&1 &
             LOGS_PID=$!
 
             ELAPSED=0
@@ -346,12 +330,12 @@ jobs:
                 exit 0
               fi
 
-              if ! docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml ps testbed --format '{{.State}}' 2>/dev/null | grep -qi running; then
+              if ! docker compose --project-directory ../panda-compose ps testbed --format '{{.State}}' 2>/dev/null | grep -qi running; then
                 echo ""
                 echo "=========================================="
                 echo "❌  FAILURE — testbed container stopped unexpectedly"
                 echo "=========================================="
-                docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=100 testbed || true
+                docker compose --project-directory ../panda-compose logs --tail=100 testbed || true
                 kill $LOGS_PID 2>/dev/null || true
                 rm -f "$LOG_FILE"
                 exit 1
@@ -365,7 +349,7 @@ jobs:
             echo "=========================================="
             echo "❌  TIMEOUT — '$SUCCESS_MARKER' not seen within ${TIMEOUT}s"
             echo "=========================================="
-            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=200 testbed || true
+            docker compose --project-directory ../panda-compose logs --tail=200 testbed || true
             kill $LOGS_PID 2>/dev/null || true
             rm -f "$LOG_FILE"
             exit 1
@@ -374,7 +358,7 @@ jobs:
             # prompt_processing: wait for stf_processed message on ActiveMQ
             # (validates end-to-end PanDA task submission + execution)
             echo "Waiting for stf_processed message (PanDA task completion)..."
-            docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml \
+            docker compose --project-directory ../panda-compose \
               exec -T testbed \
               python3 /app/scripts/listen_stf_processed.py
             exit $?
@@ -389,7 +373,7 @@ jobs:
         working-directory: swf-testbed
         run: |
           echo "::group::All service logs"
-          docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml logs --tail=500
+          docker compose --project-directory ../panda-compose logs --tail=500
           echo "::endgroup::"
           # JEDI/server daemons log to files inside panda-server, not stdout, so
           # they are invisible in the compose logs above. Dump them explicitly for
@@ -469,4 +453,4 @@ jobs:
       - name: Docker Compose down
         if: always()
         working-directory: swf-testbed
-        run: docker compose --project-directory ../panda-compose -f docker-compose.yml -f ../panda-compose/docker-compose.yml down -v --remove-orphans
+        run: docker compose --project-directory ../panda-compose down -v --remove-orphans
