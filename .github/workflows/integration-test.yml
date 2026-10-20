@@ -183,58 +183,13 @@ jobs:
 
       # ---- 2b. Create panda-compose .env ----
       #
-      # panda-compose needs its own .env for PostgreSQL, ActiveMQ, PanDA, Harvester, Rucio.
+      # Start from the upstream defaults (PostgreSQL, ActiveMQ, PanDA, Rucio)
+      # and override the compute-queue list: the decision box fans work out
+      # to E1_BNL / E1_JLAB, plus the built-in local queue.
       - name: Create panda-compose .env
         run: |
-          cat > panda-compose/.env <<'EOF'
-          # PostgreSQL (PanDA server + JEDI)
-          PANDA_DB_BACKEND=postgres
-          PANDA_DB_HOST=postgres
-          PANDA_DB_PORT=5432
-          PANDA_DB_USER=panda
-          PANDA_DB_PASSWORD=panda_secret
-          PANDA_DB_NAME=panda_db
-          PANDA_DB_SCHEMAPANDA=DOMA_PANDA
-          PANDA_DB_SCHEMAMETA=DOMA_PANDAMETA
-          PANDA_DB_SCHEMAPANDAARCH=DOMA_PANDAARCH
-          PANDA_DB_SCHEMAJEDI=DOMA_PANDA
-          PANDA_DB_SCHEMADEFT=DOMA_DEFT
-          POSTGRES_PASSWORD=postgres_secret
-          
-          # ActiveMQ
-          PANDA_ACTIVEMQ_LIST=activemq:61613
-          PANDA_ACTIVEMQ_PASSWD_panda=panda_mq_secret
-          PANDA_ACTIVEMQ_PASSWD_jedi=jedi_mq_secret
-          
-          # PanDA server
-          PANDA_URL=http://panda-server:80/server/panda
-          PANDA_URL_SSL=https://panda-server:443/server/panda
-          PANDA_VERIFY_HOST=off
-          PANDA_BEHIND_REAL_LB=1
-          PANDA_AUTH=None
-          
-          # Harvester
-          HARVESTER_EXPERIMENT=wlcg
-          
-          # Compute queues: the decision box fans work out to E1_BNL / E1_JLAB,
-          # plus the built-in local queue. Registered in schedconfig and managed
-          # by the harvester (panda-compose PANDA_QUEUES knob).
-          PANDA_QUEUES=PANDA_COMPOSE_LOCAL E1_BNL E1_JLAB
-          
-          # JEDI task path: VO/label the seeded work-queue + global-share use.
-          # Must match the agent's SWF_PANDA_VO (epic) so submitted tasks refine.
-          PANDA_TASK_VO=epic
-          PANDA_TASK_LABEL=test
-
-          # Rucio
-          RUCIO_DB_USER=rucio
-          RUCIO_DB_NAME=rucio
-          RUCIO_DB_PASSWORD=secret
-          RUCIO_USERNAME=ddmlab
-          RUCIO_PASSWORD=secret
-          RUCIO_TAG=latest
-          EOF
-          sed -i 's/^[[:space:]]*//' panda-compose/.env
+          cp panda-compose/.env.example panda-compose/.env
+          printf 'PANDA_QUEUES=PANDA_COMPOSE_LOCAL E1_BNL E1_JLAB\n' >> panda-compose/.env
 
       # ---- 3. Build all images ----
       #
