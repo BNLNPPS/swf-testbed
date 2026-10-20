@@ -142,9 +142,13 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
 ### swf-testbed MCP Server Authentication
 
 The `.mcp.json` at the swf-testbed repo root configures Claude Code to use
-the swf-monitor MCP server at
-`https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/`, which requires a
-bearer token (env var `SWF_MONITOR_MCP_TOKEN`).
+the swf-monitor MCP server on the swf-testbed host's loopback endpoint,
+`http://127.0.0.1:8001/swf-monitor/mcp/`, which requires a bearer token
+(env var `SWF_MONITOR_MCP_TOKEN`). The loopback endpoint carries no TLS:
+Claude Code 2.1.304 and later refuse the certificate chain of the host's
+public address (InCommon under emSign Root TLS CA - G1). Outside BNL, use
+<https://epic-devcloud.org/prod/mcp/> with a per-user token, as the
+epic-wfms-docs platform page describes.
 
 On the swf-testbed host (pandaserver02), a shared token file is provided
 for logged-in users. Add this line to your `~/.bashrc`:

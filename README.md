@@ -33,14 +33,18 @@ application of the swf platform. Its production peer is
 
 This repository includes `.mcp.json` which automatically configures [Claude Code](https://claude.ai/code) to connect to the testbed's MCP service. When you open this project in Claude Code, the `swf-testbed` MCP server is available for natural language queries about system state, agents, workflows, and logs.
 
-**SSL Setup (required for BNL/SDCC servers):** Add to your `~/.bashrc`:
+On the swf-testbed host it uses the loopback endpoint with the shared token
+(`SWF_MONITOR_MCP_TOKEN`, see [installation](docs/installation.md)); Claude Code
+2.1.304 and later refuse the certificate chain of the host's public address,
+whatever `NODE_EXTRA_CA_CERTS` holds. To add it manually:
 ```bash
-export NODE_EXTRA_CA_CERTS=/etc/pki/tls/certs/ca-bundle.crt
+claude mcp add --transport http swf-testbed http://127.0.0.1:8001/swf-monitor/mcp/ --header 'Authorization: Bearer ${SWF_MONITOR_MCP_TOKEN}'
 ```
 
-To manually add the MCP server:
+Elsewhere, use the external endpoint with a per-user token from
+<https://epic-devcloud.org/prod/account/tokens/>:
 ```bash
-claude mcp add --transport http swf-testbed https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/
+claude mcp add --transport http swf-devcloud https://epic-devcloud.org/prod/mcp/ --header "Authorization: Bearer <token>"
 ```
 
 ### Development

@@ -2,7 +2,7 @@
   "mcpServers": {
     "swf-testbed": {
       "type": "http",
-      "url": "https://pandaserver02.sdcc.bnl.gov/swf-monitor/mcp/",
+      "url": "http://127.0.0.1:8001/swf-monitor/mcp/",
       "headers": {
         "Authorization": "Bearer ${SWF_MONITOR_MCP_TOKEN}"
       }
