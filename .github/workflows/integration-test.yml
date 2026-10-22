@@ -189,11 +189,17 @@ jobs:
       #
       # Start from the upstream defaults (PostgreSQL, ActiveMQ, PanDA, Rucio)
       # and override the compute-queue list: the decision box fans work out
-      # to E1_BNL / E1_JLAB, plus the built-in local queue.
+      # to E1_BNL / E1_JLAB, plus the built-in local queue. Also map the data
+      # agent's upload RSE as a local DDM endpoint so JEDI job brokerage
+      # classifies its replicas as local (see panda-compose render-cric.py);
+      # without the mapping, --inDS input files stay 'unknown' and jobs never
+      # activate once the ready-marking setupper patch is gone from the
+      # panda-server image.
       - name: Create panda-compose .env
         run: |
           cp panda-compose/.env.example panda-compose/.env
           printf 'PANDA_QUEUES=PANDA_COMPOSE_LOCAL E1_BNL E1_JLAB\n' >> panda-compose/.env
+          printf 'PANDA_CRIC_EXTRA_ENDPOINTS={"DAQ_DISK_3": {"token": "DAQ", "type": "OS_LOGS"}}\n' >> panda-compose/.env
 
       # ---- 3. Build all images ----
       #
