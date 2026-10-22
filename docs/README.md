@@ -8,6 +8,7 @@ This directory contains modular documentation for the SWF Testbed, organized for
 - [**Quick Start**](quick-start.md) - Minimal setup for experienced users
 
 ### Operations
+- [**swf-testbed Host Inventory**](host-swf-testbed.md) - Host paths, network boundaries, deployments and operational access
 - [**Running the Testbed**](operations.md) - Starting, stopping, and monitoring services
 - [**Monitor Integration**](monitor.md) - Web interface and API usage
 

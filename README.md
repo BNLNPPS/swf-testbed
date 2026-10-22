@@ -19,6 +19,7 @@ application of the swf platform. Its production peer is
 - [**Architecture Overview**](docs/architecture.md) - System design and components
 
 ### Operations
+- [**swf-testbed Host Inventory**](docs/host-swf-testbed.md) - Host paths, network boundaries, deployments and operational access
 - [**Running the Testbed**](docs/operations.md) - Starting, stopping, and monitoring services
 - [**Workflow Orchestration**](docs/workflows.md) - Running and managing workflows
 - [**The E0-E1 Interface**](docs/e0-e1-interface.md) - The interface as understood in 2026: architecture, definitions, open questions, development path
