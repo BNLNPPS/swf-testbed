@@ -320,6 +320,14 @@ jobs:
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
           SWF_DECISION_BOX_ENABLED: ${{ matrix.decision_box }}
+          # The decision-box leg submits two PanDA tasks and must wait for
+          # both sites' stf_processed messages; on a slow runner the
+          # harvester's per-boot dnf/pip bootstrap alone can eat several
+          # minutes (observed ~8 min at <100 kB/s), so give the listener a
+          # wider window than the single-task legs. Healthy legs still exit
+          # as soon as their message arrives; a larger timeout only costs
+          # anything when the stack is already failing.
+          LISTEN_TIMEOUT: ${{ matrix.decision_box && '900' || '600' }}
         run: |
           set -euo pipefail
           WORKFLOW="${TESTBED_WORKFLOW}"
