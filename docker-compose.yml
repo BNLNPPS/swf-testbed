@@ -184,8 +184,10 @@ services:
       RUCIO_ACCOUNT: root
       RUCIO_SCOPE: group.daq
       RUCIO_RSE: DAQ_DISK_3
-      # Decision Box / Prompt Processing
-      SWF_DECISION_BOX_ENABLED: "false"
+      # Decision Box / Prompt Processing. SWF_DECISION_BOX_ENABLED is
+      # interpolated so CI can run a decision-box variant (one PanDA task per
+      # site); everything else keeps the false default.
+      SWF_DECISION_BOX_ENABLED: "${SWF_DECISION_BOX_ENABLED:-false}"
       SWF_DECISION_BOX_RUCIO_SCOPE: group.daq
       SWF_DECISION_BOX_SITES: E1_BNL,E1_JLAB
       SWF_DECISION_BOX_POLICY: round-robin

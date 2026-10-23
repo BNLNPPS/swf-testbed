@@ -111,19 +111,26 @@ env:
 
 jobs:
   integration:
-    name: ${{ matrix.testbed_workflow }}
+    name: ${{ matrix.testbed_workflow }}${{ matrix.decision_box && ' + decision box' || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     strategy:
-      # Run both workflow variants; report each result independently.
+      # Run both workflow variants, plus a decision-box variant of
+      # prompt_processing (per-site datasets and two PanDA tasks), reporting
+      # each result independently.
       fail-fast: false
       matrix:
         testbed_workflow: [stf_datataking, prompt_processing]
+        decision_box: [false]
+        include:
+          - testbed_workflow: prompt_processing
+            decision_box: true
 
-    # Cancel in-progress runs for the same branch/PR *and* workflow variant.
+    # Cancel in-progress runs for the same branch/PR, workflow variant, and
+    # decision-box mode.
     concurrency:
-      group: integration-${{ github.ref }}-${{ matrix.testbed_workflow }}
+      group: integration-${{ github.ref }}-${{ matrix.testbed_workflow }}-${{ matrix.decision_box }}
       cancel-in-progress: true
 
     steps:
@@ -303,6 +310,7 @@ jobs:
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
+          SWF_DECISION_BOX_ENABLED: ${{ matrix.decision_box }}
         run: docker compose --project-directory ../panda-compose up -d
 
 
@@ -311,6 +319,7 @@ jobs:
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
+          SWF_DECISION_BOX_ENABLED: ${{ matrix.decision_box }}
         run: |
           set -euo pipefail
           WORKFLOW="${TESTBED_WORKFLOW}"
