@@ -118,14 +118,21 @@ jobs:
     strategy:
       # Run both workflow variants, plus a decision-box variant of
       # prompt_processing (per-site datasets and two PanDA tasks), reporting
-      # each result independently.
+      # each result independently. The idds leg runs the official iDDS
+      # client against the panda-compose iDDS service (see
+      # scripts/test_idds_client.py) without starting a testbed workflow.
       fail-fast: false
       matrix:
         testbed_workflow: [stf_datataking, prompt_processing]
         decision_box: [false]
+        idds_client: [false]
         include:
           - testbed_workflow: prompt_processing
             decision_box: true
+            idds_client: false
+          - testbed_workflow: idds_client
+            decision_box: false
+            idds_client: true
 
     # Cancel in-progress runs for the same branch/PR, workflow variant, and
     # decision-box mode.
@@ -306,16 +313,26 @@ jobs:
       #
       # Infrastructure and Rucio are ready; dependents' health conditions are
       # satisfied and the RSEs/scopes the data agent needs already exist.
+      # The idds_client leg only exercises the panda-compose iDDS service;
+      # the testbed container is started as an idle shell (its workflow
+      # runner has no idds_client workflow, and the leg asserts from the
+      # host via scripts/test_idds_client.py).
       - name: Start application stack (${{ matrix.testbed_workflow }})
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
           SWF_DECISION_BOX_ENABLED: ${{ matrix.decision_box }}
-        run: docker compose --project-directory ../panda-compose up -d
+        run: |
+          if [ "${{ matrix.idds_client }}" = "true" ]; then
+            docker compose --project-directory ../panda-compose up -d --scale testbed=0
+          else
+            docker compose --project-directory ../panda-compose up -d
+          fi
 
 
       # ---- 4. Wait for the success marker in testbed logs ----
       - name: Wait for workflow completion (${{ matrix.testbed_workflow }})
+        if: ${{ matrix.idds_client != true }}
         working-directory: swf-testbed
         env:
           TESTBED_WORKFLOW: ${{ matrix.testbed_workflow }}
@@ -389,6 +406,20 @@ jobs:
             echo "Unknown workflow: $WORKFLOW" >&2
             exit 1
           fi
+
+      # ---- 4b. Official iDDS client leg ----
+      #
+      # Install the pinned idds-client and run scripts/test_idds_client.py
+      # against the stack's iDDS service: ping, get_status,
+      # create_workflow_task (asserting the PanDA task lands in jedi_tasks),
+      # adjust_worker and close_workflow_task.
+      - name: iDDS client checks
+        if: ${{ matrix.idds_client == true }}
+        working-directory: swf-testbed
+        run: |
+          python -m venv /tmp/idds_ci_venv
+          /tmp/idds_ci_venv/bin/pip install -q "idds-client==2.6.21"
+          /tmp/idds_ci_venv/bin/python scripts/test_idds_client.py
 
       # ---- 5. Always dump logs for post-mortem debugging ----
       - name: Dump all service logs
