@@ -122,6 +122,17 @@ Developers' LLM sessions message each other through TeamComms, for
 questions and answers across people and providers:
 <https://github.com/eic/epic-wfms-docs/blob/main/docs/teamcomms.md>.
 
+Keep TeamComms traffic to what coordination requires. Send a peer message
+only to resolve an actual overlap, blocker or decision. Do not send routine
+completion reports, verification results, progress summaries, status updates,
+receipts or deployment announcements. A deployment-window message is warranted
+when another session is actually waiting on that window.
+
+Keep routine acknowledgments silent. Do not acknowledge this policy with
+another peer message. Report ordinary task completion to Torre in the working
+session. These limits do not grant permission to initiate contact; Torre's
+communication authorization still applies.
+
 ## swf-testbed
 
 The testbed CLI, its agents' orchestration (supervisord) and the
