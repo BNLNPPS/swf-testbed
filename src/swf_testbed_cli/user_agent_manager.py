@@ -597,17 +597,20 @@ class UserAgentManager(stomp.ConnectionListener):
         )
 
         if result.returncode == 4:
-            # Not responding — check for zombie process
+            # Not responding — check for a zombie process of this user's own;
+            # other users' testbed supervisords on a shared host are not ours
             try:
                 check = subprocess.run(
-                    ['pgrep', '-f', f'supervisord.*{AGENTS_CONF}'],
+                    ['pgrep', '-u', str(os.getuid()), '-f', f'supervisord.*{AGENTS_CONF}'],
                     capture_output=True, text=True
                 )
                 if check.returncode == 0 and check.stdout.strip():
                     pid = check.stdout.strip().split()[0]
                     return {'healthy': False, 'error': f'not responding but stale process exists (PID {pid})'}
-            except Exception:
-                pass
+                if check.returncode > 1:
+                    self.logger.error(f"Stale supervisord check failed: pgrep exit {check.returncode}: {check.stderr.strip()}")
+            except OSError as e:
+                self.logger.error(f"Stale supervisord check failed: {e}")
             return {'healthy': True, 'state': 'idle'}
 
         running = [
