@@ -156,6 +156,16 @@ work in their peer repositories since the v45 notes.
   draining, Event Service commissioning and production at Google and Perlmutter, the dashboard's data,
   and TeamComms for developers and their LLM sessions, and gains a diagram of the BNL PanDA deployment.
 
+### Review fixes (swf-monitor, swf-testbed)
+
+- From Copilot's review of the release PRs: list pages carry URL filter values into their scripts
+  escaped, so a crafted link can no longer inject markup through a filter badge; the worker disk-space
+  alarm judges an unmeasured volume on its last retained measurement while visibility is lost, instead
+  of clearing its pressure incident; the worker disk-space summary keeps each worker volume's worst
+  sample by free fraction, free space and free inodes; cached-product tables follow a rebuild only while
+  the page is attended; swf-monitor's two dependency declarations pin the same TeamComms revision; the
+  host inventory names the swf-epicprod autodeploy timer in place of the retired Actions runner.
+
 ### Acknowledgments
 
 Contributor work merged during the cycle:
