@@ -1,5 +1,177 @@
 # Release Notes
 
+## v46 (2026-10-30)
+
+v46 covers the eleven days since v45 (2026-10-19). Event Service moved from commissioning to production
+on Google Cloud and Perlmutter, with simulation resident in every slot and reconstruction shared across
+each node. A native ePIC pilot is the production pilot on OSG and GREX. The job throttler now throttles
+both PanDA VOs; the pressure front moves unstarted tasks off idle queues and pauses failing tasks with a
+stated reason; new production submits under the `epic` VO and writes its output to EIC-XRD. A production
+dashboard for collaborators and the computing-centre room display read one live record. Contributor
+work is credited below. These notes cover the coordinated baseline repositories and the relevant `main`
+work in their peer repositories since the v45 notes.
+
+### Event Service in production (swf-epicprod, swf-monitor)
+
+- Google Cloud's and Perlmutter's Event Service queues moved to production on 25 and 26 October, on
+  particle-gun tasks with fresh random streams and event identity kept across units. Work before those
+  dates, and later trials, stay out of the production metrics.
+- Simulation stays resident in each slot and the next unit is prestaged; reconstruction runs resident
+  and asynchronous, shared across a node's slots. Initialization and event processing are measured
+  apart.
+- A range carries several events (ten in production). The batch pilot holds a job's ranges from its
+  start, credits each close as it stands, acts on a preemption notice, reports failed units in bulk, and
+  takes a lost acquisition answer back from PanDA's record of the job's ranges after a server restart.
+  Each close ships its units' records, and its merged file is removed once it stands at its RSE.
+- Event Service over registered EVGEN input: JEDI reads the task's input from the catalog that holds it
+  (JLab Rucio) through an ePIC DDM interface, with no copy registered at BNL, and the front stages the
+  input at the site it places the task on (NERSC, or the Google cluster's bucket). The file JEDI leaves
+  part way runs as a tail task of its own. The first such tasks, on Perlmutter on 28 October, were
+  commissioning trials.
+- Event Service work goes only to a whole-node queue, and a whole-node queue takes no single-core work.
+  Perlmutter's Event Service queue closes at 200 CPU node-hours left.
+- Duplicate events in a registered dataset are removed by PanDA's credit, Event Service range rows are
+  cleaned up after three days, and the task and job pages plot running Event Service cores from shipped
+  snapshots, with the per-core turnaround between units.
+
+### The native ePIC pilot (swf-epicprod)
+
+- A native ePIC pilot, without the ATLAS bootstrap, is the production pilot on OSG from 23 October and
+  on GREX from 24 October. Its direct mode needs only Singularity and the image repository at a site.
+- A job declares its container image, and placement refuses pilots that cannot run it; OSG pilot images
+  are allocated from demand within one waiting-worker budget.
+- No job starts that its glidein cannot outlive, and an evicted OSG pilot does not run its job again.
+  Each GREX payload has its own scratch and container bind set, off the shared CE spool.
+- OSG and GREX pilots run in pull mode, and a multi-pilot launcher runs several pilots in one GREX batch
+  allocation, bounded to the allocation's lifetime.
+- BNL_OSG_EPIC_PROD_1 is retired: closed to new tasks, with its existing work drained in place.
+
+### Regulation and placement (swf-epicprod, swf-monitor)
+
+- The ePIC job throttler in JEDI throttles both VOs since 21 October; in v44 it only observed. Task, job
+  and pilot regulation are coordinated, and the front requires fresh enforcement evidence from both VOs.
+  The pilot controller still only proposes.
+- New production submits under the `epic` VO since 28 October, with regulation shared with the legacy
+  `wlcg` VO. New standard configurations write their output to EIC-XRD in place of BNL-XRD.
+- The pressure front moves an unstarted task from an idle queue to one that can run it, never to a queue
+  failing 20% or more; a task that has run stays where it runs. Unplace returns a placed task whose work
+  has not started to the ready buffer.
+- The task failure guard pauses a production task when at least 50 job attempts have completed and at
+  least 95% failed. Every pause carries its reason, shown as, for example, "50 jobs failed on 7 hosts".
+- A queue's feed switch records who set it, when and why; self-fed queues are exempt. A Harvester
+  worker limit is set by an audited operator control, concurrency caps are stated in cores, and a PanDA
+  priority change is a guarded, audited operation.
+- The queue registry holds queue status as one record and reports where the outside copies disagree.
+  OSG site exclusions are made only by the people responsible for production; the watcher no longer
+  excludes sites.
+
+### The production watcher (swf-epicprod)
+
+- A production watcher ticks every thirty minutes over the room's report, the live screen, recent
+  pauses and its own promises, and wakes one LLM session only on news. Outcomes and promises are
+  recorded; escalation runs in shadow. Production-task decisions stay with the production operators.
+
+### The production dashboard and the computing-centre room (swf-monitor, snapper-ai, swf-remote)
+
+- The comp snapshot is the live record of the computing-centre room and of the production dashboard,
+  published in the home Dash tab and through swf-remote. Both show each site's running pillars and
+  twelve-hour trends, the production tasks in flight, paused and completed tasks, the ready buffer, and
+  data arriving at JLab per physics configuration.
+- Production now lists every site state as a numbered line with who, when and why; a number is never
+  reused, and the site panels cite it.
+- The epicprod-live screen carries the last twelve hours' findings, each titled with what happened and
+  to what; a record that has been dealt with is cleared with `epicprod_live_clear`.
+- Compute efficiency (current and monthly), productive average cores, daily cores and the ready-queue
+  history are plotted from Snapper, and Event Service sites show Mevt/1h. Production metrics leave out
+  trials and commissioning by one rule, and a task can be relabelled a trial afterwards.
+- The dashboard shows the OSG fair-share limit read from the pool negotiators, twelve-hour task peaks of
+  memory, scratch disk and files, and why a site is blocked (allocation or access). The PCS page Prod
+  tasks in flight lists what has been sent to each allocation.
+- Snapper gains a twelve-hour window, never answers with a series older than its window, and rebuilt its
+  cached series under corrected job-state extraction.
+
+### Failure diagnosis (swf-monitor, swf-epicprod, site-canary)
+
+- The segfault catalog keeps crashes, memory kills and bad input as separate classes, and findings name
+  where in the detector, from the ePIC detector model. Event Service unit crashes enter the catalog and
+  are replayed on npps0.
+- The node guard gains the outlier reading: a node failing far above its queue's other nodes is a black
+  hole for a two-hour latch. Registration failures no longer read as a fixed-time kill, and node guard
+  exclusions reach running OSG pilots.
+- The error summary names each row's input samples, the queue page shows the queue's own harvester
+  errors, and an OSG mismatch census reports which requirements turn away free slots.
+
+### Payload and data (swf-epicprod, swf-monitor, site-canary)
+
+- Payload versions 0.24.14 to 0.25.33. Jobs write and register at JLab with storage tokens from PanDA,
+  the eicprod proxy kept as fallback, and the patched Rucio client ships for images that lack it; the
+  ops agent's JLab work (registrar, stash drain, door and catalog probes) uses tokens too.
+- The particle gun is composed in the job; the internal EVGEN gun production is 274 configurations in
+  26.07.3. Each job records its scratch peak and cleans its own scratch; a door's refusal of the input
+  exits 88.
+- Submission refuses Rucio output and log namespaces already occupied; an ePIC adder plugin handles
+  absent and failed output files; unused PanDA attempt names are reserved across rehomed history.
+- The RSE removal page, for the operations role, removes datasets from a disk RSE where tape holds a
+  complete copy, keeping those whose task is active.
+- Developer payload canaries run a payload from a pull request or branch, with switches and a
+  token-only credential, at task priority 1000.
+
+### PCS and campaign delivery (swf-epicprod)
+
+- Production status grids show each generator family's samples, beam against Q², with delivery and
+  registration; a background-mixed production is its own family, and an x-binned family is one grid of
+  species and beam against Bjorken x.
+- The PCS path reader keeps Bjorken-x bins as part of the sample and identifies pythia6-lhapdf builds;
+  named editions are rebound under scope locks after a derivation correction. An EVGEN manifest stops at
+  the dataset's event target, and manifest chunks beyond 9999 are read throughout.
+- A background tag holds its sources JSON in PCS; readiness reads the configuration's campaign target;
+  Rerun Entire Task confirms a dataset PanDA already shows produced; a residual rerun may exclude
+  reviewed rows.
+
+### Platform and operations (swf-monitor, swf-epicprod, swf-remote)
+
+- swf-epicprod deploys from a host-side timer that polls `main`, in place of a GitHub Actions runner on
+  the production host.
+- Live-watch alarms reach the working AI sessions. Notice and Capcom titles say what happened and to
+  what. The System page checks the release cadence and raises a Capcom notice when a release is
+  overdue. Alarms cover production-host disk headroom and GREX's shared CE spool.
+- swf-remote exposes the monitor's MCP tools through authenticated devcloud MCP and serves the cached
+  computing-centre feed. TeamComms keeps authorized message history and per-session sharing choices.
+- The ops agent runs sixteen threads per background pool, with Snapper capture on its own pool; a
+  message send counts only when the broker's receipt arrives. Brotli is pinned to 1.2.1 or later
+  (CVE-2026-111497).
+
+### Testbed and workspace (swf-testbed, swf-common-lib)
+
+- The prompt processing agent polls PanDA correctly for retried STF processing and takes its PanDA VO
+  from configuration (`SWF_PANDA_VO`, default `epic`). The integration test runs against panda-compose
+  and waits for every decision-box site's `stf_processed` message. The dummy payload uses a POSIX sh
+  shebang.
+- The SWF workspace guide, swf-testbed's CLAUDE.md (AGENTS.md for Codex), is the guidance every SWF
+  repository's CLAUDE.md starts from.
+
+### Documentation (epic-wfms-docs)
+
+- The WFMS documentation describes production regulation and its evidence, queue admission and
+  draining, Event Service commissioning and production at Google and Perlmutter, the dashboard's data,
+  and TeamComms for developers and their LLM sessions, and gains a diagram of the BNL PanDA deployment.
+
+### Acknowledgments
+
+Contributor work merged during the cycle:
+
+- **Sakib Rahman**: the RSE removal page (swf-monitor #59, swf-epicprod #17); status grids that leave out
+  Event Service samples no request asks for and give x-binned families one grid (swf-epicprod #15, #16);
+  EVGEN manifests that stop at the dataset's event target (#12); Bjorken-x bins and pythia6-lhapdf builds
+  in the PCS path reader (#13); bounded rebinding of named editions (#14).
+- **Anil Panta**: payload writes with tokens from PanDA, the eicprod proxy kept as fallback
+  (swf-epicprod #5).
+- **Dmitry Kalinkin**: the integration test against panda-compose with a configurable PanDA VO
+  (swf-testbed #77), the POSIX sh dummy payload (#79), and the BNL PanDA deployment diagram
+  (epic-wfms-docs #1).
+- **Zhaoyu Yang**: PanDA polling in the prompt processing agent for retried STF processing (swf-testbed
+  #78).
+
 ## v45 (2026-10-19)
 
 v45 follows v44 the same day. It replaces the STOMP client release that lost a few percent of broker
