@@ -4,6 +4,25 @@ An SWF `vNN` release is a system release, not the diff of one pull request or
 one repository. The release record is the `vNN` entry in
 [`RELEASE_NOTES.md`](../RELEASE_NOTES.md).
 
+## Development and deployment
+
+This document covers release preparation only. A release records changes
+already in production: work on the coordinated repositories is committed and
+pushed on the current `infra/baseline-vNN` branch and deployed to production
+from that branch as it is completed. The procedures are:
+
+- Branch policy and development workflow: the SWF workspace guide,
+  [`CLAUDE.md`](../CLAUDE.md) (The workspace), and the
+  [Development Guide](development.md).
+- Production deployment of the current baseline, full and lightweight:
+  swf-monitor
+  [`docs/PRODUCTION_DEPLOYMENT.md`](../../swf-monitor/docs/PRODUCTION_DEPLOYMENT.md)
+  (Ongoing Deployment Updates) and the Deploy section of swf-monitor
+  [`CLAUDE.md`](../../swf-monitor/CLAUDE.md).
+- swf-epicprod, which deploys itself on a merge or push to `main`:
+  swf-epicprod
+  [`docs/AUTODEPLOY.md`](../../swf-epicprod/docs/AUTODEPLOY.md).
+
 ## Release scope
 
 The coordinated baseline repositories are:
