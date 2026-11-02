@@ -5,7 +5,11 @@ from pandaclient import PrunScript, panda_api
 from pandaclient.Client import getTaskStatus, getPandaIDsWithTaskID, getFullJobStatus
 from swf_common_lib.base_agent import BaseAgent
 from swf_common_lib.rest_logging import RestLogHandler
-from swf_agent_lib.config_helpers import DecisionDatasetNamingMixin, PromptProcessingConfigMixin
+from swf_agent_lib.config_helpers import (
+    DecisionDatasetNamingMixin,
+    PromptProcessingConfigMixin,
+    merge_prompt_processing_config,
+)
 
 from swf_testbed_decision_box.monitor_metadata import execution_id_matches
 from swf_testbed_decision_box.models import Decision, FileDID
@@ -69,6 +73,25 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
         self.panda_vo = os.getenv(
             "SWF_PANDA_VO",
             str(prompt_config.get("panda_vo", "epic")),
+        ).strip()
+        self.payload_script = os.getenv(
+            "SWF_PROMPT_PROCESSING_PAYLOAD_SCRIPT",
+            str(prompt_config.get("payload_script", "scripts/dummy_stf_processing.sh")),
+        ).strip()
+        self.payload_container = os.getenv(
+            "SWF_PROMPT_PROCESSING_CONTAINER_IMAGE",
+            str(prompt_config.get("payload_container", "")),
+        ).strip()
+        try:
+            self.panda_memory = int(os.getenv(
+                "SWF_PROMPT_PROCESSING_MEMORY",
+                str(prompt_config.get("panda_memory", 0)),
+            ))
+        except ValueError:
+            self.panda_memory = 0
+        self.panda_outputs = os.getenv(
+            "SWF_PROMPT_PROCESSING_OUTPUTS",
+            str(prompt_config.get("panda_outputs", "myout.txt")),
         ).strip()
         self.non_decision_box_site = os.getenv(
             "SWF_NON_DECISION_BOX_SITE",
@@ -145,6 +168,35 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             finally:
                 os.chdir(previous_cwd)
 
+    # ---
+    def _prun_args(self, in_ds, out_ds, site):
+        """Build the prun argument list for a prompt-processing task.
+
+        Single source for both the decision-box and non-decision-box
+        submission paths. The payload knobs (script, container image,
+        memory, outputs) come from [prompt_processing] config / their
+        SWF_PROMPT_PROCESSING_* environment overrides.
+        """
+        args = [
+            "--exec", "./payload.sh %IN",
+            "--inDS", in_ds,
+            "--outDS", out_ds,
+            "--nJobs", "1",
+            "--vo", self.panda_vo,
+            "--site", site,
+            "--prodSourceLabel", "test",
+            "--workingGroup", "EIC",
+        ]
+        if self.payload_container:
+            args += ["--containerImage", self.payload_container]
+        if self.panda_memory > 0:
+            args += ["--memory", str(self.panda_memory)]
+        args += [
+            "--noBuild",
+            "--expertOnly_skipScout",
+            "--outputs", self.panda_outputs,
+        ]
+        return args
 
     # ---
     def test_panda(self, inDS, outDS, output):
@@ -1591,19 +1643,7 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
                     site_name,
                     output_suffix=message_data.get("output_suffix"),
                 )
-                prun_args = [
-                "--exec", "./payload.sh",
-                "--inDS", input_dataset,
-                "--outDS", output_dataset,
-                "--nJobs", "1",
-                "--vo", self.panda_vo,
-                "--site", site_name,
-                "--prodSourceLabel", "test",
-                "--workingGroup", "EIC",
-                "--noBuild",
-                "--expertOnly_skipScout",
-                "--outputs", "myout.txt"
-                ]
+                prun_args = self._prun_args(input_dataset, output_dataset, site_name)
                 try:
                     params = self._build_prun_params(prun_args, self.run_id, site_name)
                 except Exception as e:
@@ -1699,19 +1739,9 @@ class PROCESSING(PromptProcessingConfigMixin, DecisionDatasetNamingMixin, BaseAg
             return None
 
         #  Construct the full list of arguments for PrunScript.main
-        prun_args = [
-        "--exec", "./payload.sh",
-        "--inDS",   f"group.daq:{self.inDS}",
-        "--outDS",  f"user.{username}.{self.outDS}",
-        "--nJobs", "1",
-        "--vo", self.panda_vo,
-        "--site", non_decision_box_site,
-        "--prodSourceLabel", "test",
-        "--workingGroup", "EIC",
-        "--noBuild",
-        "--expertOnly_skipScout",
-        "--outputs", "myout.txt"
-        ]
+        prun_args = self._prun_args(
+            f"group.daq:{self.inDS}", f"user.{username}.{self.outDS}", non_decision_box_site
+        )
         #  Call PrunScript.main to get the task parameters dictionary
         try:
             params = self._build_prun_params(prun_args, self.run_id, non_decision_box_site)
@@ -1908,7 +1938,22 @@ if __name__ == "__main__":
     os.chdir(workdir)
 
     # The default script path; note that any script will be copied to "payload.sh" and only then executed.
-    default_script  = str(top_directory / 'scripts' / 'dummy_stf_processing.sh')
+    # Resolved through the same shared loader and precedence the agent class
+    # uses (workflow defaults, then the active config override): the
+    # [prompt_processing] payload_script key selects the payload, the
+    # SWF_PROMPT_PROCESSING_PAYLOAD_SCRIPT env var takes precedence, and
+    # relative paths resolve against the repository root. --script on the
+    # command line still wins over all of them.
+    prompt_config = merge_prompt_processing_config(
+        str(top_directory / "workflows" / "prompt_processing.toml"),
+        os.getenv("SWF_TESTBED_CONFIG"),
+    )
+    default_script = os.getenv(
+        "SWF_PROMPT_PROCESSING_PAYLOAD_SCRIPT",
+        str(prompt_config.get("payload_script", "scripts/dummy_stf_processing.sh")),
+    ).strip()
+    if not os.path.isabs(default_script):
+        default_script = str(top_directory / default_script)
 
     # Fix the peculiarity of the path in the testbed environment
     if '/direct/eic+u' in default_script: default_script = default_script.replace('/direct/eic+u', '/eic/u')
