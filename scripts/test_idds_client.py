@@ -57,7 +57,7 @@ def get_client():
         cid = compose_ps("idds")
         proxy = "/tmp/idds_dev_proxy.pem"
         subprocess.run(
-            ["docker", "cp", f"{cid}:/etc/idds/auth/dev_proxy.pem", proxy],
+            ["docker", "cp", f"{cid}:/opt/idds/config/hostcert.pem", proxy],
             check=True,
         )
     cm = ClientManager(host=IDDS_HOST)
@@ -77,7 +77,7 @@ def main() -> None:
             cid = compose_ps("idds")
             proxy = "/tmp/idds_dev_proxy.pem"
             subprocess.run(
-                ["docker", "cp", f"{cid}:/etc/idds/auth/dev_proxy.pem", proxy],
+                ["docker", "cp", f"{cid}:/opt/idds/config/hostcert.pem", proxy],
                 check=True,
             )
         pc = PingClient(host=IDDS_HOST, auth={"auth_type": "x509_proxy",
