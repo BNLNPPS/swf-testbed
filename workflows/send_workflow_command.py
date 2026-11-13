@@ -51,6 +51,7 @@ if __name__ == "__main__":
 import stomp
 import ssl
 import tomllib
+import uuid
 from datetime import datetime
 
 
@@ -104,8 +105,13 @@ class CommandSender:
         )
 
     def disconnect(self):
+        # stomp.py 9 writes TLS frames on its I/O thread, so send() only
+        # queues the frame. A DISCONNECT with a receipt makes disconnect()
+        # wait for the broker's receipt, which comes after every frame sent
+        # before it; without one this short-lived process exits before the
+        # command is written, and the command is lost.
         if self.conn.is_connected():
-            self.conn.disconnect()
+            self.conn.disconnect(receipt=f'cmd-sender-{uuid.uuid4()}')
 
     def send_run_workflow(self, workflow_name: str, config: str = None,
                           realtime: bool = True, **params):
