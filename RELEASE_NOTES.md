@@ -182,6 +182,13 @@ Contributor work merged during the cycle:
 - **Zhaoyu Yang**: PanDA polling in the prompt processing agent for retried STF processing (swf-testbed
   #78).
 
+### Fix after the release (2026-11-13)
+
+- Workflow commands reach the workflow runner again over TLS. stomp.py 9.0, which v46 requires,
+  writes TLS frames on its own thread, so `send_workflow_command.py`, and `testbed run` through it,
+  exited before a command was written. The sender now waits at disconnect for the broker's receipt.
+  Reported by Zhaoyu Yang.
+
 ## v45 (2026-10-19)
 
 v45 follows v44 the same day. It replaces the STOMP client release that lost a few percent of broker
