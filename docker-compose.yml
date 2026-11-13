@@ -194,9 +194,10 @@ services:
       SWF_NON_DECISION_BOX_SITE: E1_BNL
       SWF_PROMPT_PROCESSING_BACKGROUND: "false"
     volumes:
-      # Shared with the panda-compose rucio server so posix-RSE uploads land
-      # where the server can see them (both RSEs use prefix /tmp/rucio_rse).
-      - rucio-rse-data:/tmp/rucio_rse
+      # The host's /tmp/rucio_rse, which panda-compose's rucio and harvester
+      # services also bind-mount (panda-compose #60), so posix-RSE uploads
+      # land where they read them (both RSEs use prefix /tmp/rucio_rse).
+      - /tmp/rucio_rse:/tmp/rucio_rse
 
 volumes:
   pgdata:
