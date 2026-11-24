@@ -58,12 +58,16 @@ Namespaces allow users to isolate their workflows from others. All workflows and
 
 ### Testbed Configuration
 
-Before running workflows, configure your namespace in `workflows/testbed.toml`:
+A testbed's namespace is the `[testbed]` namespace of its config, and when
+that is unset, the user's own login name (`testbed_namespace` in
+swf-common-lib `config_utils.py`, which every reader uses). A user who starts
+without a config of their own therefore works in their own namespace. Set it in
+`workflows/testbed.toml` (or the file `SWF_TESTBED_CONFIG` names) to share a
+namespace or name a test:
 
 ```toml
 # workflows/testbed.toml
 [testbed]
-# Namespace for this testbed instance.
 # Examples: "epic-fastmon-dev", "collab-dec29", "wenauseic-test1"
 namespace = "your-namespace"
 
@@ -78,7 +82,7 @@ stf_count = 5                   # Fewer STF files for quick testing
 - Allow multiple users to collaborate in one namespace
 - Enable parallel testing without interference
 
-**Important:** The namespace must be set before running workflows. An empty namespace will cause an error.
+A workflow run carries the workflow runner's namespace; a `[testbed]` namespace in a workflow config does not override it.
 
 ## Source Traceability
 
@@ -431,7 +435,7 @@ All agents use `workflows/testbed.toml`. The `example_agents/testbed.toml` has b
 
 ```toml
 [testbed]
-namespace = "torre1"
+# namespace = "your-namespace"   # unset: your login name
 
 [workflow]
 name = "stf_datataking"

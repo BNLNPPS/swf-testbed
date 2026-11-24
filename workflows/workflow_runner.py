@@ -269,6 +269,9 @@ class WorkflowRunner(BaseAgent):
                 config[section].update(values)
             else:
                 config[section] = values
+        # A run carries the runner's own namespace (its testbed config's, or
+        # the user's name when that is unset), never one a workflow config names.
+        config.setdefault('testbed', {})['namespace'] = self.namespace
 
         # The completion-notice stamp is a run attribute, not a section
         # override: it lands top-level in the stored config so the

@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 import stomp
+from swf_common_lib.config_utils import testbed_namespace
 from swf_common_lib.rest_logging import setup_rest_logging
 
 # Heartbeat interval in seconds
@@ -268,12 +269,9 @@ class UserAgentManager(stomp.ConnectionListener):
         with open(config_path, 'rb') as f:
             self.config = tomllib.load(f)
 
-        # Update namespace from config
-        self.namespace = self.config.get('testbed', {}).get('namespace')
-        if self.namespace:
-            self.logger.info(f"Namespace: {self.namespace}")
-        else:
-            self.logger.warning("No namespace in config")
+        # Update namespace from config (unset: the user's own name)
+        self.namespace = testbed_namespace(self.config)
+        self.logger.info(f"Namespace: {self.namespace}")
 
         return self.config
 

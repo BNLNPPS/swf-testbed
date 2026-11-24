@@ -14,6 +14,8 @@ import time
 import tomllib
 from pathlib import Path
 
+from swf_common_lib.config_utils import testbed_namespace
+
 
 # Agent name mapping: testbed.toml key -> supervisord program name
 AGENT_PROGRAM_MAP = {
@@ -279,7 +281,7 @@ def send_run_workflow(config: dict) -> bool:
         params['notice'] = True
 
     # Get namespace from the loaded config (not from hardcoded testbed.toml)
-    namespace = config.get('testbed', {}).get('namespace')
+    namespace = testbed_namespace(config)
 
     sender = CommandSender()
     sender.namespace = namespace  # Override with correct namespace
@@ -327,11 +329,7 @@ def run(config_name: str = None, notice: bool = False) -> bool:
     os.environ['SWF_TESTBED_CONFIG'] = str(config_path)
     print(f"Config: {config_path}")
 
-    namespace = config.get('testbed', {}).get('namespace')
-    if not namespace:
-        print("Error: namespace not set in [testbed] section")
-        return False
-
+    namespace = testbed_namespace(config)
     print(f"Namespace: {namespace}")
 
     # Check if any agents are already running - refuse if so
