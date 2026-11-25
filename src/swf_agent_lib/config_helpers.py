@@ -2,6 +2,33 @@ import os
 import tomllib
 
 
+def load_prompt_processing_section(config_path, logger=None):
+    """Load the [prompt_processing] section from a toml file.
+
+    Shared by the agent mixin and standalone entry points (__main__ blocks)
+    so both resolve configuration through one implementation. A missing or
+    unreadable file yields {} — with a warning when a logger is given.
+    """
+    if not config_path:
+        return {}
+    try:
+        with open(config_path, "rb") as config_file:
+            return tomllib.load(config_file).get("prompt_processing", {})
+    except (OSError, TypeError, tomllib.TOMLDecodeError) as e:
+        if logger is not None:
+            logger.warning(f"Could not load prompt_processing config from {config_path}: {e}")
+        return {}
+
+
+def merge_prompt_processing_config(defaults_path, active_path, logger=None):
+    """Load prompt-processing settings: workflow defaults plus active-config
+    overrides. Later values win, mirroring the agent's own resolution order."""
+    prompt_config = load_prompt_processing_section(defaults_path, logger=logger)
+    active_config = load_prompt_processing_section(active_path, logger=logger)
+    prompt_config.update(active_config)
+    return prompt_config
+
+
 class PromptProcessingConfigMixin:
     """Shared prompt-processing config helpers for local testbed agents."""
 
@@ -9,25 +36,18 @@ class PromptProcessingConfigMixin:
         return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "workflows", "prompt_processing.toml")
 
     def _load_prompt_processing_section(self, config_path, warn=False):
-        if not config_path:
-            return {}
-        try:
-            with open(config_path, "rb") as config_file:
-                return tomllib.load(config_file).get("prompt_processing", {})
-        except (OSError, TypeError, tomllib.TOMLDecodeError) as e:
-            if warn:
-                self.logger.warning(
-                    f"Could not load prompt_processing config from {config_path}: {e}",
-                    extra=self._log_extra()
-                )
-            return {}
+        return load_prompt_processing_section(
+            config_path,
+            logger=self.logger if warn else None,
+        )
 
     def _load_prompt_processing_config(self):
         """Load prompt-processing settings, with workflow defaults plus active config overrides."""
-        prompt_config = self._load_prompt_processing_section(self._prompt_processing_config_path(), warn=True)
-        active_config = self._load_prompt_processing_section(self.config_path, warn=True)
-        prompt_config.update(active_config)
-        return prompt_config
+        return merge_prompt_processing_config(
+            self._prompt_processing_config_path(),
+            self.config_path,
+            logger=self.logger,
+        )
 
     def _config_bool(self, config, key, env_var, default):
         """Read a boolean setting from config, with an environment override."""
