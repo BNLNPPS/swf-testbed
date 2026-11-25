@@ -1,5 +1,149 @@
 # Release Notes
 
+## v47 (2026-11-24)
+
+v47 covers the 25 days since v46 (2026-10-30). Event Service tasks over registered EVGEN input read
+every input file to its last event, ordinary EVGEN tasks read every event of each file, and the events
+earlier Event Service tasks left unread are recovered as new attempts of their tasks. The JLab farm queue
+JLAB_PanDA_1 is in production on the direct pilot. The pressure front feeds idle and new queues from
+their first cycle, and a healthy canary turns a switched-off feed back on. The crash catalog gains the
+Hilog kind. A Help menu with a What's new page lists the developments users, operators and developers
+should know about; a queue's downtime is declared on its page, and each person can hold their own API
+token. A testbed configuration that names no namespace runs in the user's own login name. Contributor
+work is credited below. These notes cover the coordinated baseline repositories and the relevant `main`
+work in their peer repositories since the v46 notes.
+
+### EVGEN input read in full (swf-epicprod, swf-monitor)
+
+- Event Service tasks over a registered EVGEN sample read every input file to its last event, at its
+  catalog event count, a file's last range short. Tasks set up before 18 November read each file only to
+  the smallest file's count.
+- The events those tasks left unread are recovered as new attempts of their task, one per unread stretch
+  of a file (p4495 .try4 to .try15 from 19 November). Each attempt's credit is shifted by its input
+  offset (payload 0.25.39), and the readback reads disk replicas only.
+- Ordinary EVGEN tasks cut each file into jobs of the per-job event count, the last job taking what
+  remains, and the dispatcher passes each row's first event to the payload. Tasks submitted before
+  19 November cut files into equal chunks, which left up to one event per job of each file unread.
+- An Event Service task whose setup predates catalog input is refused on a Move as well as on submission.
+  A tail task goes to the ops agent as its own attempt, deduplicated per attempt, and is queued again if
+  it never reached PanDA. `es-output-sources` lists each registered Event Service output with the EVGEN
+  file it came from.
+
+### The JLab farm and the direct pilot (swf-epicprod, site-canary)
+
+- JLAB_PanDA_1 is a production queue from 18 November, fed by the pressure front like the other
+  production queues, after JLab opened the farm's route to the BNL PanDA server on 17 November.
+- JLab's launcher runs the direct pilot, one pilot per batch job, rendered from GREX's direct-pilot
+  runtime, with pilots at the queue's 6,000 MB. The retired BNL_OSG_EPIC_PROD_1 names BNL_OSG_PanDA_1's
+  direct-pilot template.
+- The direct pilot no longer holds a payload that ends at once for ten minutes while it looks for the
+  process to monitor; site-canary's instant-payload probe measures how long a pilot takes to see a
+  payload end. A job's scratch peak is read from the payload's own report, with no per-minute sampler.
+
+### Regulation and placement (swf-epicprod, swf-monitor, site-canary)
+
+- The pressure front feeds a queue with no measured hours, gives an empty queue its first task whatever
+  its hours, and restarts a queue that has been quiet for weeks at the capacity it last ran at.
+- The queue census keeps a 90-day memory of every queue: a queue's ceiling is the most it ran at once in
+  that time, and a queue with no finished production job in 14 days is read at its 90-day walltimes. A
+  queue's calibration no longer needs 20 jobs.
+- A feed switched off with an automatic return comes back on when a canary probe submitted after the
+  switch-off returns healthy. site-canary reads probe health in one place for the canary page and the
+  feed guard.
+- A person declares a queue's downtime (start, end, reason) on its queue page or with the MCP tool
+  `epicprod_declare_downtime`. Shortly before and during the window production assigns the queue no new
+  tasks, and failures in it are attributed to the downtime.
+
+### PCS and campaign delivery (swf-epicprod, swf-monitor)
+
+- EVGEN registration in Rucio and EVGEN input reads use JLab's `/cache` door area (`/cache/eic/EPIC`),
+  which EIC-XRD serves in place of `/volatile`; jobs submitted from 24 November read their input there
+  (payload 0.25.40). PCS reads a catalog path under `/cache` or `/volatile` alike.
+- A dataset's sample variant is set on the compose page and through the API. LFV samples carry their
+  channel in the path reader, and LFV and ALP tags number in the EW_BSM category (7).
+- A status grid cell reads its latest delivered edition and names it.
+- A trial drops its source's Event Service, Google, placement and recorded output-dataset overrides, so
+  it submits to the site it was composed for and is not counted as the producer of the source's
+  datasets. `compose-site-trial.py` composes a trial for one site and output RSE and submits it through
+  PCS Submit.
+- A tag with N/A beam energies gives the payload no beams. Payload versions 0.25.34 to 0.25.40; in
+  0.25.34 npsim reads the copied steering file.
+
+### Failure diagnosis (swf-monitor, swf-epicprod, epic-wfms-docs)
+
+- The crash catalog gains a fourth kind, Hilog: tasks whose jobs wrote 100 MB or more of stage logs, with
+  the programs that wrote the volume. Jobs report their full stage-log size and short job-metric names
+  (on by default from payload 0.25.37), and the readers take short and long names alike.
+- A pilot out-of-memory report (1212) counts as a memory kill only when the payload exited 137, and a
+  memory reproduction settles with the kills and the measured peak against the request. A finding's
+  totals count each crash it names once.
+- A reproduction of a crash at a closed queue runs on the open queue that shares its slots, and an OSG
+  reproduction of an older task runs OSG's copy of its image. Reference runs on npps0 ask for the whole
+  node. epicprod-live posts a reproduction's settled result, not its request.
+- The WFMS operations page describes the crash catalog and its kinds (Segfault, Himem, Bad input, Hilog).
+
+### The dashboard, epicprod-live and alarms (swf-monitor, swf-epicprod)
+
+- Production now grows downward without scrolling, gives rounded quantities in GB, and boxes its line
+  numbers and the site citations that name them; a person can post an informational line that stands
+  for a set number of hours. A site's TASKS hover lists its tasks.
+- Production counts leave trials out, and the JLab Rucio reading and the 24-hour arrivals count Event
+  Service output as each close stands.
+- epicprod-live posts and recorded reasons are brief by rule, and `post-finding` posts a production
+  finding or resolution. A failed testbed workflow run, a node-guard expiry and a rule proposal no longer
+  post to it.
+- The certificate-expiry alarm watches the BNL_PROD_DISK_1 door nodes one by one. The combined CA bundle
+  trusts InCommon RSA IGTF Server CA 4, so pandamon01's certificate verifies again.
+- The action log and the retry window keep 90 days.
+
+### Help, What's new and accounts (swf-monitor, swf-epicprod, swf-remote)
+
+- A Help menu stands in the epicprod menu bar. Its What's new page lists the developments users, operators
+  and developers should know about, newest first, with tags, importance, comments, votes and an RSS
+  feed, and DISpatcher answers questions from it. An item is added with the task that ships its change,
+  and each addition posts to epicprod-live. swf-remote proxies the Help pages to epic-devcloud.org.
+- The Account tab shows, creates, regenerates and revokes the person's own API token, issued only to
+  accounts that may act on the production system; the PCS API serves it at `/pcs/api/my-token/`.
+
+### Platform and operations (swf-monitor, swf-epicprod, swf-remote)
+
+- JLab Rucio: a refused token is tried once more before the proxy fallback, and the file-event reader
+  retries a dropped connection. XRootD clients get a private mode-0600 copy of a grid proxy.
+- TeamComms: an AI session with no turn for two hours goes dormant, and the swf-remote relay releases its
+  database connection before streaming.
+- The production host's certificate is renewed through SDCC's Puppet and held on InCommon. The watcher
+  reads a time without an offset as ET and refuses one at the writer.
+
+### Testbed and workspace (swf-testbed, swf-common-lib, swf-monitor)
+
+- A testbed whose configuration names no namespace runs in the user's own login name; the committed
+  `testbed.toml` and `fast_processing_default.toml` no longer name one. `swf_start_workflow` with no
+  namespace uses the caller's own.
+- `swf_kill_agent` kills only the caller's own agents, and marks an agent exited only when the kill
+  succeeded or the process was already gone. The agent manager looks only for its own user's stale
+  supervisord.
+- Workflow commands wait for the broker's receipt before exiting, so they are delivered under stomp.py 9
+  over TLS (on `main` since 13 November as a v46 fix). The integration test binds the host's
+  `/tmp/rucio_rse`, as panda-compose does, and gives the decision-box variant more time.
+- TF slices record a processing result and an error, each viewable from the TF slices list (migration
+  `0017_tfslice_result_error`).
+
+### Documentation (epic-wfms-docs)
+
+- The WFMS documentation names the production pilot the direct pilot and describes the crash catalog.
+
+### Acknowledgments
+
+Contributor work merged during the cycle:
+
+- **Sakib Rahman**: EVGEN registration, monitor readers and payload input under JLab's `/cache` area
+  (swf-monitor #63, swf-epicprod #24, #25); a dataset's sample variant on the compose page and API
+  (swf-epicprod #21); status grid cells that read their latest delivered edition (#18); the LFV channel in
+  the path reader and the EW_BSM category for LFV and ALP tags (#28, #29); deploy-preview with no chooser
+  notes (#19).
+- **Wen Guan**: result and error columns for TF slices, with their views (swf-monitor #53).
+- **Dmitry Kalinkin**: a longer integration-test timeout for the decision-box variant (swf-testbed).
+
 ## v46 (2026-10-30)
 
 v46 covers the eleven days since v45 (2026-10-19). Event Service moved from commissioning to production
