@@ -63,12 +63,13 @@ class CommandSender:
         if config_path is None:
             config_path = script_dir / 'testbed.toml'
 
-        # Load namespace from config
-        self.namespace = None
+        # Load namespace from config (unset or no config: the user's own name)
+        config = {}
         if Path(config_path).exists():
             with open(config_path, 'rb') as f:
                 config = tomllib.load(f)
-                self.namespace = config.get('testbed', {}).get('namespace')
+        from swf_common_lib.config_utils import testbed_namespace
+        self.namespace = testbed_namespace(config)
 
         # Connection settings from environment (matching BaseAgent)
         self.mq_host = os.getenv('ACTIVEMQ_HOST', 'localhost')

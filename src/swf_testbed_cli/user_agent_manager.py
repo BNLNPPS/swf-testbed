@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 import stomp
+from swf_common_lib.config_utils import testbed_namespace
 from swf_common_lib.rest_logging import setup_rest_logging
 
 # Heartbeat interval in seconds
@@ -268,12 +269,9 @@ class UserAgentManager(stomp.ConnectionListener):
         with open(config_path, 'rb') as f:
             self.config = tomllib.load(f)
 
-        # Update namespace from config
-        self.namespace = self.config.get('testbed', {}).get('namespace')
-        if self.namespace:
-            self.logger.info(f"Namespace: {self.namespace}")
-        else:
-            self.logger.warning("No namespace in config")
+        # Update namespace from config (unset: the user's own name)
+        self.namespace = testbed_namespace(self.config)
+        self.logger.info(f"Namespace: {self.namespace}")
 
         return self.config
 
@@ -597,17 +595,20 @@ class UserAgentManager(stomp.ConnectionListener):
         )
 
         if result.returncode == 4:
-            # Not responding — check for zombie process
+            # Not responding — check for a zombie process of this user's own;
+            # other users' testbed supervisords on a shared host are not ours
             try:
                 check = subprocess.run(
-                    ['pgrep', '-f', f'supervisord.*{AGENTS_CONF}'],
+                    ['pgrep', '-u', str(os.getuid()), '-f', f'supervisord.*{AGENTS_CONF}'],
                     capture_output=True, text=True
                 )
                 if check.returncode == 0 and check.stdout.strip():
                     pid = check.stdout.strip().split()[0]
                     return {'healthy': False, 'error': f'not responding but stale process exists (PID {pid})'}
-            except Exception:
-                pass
+                if check.returncode > 1:
+                    self.logger.error(f"Stale supervisord check failed: pgrep exit {check.returncode}: {check.stderr.strip()}")
+            except OSError as e:
+                self.logger.error(f"Stale supervisord check failed: {e}")
             return {'healthy': True, 'state': 'idle'}
 
         running = [

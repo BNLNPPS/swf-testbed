@@ -7,13 +7,12 @@
 # [fast_processing]) so overrides are unambiguous.
 
 [testbed]
-# Namespace for this testbed instance.
-# Must be set before running workflows - empty string will cause an error.
-# Examples: "epic-fastmon-dev", "collab-dec29", "wenauseic-test1"
-#
-# Multiple users can collaborate in one namespace.
+# Namespace for this testbed instance. Unset, it is the user's own login
+# name, so each user works in their own namespace.
+# Set it to share a namespace with collaborators or to name a test:
+# examples "epic-fastmon-dev", "collab-dec29", "wenauseic-test1".
 # Users are responsible for namespace uniqueness.
-namespace = "torre1"
+# namespace = "your-namespace"
 
 # Example: Override fast_processing settings for this testbed
 # [fast_processing]

@@ -37,16 +37,17 @@ testbed run fast_processing     # Uses workflows/fast_processing_default.toml
 
 This starts agents via supervisord with proper process management.
 
-## Configure Namespace
+## Namespace
 
-Before running workflows, set your namespace in `workflows/testbed.toml`:
+Your workflows and agents run in your own namespace, your login name, unless
+the testbed config names another. To share a namespace or name a test, set it
+in the `[testbed]` section of your config (`workflows/testbed.toml`, or the
+file `SWF_TESTBED_CONFIG` names):
 
 ```toml
 [testbed]
 namespace = "your-namespace"  # e.g., "myname-dev", "team-test1"
 ```
-
-This isolates your workflows from others in the system.
 
 ## Verification
 

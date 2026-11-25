@@ -97,7 +97,9 @@ configured when you run any `swf-testbed` commands.
 
 Namespaces isolate workflows and messages, allowing multiple users or projects to share infrastructure without interference.
 
-**Configure your namespace** in `workflows/testbed.toml`:
+A testbed runs in the namespace its config names, and when none is set, in
+the user's own login name. To share one or name a test, set it in
+`workflows/testbed.toml`:
 
 ```toml
 [testbed]
@@ -105,7 +107,6 @@ namespace = "your-namespace"  # e.g., "epic-fastmon-dev", "team-dec29"
 ```
 
 **Namespace guidelines:**
-- Set namespace before running any workflows
 - Use descriptive names (project, team, or purpose)
 - Multiple users can collaborate in one namespace
 - Filter by namespace in the monitor UI to see only your data
