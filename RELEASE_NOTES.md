@@ -53,6 +53,9 @@ work in their peer repositories since the v46 notes.
 - A person declares a queue's downtime (start, end, reason) on its queue page or with the MCP tool
   `epicprod_declare_downtime`. Shortly before and during the window production assigns the queue no new
   tasks, and failures in it are attributed to the downtime.
+- The node guard sets glidein loss aside before judging a node: a job whose batch worker went away under
+  it (taskbuffer 300, with no pilot, payload or transformation code) is counted but no longer weighs
+  against the node, so OSG evictions and expired reconnect leases do not exclude hosts.
 
 ### PCS and campaign delivery (swf-epicprod, swf-monitor)
 
@@ -103,7 +106,8 @@ work in their peer repositories since the v46 notes.
   feed, and DISpatcher answers questions from it. An item is added with the task that ships its change,
   and each addition posts to epicprod-live. swf-remote proxies the Help pages to epic-devcloud.org.
 - The Account tab shows, creates, regenerates and revokes the person's own API token, issued only to
-  accounts that may act on the production system; the PCS API serves it at `/pcs/api/my-token/`.
+  accounts that may act on the production system; the PCS API's `/pcs/api/my-token/` does the same in
+  JSON, on the external face as well.
 
 ### Platform and operations (swf-monitor, swf-epicprod, swf-remote)
 
@@ -130,7 +134,10 @@ work in their peer repositories since the v46 notes.
 
 ### Documentation (epic-wfms-docs)
 
-- The WFMS documentation names the production pilot the direct pilot and describes the crash catalog.
+- The WFMS documentation names the production pilot the direct pilot and describes the crash catalog,
+  What's new, the regulation changes above (quiet and new queues, the feed guard's canary return,
+  declared downtime, glidein loss in the node guard), the JLab farm queue, EVGEN input read in full under
+  `/cache`, and personal API tokens. It no longer says the watcher may exclude an OSG site.
 
 ### Acknowledgments
 
