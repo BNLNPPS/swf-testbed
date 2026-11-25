@@ -9,7 +9,8 @@ JLAB_PanDA_1 is in production on the direct pilot. The pressure front feeds idle
 their first cycle, and a healthy canary turns a switched-off feed back on. The crash catalog gains the
 Hilog kind. A Help menu with a What's new page lists the developments users, operators and developers
 should know about; a queue's downtime is declared on its page, and each person can hold their own API
-token. A testbed configuration that names no namespace runs in the user's own login name. Contributor
+token. In the testbed, prompt processing takes a configurable payload and can run EICrecon on STF files,
+and a configuration that names no namespace runs in the user's own login name. Contributor
 work is credited below. These notes cover the coordinated baseline repositories and the relevant `main`
 work in their peer repositories since the v46 notes.
 
@@ -131,6 +132,10 @@ work in their peer repositories since the v46 notes.
   `/tmp/rucio_rse`, as panda-compose does, and gives the decision-box variant more time.
 - TF slices record a processing result and an error, each viewable from the TF slices list (migration
   `0017_tfslice_result_error`).
+- Prompt-processing tasks take their payload from the `[prompt_processing]` section of
+  `prompt_processing.toml`, with `SWF_PROMPT_PROCESSING_*` overrides: the payload script, its container
+  image, memory per core and outputs. The defaults keep the dummy payload, and
+  `scripts/eicrecon_stf_processing.sh` runs EICrecon on each input STF file in the `eicweb/eic_xl` image.
 
 ### Documentation (epic-wfms-docs)
 
@@ -149,7 +154,8 @@ Contributor work merged during the cycle:
   the path reader and the EW_BSM category for LFV and ALP tags (#28, #29); deploy-preview with no chooser
   notes (#19).
 - **Wen Guan**: result and error columns for TF slices, with their views (swf-monitor #53).
-- **Dmitry Kalinkin**: a longer integration-test timeout for the decision-box variant (swf-testbed).
+- **Dmitry Kalinkin**: a configurable prompt-processing payload with an EICrecon payload script
+  (swf-testbed #83), and a longer integration-test timeout for the decision-box variant.
 
 ## v46 (2026-10-30)
 
