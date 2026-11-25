@@ -44,6 +44,28 @@ realtime = true                 # Run in real-time (1 sim second = 1 wall second
 # 2. SWF_PROMPT_PROCESSING_CONTAINER=/data/<user>/<folder>
 container = ""
 
+# PanDA task payload. The defaults keep the historic dummy-payload behavior;
+# to run EICrecon on real STF files (see scripts/eicrecon_stf_processing.sh):
+#   payload_script    - copied to payload.sh in the prun sandbox
+#                       (SWF_PROMPT_PROCESSING_PAYLOAD_SCRIPT overrides)
+#   payload_container - prun --containerImage; "" uses the queue default image
+#                       (SWF_PROMPT_PROCESSING_CONTAINER_IMAGE overrides)
+#   panda_memory      - prun --memory in MB per core; 0 keeps the prun default
+#                       (SWF_PROMPT_PROCESSING_MEMORY overrides)
+#   panda_outputs     - prun --outputs
+#                       (SWF_PROMPT_PROCESSING_OUTPUTS overrides)
+# The eicrecon setup validated end-to-end (real DIS STFs -> eicrecon in the
+# container -> outputs staged to Rucio) was:
+#   payload_script    = "scripts/eicrecon_stf_processing.sh"
+#   payload_container = "eicweb/eic_xl:26.03.0-stable"
+#   panda_memory      = 3096
+#   panda_outputs     = "myout.txt,output.edm4eic.root"
+# together with locally uncommented stf_source_pattern/stf_destination_pattern.
+payload_script = "scripts/dummy_stf_processing.sh"
+payload_container = ""
+panda_memory = 0
+panda_outputs = "myout.txt"
+
 # Environment variables SWF_PANDA_POLL_INTERVAL and SWF_PANDA_POLL_TIMEOUT
 # remain supported as operational overrides.
 panda_poll_interval_seconds = 60
