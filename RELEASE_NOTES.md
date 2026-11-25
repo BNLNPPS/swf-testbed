@@ -144,6 +144,13 @@ work in their peer repositories since the v46 notes.
   declared downtime, glidein loss in the node guard), the JLab farm queue, EVGEN input read in full under
   `/cache`, and personal API tokens. It no longer says the watcher may exclude an OSG site.
 
+### Review fixes (swf-testbed, swf-monitor)
+
+- From Copilot's review of the release PRs: a workflow parameter override can no longer move a run out
+  of its runner's namespace; the What's new ingest's dry run validates again instead of failing; the What's
+  new form's labels are tied to their fields, so screen readers name them; a settled reproduction posts
+  "The reference run crashed", which holds for every reproduced case, in place of "Both runs crashed".
+
 ### Acknowledgments
 
 Contributor work merged during the cycle:

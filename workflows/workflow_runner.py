@@ -269,9 +269,6 @@ class WorkflowRunner(BaseAgent):
                 config[section].update(values)
             else:
                 config[section] = values
-        # A run carries the runner's own namespace (its testbed config's, or
-        # the user's name when that is unset), never one a workflow config names.
-        config.setdefault('testbed', {})['namespace'] = self.namespace
 
         # The completion-notice stamp is a run attribute, not a section
         # override: it lands top-level in the stored config so the
@@ -287,6 +284,12 @@ class WorkflowRunner(BaseAgent):
                     for key, value in override_params.items():
                         if key in values:
                             values[key] = value
+
+        # A run carries the runner's own namespace (its testbed config's, or
+        # the user's name when that is unset), never one a workflow config or
+        # a parameter override names: set last, so nothing above moves the
+        # run away from its agents.
+        config.setdefault('testbed', {})['namespace'] = self.namespace
 
         # Generate execution ID
         executed_by = os.getenv('USER', 'unknown')
